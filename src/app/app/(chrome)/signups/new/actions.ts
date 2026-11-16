@@ -1,8 +1,10 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
+import { newSignupLocale } from '@/i18n/organizer';
 import { waitInMinutes } from '@/lib/format-duration';
 import { requireWorkspaceWrite } from '@/lib/policy';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
@@ -22,7 +24,9 @@ export type NewSignupFormState = { error: string; title: string; description: st
  * page. Refused (over the limit, or the server's checks), it answers why with
  * the title and description as typed, rather than a fresh page that would
  * lose them: the browser can't check a title's length after trimming, so a
- * refusal it let through is not the organizer's fault.
+ * refusal it let through is not the organizer's fault. The signup starts in
+ * the organizer's language (`newSignupLocale`): there's no language choice on
+ * the form, and the Settings tab changes it.
  */
 export async function createSignupAction(
   _previous: NewSignupFormState,
@@ -41,11 +45,19 @@ export async function createSignupAction(
     const error = `You’ve created a lot of signups in the last hour. Try again in about ${waitInMinutes(retryAfter)}.`;
     return { error, title, description };
   }
-  const result = await createSignup(db, actor, s.defaultWorkspaceId, {
-    title,
-    description,
-    visibility: 'unlisted',
-  });
+  const language = newSignupLocale(s, (await headers()).get('accept-language'));
+  const result = await createSignup(
+    db,
+    actor,
+    s.defaultWorkspaceId,
+    {
+      title,
+      description,
+      visibility: 'unlisted',
+      ...(language ? { settings: { locale: language.locale } } : {}),
+    },
+    { localeSource: language?.source },
+  );
   if (!result.ok) return { error: result.error.message, title, description };
   redirect(`/app/signups/${result.value.id}`);
 }

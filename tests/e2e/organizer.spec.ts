@@ -267,7 +267,7 @@ test.describe('organizer flow', () => {
   });
 
   test('the slot editor takes no date before 1900', async ({ page }) => {
-    // A fresh signup per run. createSignup applies DEFAULT_TEMPLATE: fields
+    // A fresh signup per run. createSignup applies the default template: fields
     // `what` (text) and `date`.
     const created = await page.request.post('/api/signups', {
       data: {

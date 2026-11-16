@@ -112,7 +112,7 @@ export default async function ResponsesTab({ params }: PageParams) {
                 const values = slot?.values ?? {};
                 // Values only: the column heading already says Slot, and the
                 // Remove question below reads the slot the same way.
-                const summary = slot ? summarizeSlotValues(sig.fields, values) : '';
+                const summary = slot ? summarizeSlotValues(sig.fields, values, 'en') : '';
                 // A removal takes the Remove button away, so focus goes to
                 // this cell, which then reads "removed". Every row has it, so
                 // it outlasts that re-render.

@@ -68,9 +68,10 @@ export function signupWithLinks(row: SignupRow) {
  *
  * update_signup refuses them and every tool hides them, so an assistant can
  * neither report a change that never happened nor read back a value that
- * participants never meet. Stored rows still carry them, because createSignup
- * fills in the schema defaults. Take a key out of here in the change that
- * makes something read it.
+ * participants never meet. Stored rows still carry most of them, because
+ * createSignup fills in the schema defaults. Take a key out of here in the
+ * change that makes something read it, as locale left once the signup's
+ * pages read it (`signupLocale`).
  */
 export const UNREAD_SETTINGS = {
   maxCommitmentsPerParticipant: true,
@@ -79,7 +80,12 @@ export const UNREAD_SETTINGS = {
   confirmationMessage: true,
 } as const satisfies Partial<Record<keyof SignupSettings, true>>;
 
-/** The settings a tool shows: everything but UNREAD_SETTINGS. */
+/**
+ * The settings a tool shows: everything but UNREAD_SETTINGS, as stored. So
+ * `locale` is the stored value, or absent when none is stored, even one that
+ * has since left the list, which participants get as the instance's language
+ * instead (`signupLocale`).
+ */
 function settingsOut(settings: SignupRow['settings']) {
   if (!settings || typeof settings !== 'object') return settings;
   return Object.fromEntries(

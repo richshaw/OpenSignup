@@ -1,3 +1,4 @@
+import type { CatalogLocale } from '@/i18n/config';
 import { renderFieldValue } from '@/lib/slot-label';
 import type { FieldType } from '@/schemas/slot-fields';
 
@@ -15,12 +16,15 @@ import type { FieldType } from '@/schemas/slot-fields';
 export function prettyHeader(
   rawKey: string | null | undefined,
   fieldType: FieldType,
+  locale: CatalogLocale,
   fieldLabel?: string,
 ): string {
   if (!rawKey) {
     return emptyHeaderCopy(fieldType, fieldLabel);
   }
-  return renderFieldValue({ ref: '', label: fieldLabel ?? '', fieldType }, rawKey) ?? rawKey;
+  return (
+    renderFieldValue({ ref: '', label: fieldLabel ?? '', fieldType }, rawKey, locale) ?? rawKey
+  );
 }
 
 /**

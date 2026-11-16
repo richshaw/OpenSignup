@@ -105,6 +105,7 @@ export function ShareButton({ variant }: { variant: 'desktop' | 'phone' }) {
         open={shown}
         onClose={share.closeShare}
         title={shareHeading(share.firstTime)}
+        closeLabel="Close"
         description={share.firstTime ? <PublishedMark /> : undefined}
         compact
         // The panel puts focus on its first button once it has loaded; until

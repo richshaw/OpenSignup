@@ -3,6 +3,9 @@ import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
+import { type CatalogLocale, SHIPPED, isShipped, signupLocale } from '@/i18n/config';
+import type { SignupLocaleSource } from '@/i18n/organizer-locale';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -17,7 +20,7 @@ import {
 } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { chooseAnchorRef } from '@/lib/reminder-fields';
-import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
+import { defaultTemplate, type SignupTemplate } from '@/lib/signup-templates';
 import { slugBase, toSlug } from '@/lib/slug';
 import {
   type SlotFieldDefinition,
@@ -62,6 +65,29 @@ function checkGroupByRefs(
   );
 }
 
+/**
+ * A signup's language must be one that has shipped to participants, since its
+ * pages and emails follow it. Only a language the caller sends is checked: a
+ * stored one can leave the list later, and the row must stay editable. It is
+ * checked as sent, because the settings schema reads any value leniently.
+ * `field` is where the caller's input holds it: `settings.locale` over REST,
+ * `locale` in the AI assistant's `create_signup`, which checks it before
+ * anything is charged or created.
+ */
+export function checkSignupLocale(
+  sent: unknown,
+  field = 'settings.locale',
+): Result<CatalogLocale | undefined, ServiceError> {
+  if (sent === undefined || isShipped('participant', sent)) return ok(sent);
+  return err(
+    serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
+      field,
+      received: sent,
+      suggestion: `leave it out, or use one of: ${SHIPPED.participant.join(', ')}`,
+    }),
+  );
+}
+
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -71,12 +97,22 @@ export interface SignupWithSlots extends SignupRow {
   fields: SlotFieldDefinition[];
 }
 
+/**
+ * Create a draft signup, with the template's fields and slots, in one
+ * transaction. Its language is the `settings.locale` in `rawInput`, refused
+ * unless it has shipped to participants; the route decides it (the one its
+ * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
+ * says which step chose it, for `signup.created`; a language with none was
+ * sent by the caller (`api`). Without `opts.template` it starts from
+ * `defaultTemplate`, its columns named in the language its participants will
+ * get (`signupLocale`).
+ */
 export async function createSignup(
   db: Db,
   actor: Actor,
   workspaceId: string,
   rawInput: unknown,
-  opts: { template?: SignupTemplate } = {},
+  opts: { template?: SignupTemplate; localeSource?: SignupLocaleSource } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
@@ -85,7 +121,16 @@ export async function createSignup(
   if (!input.ok) return input;
   const data = input.value;
 
-  const template = opts.template ?? DEFAULT_TEMPLATE;
+  // A language that hasn't shipped reads as the instance's here; it's
+  // refused below, so its names never reach a row.
+  const template =
+    opts.template ??
+    defaultTemplate(
+      getServerTranslator(
+        signupLocale(data.settings.locale, instanceDefaultLocale()),
+        'participant.defaults',
+      ),
+    );
 
   const parsedFields: SlotFieldInput[] = [];
   const seenRefs = new Set<string>();
@@ -152,6 +197,10 @@ export async function createSignup(
   if (!anchor.ok) return anchor;
   const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
   if (!grouping.ok) return grouping;
+  const locale = checkSignupLocale(
+    isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined,
+  );
+  if (!locale.ok) return locale;
   const settings: SignupSettings =
     anchor.value === null
       ? data.settings
@@ -213,6 +262,9 @@ export async function createSignup(
         templateId: template.id,
         fieldsAdded: template.fields.length,
         slotsAdded: template.slots.length,
+        ...(settings.locale === undefined
+          ? {}
+          : { locale: settings.locale, localeSource: opts.localeSource ?? 'api' }),
       },
     });
     return inserted;
@@ -264,12 +316,13 @@ export async function updateSignup(
   // which is the one thing "only the settings you pass change" promises.
   return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
     const prevSettings = row.settings;
-    // Only a group-by the caller sent is checked: a row saved with a stale ref
-    // must not make every unrelated settings save fail.
-    const sentGroupBy =
-      isObject(rawInput) &&
-      isObject(rawInput.settings) &&
-      rawInput.settings.groupByFieldRefs != null;
+    // Only a group-by or language the caller sent is checked: a row saved with
+    // a stale ref, or a language that has since left the list, must not make
+    // every unrelated settings save fail.
+    const sent: Record<string, unknown> =
+      isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings : {};
+    const sentGroupBy = sent.groupByFieldRefs != null;
+    const sentLocale = sent.locale != null;
     if (isObject(rawInput) && isObject(rawInput.settings)) {
       // The anchor stays out of the merge, so below it is only ever what the
       // caller sent.
@@ -303,6 +356,10 @@ export async function updateSignup(
       if (sentGroupBy) {
         const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fields);
         if (!grouping.ok) return grouping;
+      }
+      if (sentLocale) {
+        const locale = checkSignupLocale(sent.locale);
+        if (!locale.ok) return locale;
       }
       mergedSettings =
         anchor.value === null
@@ -660,12 +717,36 @@ export async function listSignupSummariesForWorkspace(
   return ok(rows);
 }
 
+/**
+ * The signup at `slug` as stored, or null when no live signup has that slug.
+ * One statement. It skips a deleted signup but returns a draft or an archived
+ * one, so a page can say which it is. No policy guard, like `getPublicSignup`:
+ * anyone with the link may ask. So the whole row, server-only columns and
+ * all, is for server code to decide with; what a visitor gets goes through
+ * `getPublicSignup` (and `toPublicSignup` for the API).
+ */
+export async function getSignupRowBySlug(db: Queryable, slug: string): Promise<SignupRow | null> {
+  const [row] = await db
+    .select()
+    .from(signups)
+    .where(and(eq(signups.slug, slug), isNull(signups.deletedAt)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * The signup a public page shows, with its slots, fields and spots taken. A
+ * draft, an archived signup and one that's deleted or never existed are all
+ * `not_found`; the first two carry `received`, so the page can say which.
+ * Takes the slug, or what `getSignupRowBySlug` already returned for it (null
+ * for none), so a request that has read the row doesn't read it again.
+ */
 export async function getPublicSignup(
   db: Db,
-  slug: string,
+  slugOrRow: string | SignupRow | null,
 ): Promise<Result<SignupWithSlots & { committedBySlot: Record<string, number> }, ServiceError>> {
-  const found = await db.select().from(signups).where(eq(signups.slug, slug)).limit(1);
-  const row = found[0];
+  const row = typeof slugOrRow === 'string' ? await getSignupRowBySlug(db, slugOrRow) : slugOrRow;
+  // Checked again for a row read some other way.
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   if (row.status === 'draft') {
     return err(serviceError('not_found', 'signup not yet published', { received: 'draft' }));

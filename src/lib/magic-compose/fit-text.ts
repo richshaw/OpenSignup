@@ -11,19 +11,21 @@ const LIMITS = [
  * the draft is validated, so a draft that is fine otherwise still becomes a
  * signup, with a warning for each cut. The MCP `create_signup` tool doesn't
  * use this: there an over-long value is refused, so the assistant can retry.
+ * `locale` is the organizer's language, for the limit's number ("2,000").
  */
-export function fitDraftText(raw: unknown): { value: unknown; warnings: string[] } {
+export function fitDraftText(raw: unknown, locale: string): { value: unknown; warnings: string[] } {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return { value: raw, warnings: [] };
   }
   const draft = { ...(raw as Record<string, unknown>) };
   const warnings: string[] = [];
+  const number = new Intl.NumberFormat(locale);
   for (const { key, max } of LIMITS) {
     const text = draft[key];
     if (typeof text !== 'string' || text.length <= max) continue;
     draft[key] = shortenToLimit(text, max);
     warnings.push(
-      `The AI's ${key} was longer than ${max.toLocaleString('en-US')} characters, so the end was cut off. Check it below.`,
+      `The AI's ${key} was longer than ${number.format(max)} characters, so the end was cut off. Check it below.`,
     );
   }
   return { value: warnings.length > 0 ? draft : raw, warnings };

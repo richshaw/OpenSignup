@@ -36,7 +36,7 @@ export function inWorkspace(
  * checking `deleted_at` by hand: that is how the fields route, the slot and
  * field writes and signing up all came to miss it. Code that reaches a signup
  * another way, by slug or through a join, checks `deleted_at` itself: the
- * public page (`getPublicSignup`), a participant's own commitment
+ * public page (`getSignupRowBySlug`), a participant's own commitment
  * (`getOwnCommitment`), the reminder jobs, the confirmation email and the
  * opt-out page. Two reads use a deleted row on purpose: `deleteSignup`, which
  * is idempotent, and the slug check in `pickAvailableSlug`, since the unique

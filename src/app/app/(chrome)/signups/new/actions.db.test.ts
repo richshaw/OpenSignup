@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
+import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { ship } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -25,11 +27,31 @@ const owner: Actor = {
   workspaceRoles: { [workspaceId]: 'owner' },
 };
 
-// The action reads the organizer from the session cookie. Tests hand it one
-// directly instead of going through Auth.js.
+// The action reads the organizer from the session cookie, and their browser's
+// language from the request. Tests hand it both directly instead of going
+// through Auth.js and Next.
+const request = vi.hoisted(() => ({
+  locale: null as string | null,
+  acceptLanguage: null as string | null,
+  instanceDefault: undefined as string | undefined,
+}));
 vi.mock('@/auth/session', () => ({
-  requireOrganizerSession: async () => ({ organizerId, defaultWorkspaceId: workspaceId }),
+  requireOrganizerSession: async () => ({
+    organizerId,
+    defaultWorkspaceId: workspaceId,
+    locale: request.locale,
+  }),
   toActor: () => owner,
+}));
+vi.mock('next/headers', () => ({
+  headers: async () =>
+    new Headers(request.acceptLanguage ? { 'accept-language': request.acceptLanguage } : {}),
+}));
+// The instance's DEFAULT_LOCALE as each test sets it: getEnv() parses the
+// environment once.
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => request.instanceDefault,
 }));
 
 // Next's redirect() throws to end the action; this one throws the address.
@@ -88,6 +110,9 @@ describe('createSignupAction (db)', () => {
   });
 
   beforeEach(async () => {
+    request.locale = null;
+    request.acceptLanguage = null;
+    request.instanceDefault = undefined;
     await db.delete(rateLimits).where(bucket);
     await db.delete(signups).where(eq(signups.workspaceId, workspaceId));
   });
@@ -182,5 +207,61 @@ describe('createSignupAction (db)', () => {
     await db.delete(rateLimits).where(bucket);
     await chargeRateLimit(db, policy, organizerId, policy.max);
     expect(await submit('Refused')).toHaveProperty('refused');
+  });
+
+  /** The one signup the form made: its settings and its signup.created payload. */
+  async function madeOne() {
+    const [row] = await db
+      .select({ id: signups.id, settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.workspaceId, workspaceId));
+    if (!row) throw new Error('no signup was made');
+    const [created] = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, row.id), eq(activity.eventType, 'signup.created')));
+    return {
+      settings: row.settings as Record<string, unknown>,
+      telemetry: created?.payload as Record<string, unknown>,
+    };
+  }
+
+  it('stores no language, and records none, while only English has shipped', async () => {
+    request.locale = 'en';
+    request.acceptLanguage = 'en-GB';
+    await submit('English only');
+    const { settings, telemetry } = await madeOne();
+    expect(settings).not.toHaveProperty('locale');
+    expect(telemetry).not.toHaveProperty('locale');
+    expect(telemetry).not.toHaveProperty('localeSource');
+  });
+
+  describe('once Swedish has shipped to participants', () => {
+    beforeEach(() => {
+      ship('participant', ['en', 'sv']);
+    });
+
+    it.each([
+      { step: 'setting', locale: 'sv', instanceDefault: 'en', acceptLanguage: 'en' },
+      { step: 'instance', locale: null, instanceDefault: 'sv', acceptLanguage: 'en' },
+      { step: 'browser', locale: null, instanceDefault: undefined, acceptLanguage: 'sv-SE,en' },
+    ])(
+      'starts the signup in the organizer’s language, chosen by their $step',
+      async ({ step, ...given }) => {
+        Object.assign(request, given);
+        await submit('In Swedish');
+        const { settings, telemetry } = await madeOne();
+        expect(settings).toMatchObject({ locale: 'sv' });
+        expect(telemetry).toMatchObject({ locale: 'sv', localeSource: step });
+      },
+    );
+
+    it('starts it in English when no step names a shipped language', async () => {
+      request.acceptLanguage = 'de';
+      await submit('In English');
+      const { settings, telemetry } = await madeOne();
+      expect(settings).toMatchObject({ locale: 'en' });
+      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+    });
   });
 });

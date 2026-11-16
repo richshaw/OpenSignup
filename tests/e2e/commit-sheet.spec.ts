@@ -84,3 +84,21 @@ test.describe('commit sheet on a phone', () => {
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(resting);
   });
 });
+
+test.describe('commit sheet focus', () => {
+  // Radix hands the focus back only to a trigger of its own, which the row's
+  // Sign up isn't, so without the dialog's own handler it fell to the page.
+  test('gives the focus back to Sign up when Escape closes it', async ({ page }) => {
+    await page.goto(`/s/${seed.publicSlug}`);
+    const signUp = page
+      .locator('li')
+      .filter({ hasText: seed.openSlotLabel })
+      .getByRole('button', { name: 'Sign up' });
+    await signUp.click();
+    await expect(page.getByLabel('Your name')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(signUp).toBeFocused();
+  });
+});

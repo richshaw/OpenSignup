@@ -32,7 +32,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 14 November 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -88,6 +88,10 @@ export default function PrivacyPage() {
           <li>Email address (used to send magic-link sign-in emails).</li>
           <li>Optional display name and organization name.</li>
           <li>
+            The language you choose for your new signups, if you choose one in your account&apos;s
+            Settings.
+          </li>
+          <li>
             If your account was created by signing in with a third-party provider such as Google,
             the web address of the profile picture that provider returned.
           </li>
@@ -101,12 +105,15 @@ export default function PrivacyPage() {
             wrote), which of your own pages you open and whether on a phone or a computer (never the
             browser&rsquo;s full identifying string), participant commitments on your signups, and
             reminder dispatches. For a copy or a share it records only which button it was and the
-            signup&rsquo;s status: never the message, and nothing about who the link went to. This
-            exists so an organizer can audit what happened in their own workspace, so the operator
-            can investigate abuse, and so the operator can count, in aggregate, where organizers get
-            stuck between starting a signup and sharing it. The same log records anonymous view
-            telemetry on the marketing home page and on your public signup pages (see &ldquo;Logs
-            and rate-limiting&rdquo; below).
+            signup&rsquo;s status: never the message, and nothing about who the link went to. When a
+            new signup is given a language, it records which one and what chose it: the language you
+            saved, this site&rsquo;s default, the first language your browser asks for, the app that
+            created the signup, or none of these (English). This exists so an organizer can audit
+            what happened in their own workspace, so the operator can investigate abuse, and so the
+            operator can count, in aggregate, where organizers get stuck between starting a signup
+            and sharing it, and which languages new signups start in. The same log records anonymous
+            view telemetry on the marketing home page and on your public signup pages (see
+            &ldquo;Logs and rate-limiting&rdquo; below).
           </li>
           <li>
             After a sign-in email is sent, the sign-in link&apos;s token (stored as a hash, next to

@@ -50,8 +50,8 @@ const asks = (questions: MagicComposeQuestions = ASKED): Reply => ({
   body: { data: { questions } },
 });
 
-async function openQuestions(prompt = 'Bake sale') {
-  render(<MagicComposeRoot />);
+async function openQuestions(prompt = 'Bake sale', locale = 'en') {
+  render(<MagicComposeRoot locale={locale} />);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: prompt } });
   fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
   return screen.findByRole('heading', { name: 'A few details first' });
@@ -118,7 +118,7 @@ function expectEveryAnswerKept() {
 describe('<MagicComposeRoot /> questions', () => {
   it("doesn't promise a draft while the first reply is on its way", async () => {
     stubReplies('hang');
-    render(<MagicComposeRoot />);
+    render(<MagicComposeRoot locale="en" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     expect(
@@ -516,7 +516,7 @@ describe('<MagicComposeRoot /> focus after Back', () => {
 
   it('leaves focus alone on compose otherwise, even after a Back', async () => {
     stubReplies(asks(), { status: 500, body: { error: { code: 'internal', message: 'No.' } } });
-    render(<MagicComposeRoot />);
+    render(<MagicComposeRoot locale="en" />);
     const description = () => screen.getByRole('textbox', { name: 'Describe your signup' });
     expect(description()).not.toHaveFocus();
     fireEvent.change(description(), { target: { value: 'Bake sale' } });
@@ -653,5 +653,37 @@ describe('<MagicComposeRoot /> questions when the description says what', () => 
     first.focus();
     fireEvent.click(first);
     expect(screen.getByRole('button', { name: 'Remove Set up' })).toHaveFocus();
+  });
+});
+
+describe('<MagicComposeRoot /> in another language', () => {
+  it("writes the lengths, and the day and times going Back, in the organizer's language", async () => {
+    stubReplies(asks());
+    await openQuestions('Loppis', 'sv');
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
+    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
+    // Each end time says how long the shift would be.
+    const ends = screen.getByLabelText('Ends');
+    expect(within(ends).getByRole('option', { name: /\(1 tim 30 min\)$/ })).toHaveValue('10:30');
+    fireEvent.change(ends, { target: { value: '13:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toMatch(
+      /^Loppis\nWhat: Staff the table \(no limit\)\nWhen: lördag 14 november( 2026)?, 09:00 to 13:00$/,
+    );
+  });
+
+  it("shows the day and times in the organizer's language while drafting from them", async () => {
+    stubReplies(asks(), 'hang');
+    await openQuestions('Loppis', 'sv');
+    fireEvent.click(screen.getByRole('button', { name: 'Staff the table' }));
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-11-14' } });
+    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
+    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '13:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+    const card = await screen.findByRole('region', { name: 'Drafting from' });
+    expect(
+      within(card).getByText(/^lördag 14 november( 2026)? · 09:00 to 13:00$/),
+    ).toBeInTheDocument();
   });
 });

@@ -1,3 +1,5 @@
+import type { Translator } from '@/i18n/translator';
+
 /**
  * Participant-facing copy for a `closed` error. The server's messages ("signup
  * is not accepting commitments", "signup has closed", "that slot is closed")
@@ -12,24 +14,16 @@
  * spots (see `updateOwnCommitment`). Keeping or lowering the number, changing
  * the name or notes, and cancelling all still work, so the copy says what to
  * keep rather than suggesting the page is shut.
+ *
+ * Null for any other error.
  */
-export const CLOSED = {
-  join: {
-    message: 'No one new can sign up for this slot now.',
-    suggestion: 'Reload the page to see what’s still open.',
-  },
-  change: {
-    message: "You can't add more spots now.",
-    suggestion: 'Keep the number you have.',
-  },
-} as const;
-
-type ClosedContext = keyof typeof CLOSED;
-
-/** `CLOSED[context]` for a `closed` error, null for anything else. */
-export function closedMessage<C extends ClosedContext>(
+export function closedMessage(
   error: { code?: string } | null | undefined,
-  context: C,
-): (typeof CLOSED)[C] | null {
-  return error?.code === 'closed' ? CLOSED[context] : null;
+  context: 'join' | 'change',
+  t: Translator<'participant.errors'>,
+): { message: string; suggestion: string } | null {
+  if (error?.code !== 'closed') return null;
+  return context === 'join'
+    ? { message: t('closed.join'), suggestion: t('closed.reload') }
+    : { message: t('closed.change'), suggestion: t('keepNumber') };
 }

@@ -1,5 +1,12 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
-import { requireOrganizerSession } from '@/auth/session';
+import { requireOrganizerSession, type OrganizerSession } from '@/auth/session';
+import { FormError } from '@/components/ui/form-error';
+import { SAVE_ERROR_MESSAGE, SavedNotice } from '@/components/ui/save-notice';
+import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
+import { getOrganizerLocale } from '@/i18n/organizer';
+import type { ErrorCode } from '@/lib/errors';
+import { setOrganizerLocaleAction } from './actions';
 
 export const metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -19,8 +26,12 @@ const SECTIONS = [
   },
 ] as const;
 
-export default async function SettingsPage() {
+type PageProps = { searchParams: Promise<{ error?: string; saved?: string }> };
+
+export default async function SettingsPage({ searchParams }: PageProps) {
+  const { error, saved } = await searchParams;
   const session = await requireOrganizerSession();
+  const acceptLanguage = (await headers()).get('accept-language');
 
   return (
     <section className="space-y-6">
@@ -48,6 +59,89 @@ export default async function SettingsPage() {
           </li>
         ))}
       </ul>
+      <OrganizerLanguageForm
+        session={session}
+        acceptLanguage={acceptLanguage}
+        error={error}
+        saved={saved === 'language'}
+      />
     </section>
+  );
+}
+
+/**
+ * "Language for new signups": the language each signup the organizer makes
+ * starts in. With one language shipped to participants there's nothing to
+ * choose, so it renders nothing until a second one ships. Like the Settings
+ * tab's "Signup language", a plain form with each language named in itself
+ * (English, Svenska), so the organizer finds theirs whatever language the
+ * rest of the page is in. Its Save is a plain button, as Sign out is, so the
+ * page loads no script of its own.
+ */
+function OrganizerLanguageForm({
+  session,
+  acceptLanguage,
+  error,
+  saved,
+}: {
+  session: OrganizerSession;
+  /** The request's `Accept-Language` header, if it has one. */
+  acceptLanguage: string | null;
+  /** The `error` the action came back with: a refusal's code. */
+  error: string | undefined;
+  /** Whether this form just saved. */
+  saved: boolean;
+}) {
+  const languages: readonly CatalogLocale[] = SHIPPED.participant;
+  if (languages.length < 2) return null;
+  // The language new signups get now: the saved one, or with none saved (or
+  // one that has left the list) the instance's, the browser's or English. So
+  // the choice shown is always one that saves.
+  const { locale: current } = getOrganizerLocale(session, acceptLanguage, 'participant');
+  // Only a code the action sends shows, in the words the Settings tab uses,
+  // so a link can't put its own words on the page.
+  const refusal =
+    error && Object.hasOwn(SAVE_ERROR_MESSAGE, error)
+      ? SAVE_ERROR_MESSAGE[error as ErrorCode]
+      : null;
+
+  return (
+    <div className="space-y-4 rounded-xl border border-surface-sunk bg-white px-5 py-4">
+      {refusal ? <FormError>{refusal}</FormError> : null}
+      {/* Keyed on the choice shown, so after a save it's the saved one. */}
+      <form key={current} action={setOrganizerLocaleAction} className="flex flex-col gap-4">
+        <fieldset>
+          <legend className="font-medium">Language for new signups</legend>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+            {languages.map((locale) => (
+              <label key={locale} className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="locale"
+                  value={locale}
+                  defaultChecked={locale === current}
+                  aria-describedby="organizer-language-help"
+                  className="h-4 w-4 accent-brand"
+                />
+                <span lang={locale}>{languageName(locale)}</span>
+              </label>
+            ))}
+          </div>
+          <p id="organizer-language-help" className="mt-2 text-sm text-ink-muted">
+            Each signup you make starts in this language, for the buttons, messages and dates on its
+            page and in its emails. To change one signup’s language, use its Settings tab.
+          </p>
+        </fieldset>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
+          >
+            Save
+          </button>
+          {saved ? <SavedNotice role="status" /> : null}
+        </div>
+      </form>
+    </div>
   );
 }

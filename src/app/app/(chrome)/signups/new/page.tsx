@@ -34,7 +34,7 @@ export default async function NewSignupPage({ searchParams }: PageProps) {
   }
 
   if (useMagic) {
-    return <MagicComposeRoot llmTimeoutMs={getEnv().LLM_TIMEOUT_MS} />;
+    return <MagicComposeRoot locale="en" llmTimeoutMs={getEnv().LLM_TIMEOUT_MS} />;
   }
 
   return (

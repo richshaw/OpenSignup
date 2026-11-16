@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
@@ -13,11 +13,14 @@ const COUNT_ID = 'compose-count';
 
 export function Compose({
   prompt,
+  locale,
   setPrompt,
   onDraft,
   focusAtEnd = false,
 }: {
   prompt: string;
+  /** The organizer's language, for the character count's numbers. */
+  locale: string;
   setPrompt: (value: string) => void;
   onDraft: () => void;
   /** Back from the questions: focus the description, with the caret after the answers. */
@@ -29,6 +32,7 @@ export function Compose({
   const over = prompt.length - PROMPT_MAX_LENGTH;
   const canDraft = prompt.trim() !== '' && over <= 0;
   const showCount = prompt.length >= COUNT_FROM;
+  const number = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -86,9 +90,8 @@ export function Compose({
               id={COUNT_ID}
               className={`mr-auto px-2 text-[13px] ${over > 0 ? 'font-medium text-danger' : 'text-ink-muted'}`}
             >
-              {prompt.length.toLocaleString('en-US')} / {PROMPT_MAX_LENGTH.toLocaleString('en-US')}{' '}
-              characters
-              {over > 0 && `. Shorten it by ${over.toLocaleString('en-US')} to draft.`}
+              {number.format(prompt.length)} / {number.format(PROMPT_MAX_LENGTH)} characters
+              {over > 0 && `. Shorten it by ${number.format(over)} to draft.`}
             </p>
           )}
           <Link

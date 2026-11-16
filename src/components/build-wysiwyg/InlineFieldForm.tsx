@@ -11,8 +11,17 @@ import type { BuildField } from '../build-shared/useBuildState';
 
 export type InlineFieldFormMode = { mode: 'edit'; field: BuildField } | { mode: 'create' };
 
+/**
+ * What a saved field gets for what the organizer left unset: the name of a
+ * field saved without one, and the option a list field starts with (the
+ * server needs at least one). Participants read both, so the page passes them
+ * in the signup's language.
+ */
+export type FieldDefaults = { name: string; firstChoice: string };
+
 type InlineFieldFormProps = {
   formMode: InlineFieldFormMode;
+  defaults: FieldDefaults;
   /** Ref of the field reminders are sent for, or null when they are off. */
   reminderFieldRef: string | null;
   /** Label of that field, for telling the organizer which one holds the reminder. */
@@ -28,6 +37,7 @@ type InlineFieldFormProps = {
 
 export function InlineFieldForm({
   formMode,
+  defaults,
   reminderFieldRef,
   reminderFieldLabel,
   onSave,
@@ -58,7 +68,7 @@ export function InlineFieldForm({
   }, []);
 
   const save = () => {
-    const trimmed = name.trim() || 'Untitled';
+    const trimmed = name.trim() || defaults.name;
     // When the type changes on an existing field, reset its config to the
     // type's default. Enum options land via the inline EnumPicker, not here:
     // the server schema requires choices.min(1), so an enum field starts with
@@ -66,7 +76,7 @@ export function InlineFieldForm({
     const config: SlotFieldConfig =
       isEdit && formMode.field.config.fieldType === type
         ? formMode.field.config
-        : configFor(type, ['Option 1']);
+        : configFor(type, [defaults.firstChoice]);
     onSave(showReminder ? { name: trimmed, config, reminder } : { name: trimmed, config });
   };
 

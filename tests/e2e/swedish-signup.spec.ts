@@ -1,0 +1,403 @@
+import { readFile } from 'node:fs/promises';
+import { expect, test, type Locator } from '@playwright/test';
+import { getTranslator, type Namespace } from '@/i18n/translator';
+import { formatSlotDate } from '@/lib/slot-label';
+import { loginAsSeededOrganizer } from './helpers/auth';
+import { loadSeed } from './helpers/fixtures';
+import { gotoSwedish } from './helpers/swedish';
+
+const seed = loadSeed();
+const {
+  id,
+  slug,
+  title,
+  slots,
+  noDateHeading,
+  manyDate,
+  editPath,
+  unsubscribePath,
+  editName,
+  editEmail,
+  cancelledEditPath,
+  optedOutUnsubscribePath,
+  optedOutEmail,
+} = seed.swedish;
+
+/**
+ * Swedish from the catalog, formatted as vitest and the worker format it, to
+ * hold the built pages to: the web process formats the precompiled catalog,
+ * so a page that reads the same shows both agree. Throws on a missing key.
+ */
+function swedish<N extends Namespace>(namespace: N) {
+  return getTranslator('sv', namespace, {
+    onError: (error) => {
+      throw error;
+    },
+  });
+}
+
+/** A rich message as the page shows it: its text, tags and all left as text. */
+const plain = (chunks: string) => chunks;
+
+/** The English these pages showed, none of which a Swedish page may keep. */
+const ENGLISH =
+  /\b(Your|You|Save|Saving|Cancel|Keep|Yes|Back|Reminders|Stop|Turn|signup|spots?|slot|link|Sorry)\b/;
+
+async function expectNoEnglish(main: Locator) {
+  await expect(main).not.toHaveText(ENGLISH);
+}
+
+/** A link with its token swapped for one that was never issued. */
+const badToken = (path: string) => path.replace(/token=[^&]+/, 'token=invalid-token');
+
+/**
+ * The seeded Swedish signup (tests/e2e/helpers/seed.ts): its participants'
+ * text comes from sv.json, and what only its organizers read stays English,
+ * marked so, until the organizer app has other languages.
+ */
+test.describe('the Swedish test signup', () => {
+  test('shows participants its text in Swedish', async ({ page }) => {
+    await gotoSwedish(page, `/s/${slug}`);
+    const main = page.locator('main');
+    await expect(main.getByRole('heading', { level: 1, name: title })).toBeVisible();
+    await expect(main.getByRole('heading', { name: noDateHeading })).toBeVisible();
+    const row = (label: string) => main.locator('li').filter({ hasText: label });
+    await expect(row(slots.one).getByRole('button', { name: /^Anmäl dig till / })).toHaveText(
+      'Anmäl dig',
+    );
+    await expect(row(slots.full)).toContainText('Fullt');
+    await expect(main.getByText(/Sign up|Full\b|signed up|spots left/)).toHaveCount(0);
+    // Until the signup's pages get a layout of their own (#628), the page
+    // around <main> stays English: <html lang> and the footer.
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('navigation', { name: 'Footer' })).toBeVisible();
+  });
+
+  // The browser takes an address at `localhost` as an email; the server
+  // doesn't, and names the reason, which the sheet words in the signup's
+  // language. A new address each run, as the server counts refused ones
+  // against the address.
+  test('says why a sign-up was refused, in Swedish', async ({ page }) => {
+    await gotoSwedish(page, `/s/${slug}`);
+    const dialog = swedish('participant.dialog');
+    const fields = swedish('participant.fields');
+    const errors = swedish('participant.errors');
+    await page
+      .locator('li')
+      .filter({ hasText: slots.one })
+      .getByRole('button', { name: /^Anmäl dig till / })
+      .click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByLabel(fields('name')).fill('Kim Exempel');
+    await sheet.getByLabel(fields('emailOptional')).fill(`kim+${Date.now()}@localhost`);
+    await sheet.getByRole('button', { name: dialog('confirm') }).click();
+
+    const alert = sheet.getByRole('alert');
+    await expect(alert).toContainText(errors('email.invalid'));
+    await expect(alert).toContainText(errors('email.check'));
+    await expectNoEnglish(alert);
+  });
+
+  // Both are made in the browser after a sign-up, from the precompiled catalog.
+  test('gives the calendar file and the share menu their text in Swedish', async ({ page }) => {
+    // Headless Chromium has no share menu: this one keeps what it was given.
+    await page.addInitScript(() => {
+      const shared: ShareData[] = [];
+      Object.assign(window, { shared });
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: async (data: ShareData) => {
+          shared.push(data);
+        },
+      });
+    });
+    // The server's answer is stood in for, so the counts and the room left
+    // that other tests read on this slot stay as seeded.
+    const editUrl = `https://example.test/s/${slug}/c/com_e2e?token=e2e`;
+    await page.route('**/api/slots/*/commitments', (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { commitment: { id: 'com_e2e' }, editUrl } }),
+      }),
+    );
+    await gotoSwedish(page, `/s/${slug}`);
+    const dialog = swedish('participant.dialog');
+    const fields = swedish('participant.fields');
+    await page
+      .locator('li')
+      .filter({ hasText: slots.many })
+      .getByRole('button', { name: /^Anmäl dig till / })
+      .click();
+    const sheet = page.getByRole('dialog');
+    await sheet.getByLabel(fields('name')).fill('Kim Exempel');
+    await sheet.getByLabel(fields('emailOptional')).fill('kim@example.test');
+    await sheet.getByRole('button', { name: dialog('confirm') }).click();
+    await expect(sheet.getByRole('heading', { name: dialog('youreIn') })).toBeVisible();
+    // The slot's full name, which "Vi har sparat din anmälan till …" shows first.
+    const slotName = await sheet.locator('p strong').first().textContent();
+    expect(slotName).toContain(slots.many);
+
+    const downloading = page.waitForEvent('download');
+    await sheet.getByRole('button', { name: dialog('addToCalendar') }).click();
+    const download = await downloading;
+    // Named in the slot's own letters, as Chromium saves it.
+    expect(download.suggestedFilename()).toBe(`${slug}-${slots.many}.ics`);
+    const ics = await readFile((await download.path())!, 'utf8');
+    // Unfolded (RFC 5545 §3.1).
+    expect(ics.replace(/\r\n /g, '').split('\r\n')).toContain(
+      `DESCRIPTION:${dialog('calendarDescription', { url: editUrl })}`,
+    );
+
+    await sheet.getByRole('button', { name: dialog('saveYourLink') }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { shared: ShareData[] }).shared))
+      .toEqual([{ title, text: dialog('shareText', { slot: slotName! }), url: editUrl }]);
+  });
+
+  test('keeps its organizer’s strip English, marked lang="en"', async ({ page, context }) => {
+    await loginAsSeededOrganizer(context);
+    await gotoSwedish(page, `/s/${slug}`);
+    const strip = page.getByRole('navigation', { name: 'Organizer' });
+    await expect(strip).toHaveAttribute('lang', 'en');
+    await expect(strip).toContainText('Your signup. Only organizers see this bar.');
+    await expect(strip.getByRole('link', { name: 'See responses' })).toBeVisible();
+    await expect(strip.getByRole('link', { name: 'Edit signup' })).toBeVisible();
+  });
+
+  test('keeps the Preview banner English, marked lang="en", over a Swedish page', async ({
+    page,
+    context,
+  }) => {
+    await loginAsSeededOrganizer(context);
+    await gotoSwedish(page, `/app/signups/${id}/preview`);
+    const banner = page.locator('main [lang="en"]');
+    await expect(banner).toContainText('Preview');
+    await expect(banner).toContainText(
+      'This signup is live. The page below shows what visitors see.',
+    );
+    // The disabled button is the participants', with the organizer's tip.
+    const button = page
+      .locator('li')
+      .filter({ hasText: slots.one })
+      .getByRole('button', { name: /^Anmäl dig till / });
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveText('Anmäl dig');
+    await expect(button).toHaveAttribute('title', 'Preview: publish to enable signups');
+  });
+});
+
+// A sign-up's own pages take the signup's language from the row their link
+// reads, and a broken link's page from the signup its path names.
+test.describe('the Swedish test signup’s edit page', () => {
+  const t = swedish('participant.editPage');
+  const form = swedish('participant.editForm');
+
+  test('is in Swedish, with the slot’s date and the spots line', async ({ page }) => {
+    await gotoSwedish(page, editPath);
+    const main = page.locator('main');
+    await expect(page).toHaveTitle(new RegExp(`^${t('title')}`));
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(t('title'));
+    await expect(main.getByRole('link', { name: t('back') })).toHaveAttribute('href', `/s/${slug}`);
+    await expect(main).toContainText(`${slots.many} · ${formatSlotDate(manyDate, 'sv')}`);
+    await expect(
+      main.getByText(t('editingAsWithEmail', { name: editName, email: editEmail })),
+    ).toBeVisible();
+    // The plural's other: the slot has room for 20.
+    await expect(main.getByText(form('spotsMax', { max: 20 }))).toBeVisible();
+    await expect(main.getByLabel('Ditt namn')).toHaveValue(editName);
+    await expect(main.getByRole('button', { name: form('save') })).toBeVisible();
+    await expect(main.getByRole('button', { name: form('cancel') })).toBeVisible();
+    await expectNoEnglish(main);
+  });
+
+  test('asks before cancelling, in Swedish', async ({ page }) => {
+    await gotoSwedish(page, editPath);
+    await page.getByRole('button', { name: form('cancel') }).click();
+    const question = page.getByRole('alertdialog', { name: form('confirmCancel') });
+    await expect(question).toContainText(form('cancelQuestion'));
+    await expect(question.getByRole('button', { name: form('yesCancel') })).toBeVisible();
+    await expectNoEnglish(page.locator('main'));
+    // Kept: the seeded sign-up stays for the other specs.
+    await question.getByRole('button', { name: form('keep') }).click();
+    await expect(page.getByRole('button', { name: form('cancel') })).toBeVisible();
+  });
+
+  // The answers are faked, so the seeded sign-up stays as it is.
+  test('says a save worked, or why not, in Swedish, down to 1 spot', async ({ page }) => {
+    await gotoSwedish(page, editPath);
+    // A string body is a page that isn't the API's JSON.
+    let answer: { status: number; body: object | string } = { status: 200, body: { data: {} } };
+    await page.route('**/api/commitments/**', (route) =>
+      route.request().method() !== 'PATCH'
+        ? route.continue()
+        : typeof answer.body === 'string'
+          ? route.fulfill({ status: answer.status, contentType: 'text/html', body: answer.body })
+          : route.fulfill({ status: answer.status, json: answer.body }),
+    );
+    const main = page.locator('main');
+
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('status')).toHaveText(form('saved'));
+
+    // Someone took the rest of the slot since: the plural's one.
+    answer = {
+      status: 409,
+      body: {
+        error: {
+          code: 'capacity_full',
+          message: 'only 1 left',
+          details: { remaining: 1, requested: 3, capacity: 20 },
+        },
+      },
+    };
+    await main.getByLabel(swedish('participant.fields')('spots')).fill('3');
+    await main.getByRole('button', { name: form('save') }).click();
+    const errors = swedish('participant.errors');
+    await expect(main.getByRole('alert')).toHaveText(
+      `${errors('capacity.atMost', { remaining: 1, requested: 3 })} ${errors('capacity.keepYourOne')}`,
+    );
+    await expect(main.getByText(form('spotsMax', { max: 1 }))).toBeVisible();
+    await expectNoEnglish(main);
+
+    // The edit link's own rate limit, which this page used to show in the
+    // server's English ("too many requests").
+    answer = {
+      status: 429,
+      body: {
+        error: {
+          code: 'rate_limited',
+          message: 'too many requests',
+          details: { retryAfterSeconds: 120 },
+        },
+      },
+    };
+    await main.getByLabel(swedish('participant.fields')('spots')).fill('1');
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(
+      `${errors('rateLimit.message')} ${errors('rateLimit.wait', { minutes: 2 })}`,
+    );
+
+    // And anything with no copy of its own.
+    answer = {
+      status: 500,
+      body: { error: { code: 'internal', message: 'something went wrong' } },
+    };
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(
+      `${errors('failed.save')} ${errors('failed.tryAgain')}`,
+    );
+    await expectNoEnglish(main);
+
+    // A proxy's error page, which may come after the server saved: the form
+    // doesn't say whether it did, only to save again.
+    answer = { status: 502, body: '<html><body><h1>502 Bad Gateway</h1></body></html>' };
+    await main.getByRole('button', { name: form('save') }).click();
+    await expect(main.getByRole('alert')).toHaveText(form('saveUnreadable'));
+    await expectNoEnglish(main);
+  });
+
+  test('says a cancelled sign-up was cancelled, in Swedish', async ({ page }) => {
+    await gotoSwedish(page, cancelledEditPath);
+    const cancelled = swedish('participant.cancelledPage');
+    const main = page.locator('main');
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(cancelled('title'));
+    await expect(main).toContainText(cancelled('open'));
+    await expect(main).toContainText(`${slots.many} · ${formatSlotDate(manyDate, 'sv')}`);
+    await expect(main.getByRole('link', { name: cancelled('back') })).toHaveAttribute(
+      'href',
+      `/s/${slug}`,
+    );
+    await expectNoEnglish(main);
+  });
+
+  test('says a broken edit link isn’t working, in Swedish, with a 404', async ({ page }) => {
+    const response = await page.goto(badToken(editPath));
+    expect(response?.status()).toBe(404);
+    const gone = swedish('participant.gonePage');
+    const main = page.locator('main');
+    await expect(main).toHaveAttribute('lang', 'sv');
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(gone('editLink.title'));
+    await expect(main).toContainText(gone('editLink.body'));
+    await expectNoEnglish(main);
+  });
+});
+
+test.describe('the Swedish test signup’s unsubscribe page', () => {
+  const t = swedish('participant.unsubscribe');
+  const parts = { title, b: plain };
+
+  /** The page's heading, its sentence with the signup's title in bold, and its controls. */
+  async function expectPage(
+    main: Locator,
+    heading: string,
+    sentence: string,
+    controls: [string, string],
+  ) {
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(heading);
+    await expect(main.locator('p:has(strong)')).toHaveText(sentence);
+    await expect(main.locator('p strong')).toHaveText(title);
+    const [button, other] = controls;
+    await expect(main.getByRole('button', { name: button })).toBeVisible();
+    await expect(main.getByRole('link', { name: other })).toBeVisible();
+    await expectNoEnglish(main);
+  }
+
+  test('asks before stopping, and says when reminders are back on, in Swedish', async ({
+    page,
+  }) => {
+    await gotoSwedish(page, unsubscribePath);
+    await expect(page).toHaveTitle(new RegExp(`^${t('title')}`));
+    const main = page.locator('main');
+    await expectPage(
+      main,
+      t('confirm.title'),
+      t.markup('confirm.bodyWithEmail', { ...parts, email: editEmail }),
+      [t('stop'), t('keep')],
+    );
+
+    await gotoSwedish(page, `${unsubscribePath}&done=on`);
+    await expectPage(
+      main,
+      t('turnedOn.title'),
+      t.markup('turnedOn.bodyWithEmail', { ...parts, email: editEmail }),
+      [t('stop'), t('keep')],
+    );
+
+    await gotoSwedish(page, `${unsubscribePath}&error=off`);
+    await expect(main.getByRole('alert')).toHaveText(t('turnOffFailed'));
+  });
+
+  test('says reminders are off, or were just turned off, in Swedish', async ({ page }) => {
+    await gotoSwedish(page, optedOutUnsubscribePath);
+    const main = page.locator('main');
+    await expectPage(
+      main,
+      t('areOff.title'),
+      t.markup('areOff.bodyWithEmail', { ...parts, email: optedOutEmail }),
+      [t('turnBackOn'), t('back')],
+    );
+
+    await gotoSwedish(page, `${optedOutUnsubscribePath}&done=off`);
+    await expectPage(main, t('turnedOff.title'), t.markup('turnedOff.body', parts), [
+      t('turnBackOn'),
+      t('back'),
+    ]);
+
+    await gotoSwedish(page, `${optedOutUnsubscribePath}&error=on`);
+    await expect(main.getByRole('alert')).toHaveText(t('turnOnFailed'));
+  });
+
+  test('explains a link it can’t use, in the Swedish signup’s language', async ({ page }) => {
+    const main = page.locator('main');
+    await gotoSwedish(page, `/s/${slug}/unsubscribe`);
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(t('incomplete.title'));
+    await expect(main).toContainText(t('incomplete.body'));
+    await expectNoEnglish(main);
+
+    await gotoSwedish(page, badToken(unsubscribePath));
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText(t('invalid.title'));
+    await expect(main).toContainText(t('invalid.body'));
+    await expectNoEnglish(main);
+  });
+});

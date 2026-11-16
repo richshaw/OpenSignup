@@ -85,6 +85,7 @@ export function PublishCheckPanel({
       open={answer !== null}
       onClose={onClose}
       title={answer?.copy.title}
+      closeLabel="Close"
       describedBy={textId}
       compact
       onOpenAutoFocus={(e) => {

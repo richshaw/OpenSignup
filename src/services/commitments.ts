@@ -9,6 +9,7 @@ import {
 } from '@/db/schema/participants';
 import { signups, type Signup } from '@/db/schema/signups';
 import { slots, type Slot } from '@/db/schema/slots';
+import type { CatalogLocale } from '@/i18n/config';
 import { activityActor, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -23,6 +24,7 @@ import { editTokenFor, hashToken, idempotencyKeyHash, verifyHash } from '@/lib/t
 import {
   type CommitmentCreateInput,
   type CommitmentUpdateInput,
+  COMMITMENT_INPUT_REASONS,
   CommitmentCreateInputSchema,
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
@@ -237,7 +239,7 @@ export async function commitToSlot(
   slotId: string,
   rawInput: unknown,
 ): Promise<Result<CommitResult, ServiceError>> {
-  const input = parseInputSafe(CommitmentCreateInputSchema, rawInput);
+  const input = parseInputSafe(CommitmentCreateInputSchema, rawInput, COMMITMENT_INPUT_REASONS);
   if (!input.ok) return input;
   const { email, idempotencyKey, ...data } = input.value;
   // The key together with the request as parsed, so it finds an earlier
@@ -362,6 +364,7 @@ async function commitParticipantToSlot(
         serviceError('invalid_input', 'Email is required for this signup.', {
           field: 'email',
           suggestion: 'Add your email and try again.',
+          details: { reason: 'email_required' },
         }),
       );
     }
@@ -545,18 +548,27 @@ async function commitParticipantToSlot(
  * A participant's own commitment, by its id and edit token, with their name
  * and email and its signup's slug. The token is all that is checked: the edit
  * page redirects a link whose slug is not `signupSlug` to the one that is.
+ *
+ * `signupLocale` is the signup's `settings.locale` as stored, or null when it
+ * has none: read it with `signupLocale` from `@/i18n/config` for the language
+ * the edit page is in. It is the one setting read here. The rest of a
+ * signup's settings are the organizer's, and this answers anyone holding the
+ * edit link.
  */
 export async function getOwnCommitment(
   db: Db,
   commitmentId: string,
   token: string,
-): Promise<Result<OwnCommitment & { signupSlug: string }, ServiceError>> {
+): Promise<
+  Result<OwnCommitment & { signupSlug: string; signupLocale: string | null }, ServiceError>
+> {
   const row = await db
     .select({
       c: commitments,
       pname: participants.name,
       pemail: participants.email,
       slug: signups.slug,
+      locale: sql<string | null>`${signups.settings}->>'locale'`,
     })
     .from(commitments)
     .innerJoin(participants, eq(participants.id, commitments.participantId))
@@ -577,6 +589,7 @@ export async function getOwnCommitment(
     participantName: found.pname,
     participantEmail: found.pemail,
     signupSlug: found.slug,
+    signupLocale: found.locale,
   });
 }
 
@@ -627,7 +640,7 @@ export async function updateOwnCommitment(
   token: string,
   rawInput: unknown,
 ): Promise<Result<EditedCommitment, ServiceError>> {
-  const input = parseInputSafe(CommitmentUpdateInputSchema, rawInput);
+  const input = parseInputSafe(CommitmentUpdateInputSchema, rawInput, COMMITMENT_INPUT_REASONS);
   if (!input.ok) return input;
   const data: CommitmentUpdateInput = input.value;
 
@@ -1131,7 +1144,8 @@ async function readSlotAndSignup(db: Db, slotId: string) {
  * unlimited. The edit page leaves the quantity field out when it is 1, since 1
  * is then the only value it accepts, and says so when `closed`. `slotName` is
  * the slot's values in a line, as `cancelledCommitmentState` gives it, for the
- * page to say which slot this is, or '' when it has none to show.
+ * page to say which slot this is, or '' when it has none to show. Its dates and
+ * times are read in `locale`.
  *
  * Guard-free, like `committedBySlot`: call it only with a commitment that
  * `getOwnCommitment` has already verified against its edit token.
@@ -1139,10 +1153,15 @@ async function readSlotAndSignup(db: Db, slotId: string) {
 export async function editLimitsForCommitment(
   db: Db,
   commitment: { id: string; slotId: string },
+  locale: CatalogLocale,
 ): Promise<{ maxQuantity: number | null; closed: boolean; slotName: string }> {
   const row = await readSlotAndSignup(db, commitment.slotId);
   if (!row) return { maxQuantity: null, closed: false, slotName: '' };
-  const slotName = summarizeSlotValues(await listFieldsForSignup(db, row.signupId), row.values);
+  const slotName = summarizeSlotValues(
+    await listFieldsForSignup(db, row.signupId),
+    row.values,
+    locale,
+  );
 
   if (whyNotTakingPlaces(row.signup, row)) {
     // Read here rather than taken from the caller, whose copy may be older.
@@ -1179,7 +1198,8 @@ const MAX_MOVES_FOLLOWED = 10;
  * a sign-up again (`CancelledSlotState`), so the page suggests signing up
  * again only when that would not be refused, and otherwise says why. Either
  * way, `slotName` is the slot last held's values in a line, as the
- * confirmation email's subject names it, or '' when it has none to show.
+ * confirmation email's subject names it, or '' when it has none to show, with
+ * its dates and times read in `locale`.
  *
  * Guard-free, like `editLimitsForCommitment`: call it only with a commitment
  * that `getOwnCommitment` has already verified against its edit token. Each
@@ -1188,6 +1208,7 @@ const MAX_MOVES_FOLLOWED = 10;
 export async function cancelledCommitmentState(
   db: Db,
   commitment: { id: string; signupId: string; slotId: string },
+  locale: CatalogLocale,
 ): Promise<
   | { movedTo: string }
   | { movedTo: null; removed: true; slotName: string }
@@ -1235,7 +1256,7 @@ export async function cancelledCommitmentState(
       ),
     )
     .limit(1);
-  const name = await slotName(db, commitment.signupId, slotId);
+  const name = await slotName(db, commitment.signupId, slotId, locale);
   if (removed) return { movedTo: null, removed: true, slotName: name };
   return {
     movedTo: null,
@@ -1246,7 +1267,12 @@ export async function cancelledCommitmentState(
 }
 
 /** `Pack away · Sat, Nov 14`: the slot's values in field order, or ''. */
-async function slotName(db: Db, signupId: string, slotId: string): Promise<string> {
+async function slotName(
+  db: Db,
+  signupId: string,
+  slotId: string,
+  locale: CatalogLocale,
+): Promise<string> {
   const [slot] = await db
     .select({ values: slots.values })
     .from(slots)
@@ -1254,7 +1280,7 @@ async function slotName(db: Db, signupId: string, slotId: string): Promise<strin
     .limit(1);
   if (!slot) return '';
   const fields = await listFieldsForSignup(db, signupId);
-  return summarizeSlotValues(fields, slot.values);
+  return summarizeSlotValues(fields, slot.values, locale);
 }
 
 /**

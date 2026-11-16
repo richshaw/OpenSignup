@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getOrganizerSession, requireActor } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
+import { newSignupLocale } from '@/i18n/organizer';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { getEnv, magicComposeEnabled } from '@/lib/env';
 import { fail, handle, ok, readJson } from '@/lib/api-response';
@@ -264,7 +265,7 @@ export async function POST(req: NextRequest) {
     // A title or description over its limit is cut down rather than failing
     // the whole draft: a model asked to keep a long announcement word for word
     // goes over the same way on every retry.
-    const fitted = fitDraftText(raw.value);
+    const fitted = fitDraftText(raw.value, 'en');
     const draft = MagicComposeDraftSchema.safeParse(fitted.value);
     if (!draft.success) {
       log.warn(
@@ -340,8 +341,12 @@ export async function POST(req: NextRequest) {
       return fail(serviceError('internal', 'request cancelled'));
     }
 
+    // The signup starts in the organizer's language, as one made by hand
+    // does: none while only one language has shipped.
+    const language = newSignupLocale(session, req.headers.get('accept-language'));
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
+      ...(language ? { locale: language } : {}),
     });
     if (!persisted.ok) {
       await recordFailed(db, actor, session.defaultWorkspaceId, 'not_saved');

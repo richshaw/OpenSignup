@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
@@ -7,6 +7,7 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { commitToSlot } from '@/services/commitments';
@@ -16,6 +17,14 @@ import { connectTestClient } from './testing/client';
 import { contextForOrganizer } from './testing/context';
 import { signupLinks } from './links';
 import { TOOLS } from './tools';
+
+// The instance's DEFAULT_LOCALE as each test sets it: getEnv() parses the
+// environment once.
+const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => instance.defaultLocale,
+}));
 
 const db = getDb();
 const CLIENT = 'https://assistant.example/oauth/metadata.json';
@@ -477,6 +486,250 @@ describe('signup write tools on Postgres', () => {
       .from(signups)
       .where(eq(signups.id, c.signup.id));
     expect(after?.settings).toEqual(before?.settings);
+  });
+});
+
+describe('create_signup and the signup’s language on Postgres', () => {
+  afterEach(async () => {
+    instance.defaultLocale = undefined;
+    await db.update(organizers).set({ locale: null }).where(eq(organizers.id, organizerId));
+  });
+
+  /**
+   * The context the route builds once the organizer has saved `saved`, so
+   * `ctx.locale` comes from their row as it does for a real request.
+   */
+  async function contextSaving(saved: string | null) {
+    await db.update(organizers).set({ locale: saved }).where(eq(organizers.id, organizerId));
+    return contextForOrganizer(db, organizerId, CLIENT);
+  }
+
+  async function create(as: ToolContext, locale?: string) {
+    const client = await connectTestClient(as, TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+        ...(locale === undefined ? {} : { locale }),
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    const body = r.structuredContent as { signup: { id: string } };
+    const [row] = await db
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, body.signup.id));
+    const [created] = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, body.signup.id), eq(activity.eventType, 'signup.created')));
+    return {
+      client,
+      body,
+      settings: row!.settings as Record<string, unknown>,
+      telemetry: created!.payload as Record<string, unknown>,
+    };
+  }
+
+  it('stores a language the assistant sends, records it as sent by the app, and answers as get_signup does', async () => {
+    const { client, body, settings, telemetry } = await create(await contextSaving('sv'), 'en');
+    expect(settings).toMatchObject({ locale: 'en' });
+    expect(telemetry).toEqual({
+      templateId: 'mcp',
+      fieldsAdded: 1,
+      slotsAdded: 1,
+      locale: 'en',
+      localeSource: 'api',
+      viaClientId: CLIENT,
+    });
+    const read = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: body.signup.id },
+    });
+    expect(body.signup).toEqual((read.structuredContent as { signup: unknown }).signup);
+    expect(body.signup).toMatchObject({ settings: { locale: 'en' } });
+  });
+
+  it('stores and records none without one while only English has shipped, whatever the organizer saved', async () => {
+    for (const saved of ['sv', 'en', null]) {
+      instance.defaultLocale = 'en';
+      const { settings, telemetry } = await create(await contextSaving(saved));
+      expect(settings, String(saved)).not.toHaveProperty('locale');
+      expect(telemetry, String(saved)).toEqual({
+        templateId: 'mcp',
+        fieldsAdded: 1,
+        slotsAdded: 1,
+        viaClientId: CLIENT,
+      });
+    }
+  });
+
+  describe('once Swedish has shipped to participants', () => {
+    beforeEach(() => ship('participant', ['en', 'sv']));
+
+    it.each([
+      { step: 'setting', saved: 'sv', instanceDefault: 'en', locale: 'sv' },
+      { step: 'instance', saved: null, instanceDefault: 'sv', locale: 'sv' },
+      // No browser step: an assistant has no browser of the organizer's to ask.
+      { step: 'default', saved: null, instanceDefault: undefined, locale: 'en' },
+    ])(
+      'without one, takes the organizer’s language ($step)',
+      async ({ step, saved, instanceDefault, locale }) => {
+        instance.defaultLocale = instanceDefault;
+        const { settings, telemetry } = await create(await contextSaving(saved));
+        expect(settings).toMatchObject({ locale });
+        expect(telemetry).toMatchObject({ locale, localeSource: step, viaClientId: CLIENT });
+      },
+    );
+
+    it('stores the one the assistant sends over the organizer’s', async () => {
+      const { settings, telemetry } = await create(await contextSaving('sv'), 'en');
+      expect(settings).toMatchObject({ locale: 'en' });
+      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'api' });
+    });
+  });
+
+  it('refuses a language that has not shipped, as the REST API does, and creates nothing', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const count = async () =>
+      (
+        await db
+          .select({ id: signups.id })
+          .from(signups)
+          .where(eq(signups.workspaceId, workspaceId))
+      ).length;
+    const before = await count();
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+        locale: 'sv',
+      },
+    });
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toEqual({
+      error: {
+        code: 'invalid_input',
+        message: 'locale must be a language OpenSignup offers for signups',
+        field: 'locale',
+        received: 'sv',
+        suggestion: 'leave it out, or use one of: en',
+      },
+    });
+    expect(await count()).toBe(before);
+  });
+});
+
+describe('update_signup and the signup’s language on Postgres', () => {
+  async function createVia(client: Awaited<ReturnType<typeof connectTestClient>>) {
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Language rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+      },
+    });
+    expect(created.isError, JSON.stringify(created.structuredContent)).toBeFalsy();
+    return (created.structuredContent as { signup: { id: string } }).signup.id;
+  }
+  async function stored(id: string) {
+    const [row] = await db
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, id));
+    return row!.settings as Record<string, unknown>;
+  }
+  type Shown = { signup: { settings: Record<string, unknown>; title: string } };
+
+  it('sets a shipped language, shows it back as get_signup does, and clears it on null', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const id = await createVia(client);
+    expect(await stored(id)).not.toHaveProperty('locale');
+
+    const set = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, settings: { locale: 'en' } },
+    });
+    expect(set.isError, JSON.stringify(set.structuredContent)).toBeFalsy();
+    expect((set.structuredContent as Shown).signup.settings).toMatchObject({ locale: 'en' });
+    expect(await stored(id)).toMatchObject({ locale: 'en', sendReminders: true });
+    const read = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
+    expect((read.structuredContent as Shown).signup.settings).toMatchObject({ locale: 'en' });
+
+    // As over REST: null clears it, and the signup is in the site's language again.
+    const cleared = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, settings: { locale: null } },
+    });
+    expect(cleared.isError, JSON.stringify(cleared.structuredContent)).toBeFalsy();
+    expect((cleared.structuredContent as Shown).signup.settings).not.toHaveProperty('locale');
+    expect(await stored(id)).not.toHaveProperty('locale');
+    expect(await stored(id)).toMatchObject({ sendReminders: true });
+  });
+
+  it.each(['sv', 'xx', '', 'EN', 'x'.repeat(36)])(
+    'refuses %j as the REST API does, and leaves the stored language as it was',
+    async (locale) => {
+      const client = await connectTestClient(ctx, TOOLS);
+      const id = await createVia(client);
+      await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId: id, settings: { locale: 'en' } },
+      });
+      const before = await stored(id);
+      const r = await client.callTool({
+        name: 'update_signup',
+        arguments: { signupId: id, settings: { locale, sendReminders: false } },
+      });
+      expect(r.isError).toBe(true);
+      expect(r.structuredContent).toEqual({
+        error: {
+          code: 'invalid_input',
+          message: 'locale must be a language OpenSignup offers for signups',
+          field: 'settings.locale',
+          received: locale,
+          suggestion: 'leave it out, or use one of: en',
+        },
+      });
+      expect(await stored(id)).toEqual(before);
+    },
+  );
+
+  // A language stored earlier that has since left the list (here one that
+  // hasn't shipped, written straight to the row) is shown as stored, and
+  // doesn't stop changes that don't send one.
+  it('shows a stored language that has left the list, and an unrelated update keeps it', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const id = await createVia(client);
+    await db
+      .update(signups)
+      .set({ settings: { ...(await stored(id)), locale: 'sv' } })
+      .where(eq(signups.id, id));
+
+    const read = await client.callTool({ name: 'get_signup', arguments: { signupId: id } });
+    expect((read.structuredContent as Shown).signup.settings).toMatchObject({ locale: 'sv' });
+
+    const settings = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, settings: { sendReminders: false } },
+    });
+    expect(settings.isError, JSON.stringify(settings.structuredContent)).toBeFalsy();
+    expect((settings.structuredContent as Shown).signup.settings).toMatchObject({
+      sendReminders: false,
+      locale: 'sv',
+    });
+    const title = await client.callTool({
+      name: 'update_signup',
+      arguments: { signupId: id, title: 'Language rota, renamed' },
+    });
+    expect(title.isError, JSON.stringify(title.structuredContent)).toBeFalsy();
+    expect((title.structuredContent as Shown).signup.title).toBe('Language rota, renamed');
+    expect(await stored(id)).toMatchObject({ sendReminders: false, locale: 'sv' });
   });
 });
 

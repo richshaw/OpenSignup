@@ -1,7 +1,7 @@
 import { resolveBearerActor } from '@/auth/bearer';
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
-import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, ipSubject, type RateLimitPolicy } from '@/lib/rate-limit';
 import { BodyTooLarge, MAX_JSON_BODY_BYTES, readRequestBody } from '@/lib/request-body';
 import type { ToolContext } from '@/mcp/context';
 import { attachContext, getMcpHandler } from '@/mcp/handler';
@@ -68,7 +68,7 @@ export async function POST(request: Request): Promise<Response> {
     return tooLarge();
   }
 
-  const ipLimited = await meter(RateLimits.mcpPerIp, extractClientIp(request.headers) ?? 'unknown');
+  const ipLimited = await meter(RateLimits.mcpPerIp, ipSubject(extractClientIp(request.headers)));
   if (ipLimited) return ipLimited;
 
   let raw: Buffer;
@@ -112,6 +112,7 @@ export async function POST(request: Request): Promise<Response> {
     clientId: auth.clientId,
     defaultWorkspaceId: auth.defaultWorkspaceId,
     workspaces: auth.workspaces,
+    locale: auth.locale,
   };
   // The body is already consumed; the SDK never reads it when parsedBody is given.
   return getMcpHandler().fetch(request, {

@@ -196,49 +196,95 @@ export function answersProblem(questions: MagicComposeQuestions, answers: Answer
   return null;
 }
 
-/** "9am", "1:30pm", "12pm" for noon. */
-function formatTime(hhmm: string): string {
+/*
+ * The formatters below take the organizer's language as `locale` ('en', 'sv').
+ * The words around the times ("to", "from", "until") stay English until
+ * Magic Compose's text has a catalog.
+ */
+
+/**
+ * A time from a time box: "9am", "1:30pm", "12pm" for noon in English, the
+ * short way of writing it Magic Compose has always used; in other languages,
+ * the short time `Intl` gives, as a slot's time shows it (`formatSlotTime`):
+ * "09:00" in Swedish.
+ */
+function formatTime(hhmm: string, locale: string): string {
   const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  if (locale !== 'en') {
+    return new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone: 'UTC' }).format(
+      Date.UTC(1970, 0, 1, h, m),
+    );
+  }
   const hour = h % 12 || 12;
   return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}`;
 }
 
-/** How long from `start` to `end`, both "HH:MM": "15 min", "4 hr", "1 hr 30 min". */
-export function timeLength(start: string, end: string): string {
+/** `timeLength`'s formatters, made once per language: it runs for every time in a list. */
+const lengthFormats = new Map<
+  string,
+  { hour: Intl.NumberFormat; minute: Intl.NumberFormat; pair: Intl.ListFormat }
+>();
+
+function lengthFormatsFor(locale: string) {
+  let formats = lengthFormats.get(locale);
+  if (!formats) {
+    const short = (unit: 'hour' | 'minute') =>
+      new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' });
+    formats = {
+      hour: short('hour'),
+      minute: short('minute'),
+      pair: new Intl.ListFormat(locale, { type: 'unit', style: 'narrow' }),
+    };
+    lengthFormats.set(locale, formats);
+  }
+  return formats;
+}
+
+/**
+ * How long from `start` to `end`, both "HH:MM", in short units: "15 min",
+ * "4 hr", "1 hr 30 min" in English, "1 tim 30 min" in Swedish.
+ */
+export function timeLength(start: string, end: string, locale: string): string {
   const minutes = (hhmm: string) => +hhmm.slice(0, 2) * 60 + +hhmm.slice(3);
   const length = minutes(end) - minutes(start);
   const h = Math.floor(length / 60);
   const m = length % 60;
-  return [h && `${h} hr`, m && `${m} min`].filter(Boolean).join(' ');
+  const { hour, minute, pair } = lengthFormatsFor(locale);
+  const parts: string[] = [];
+  if (h) parts.push(hour.format(h));
+  if (m) parts.push(minute.format(m));
+  return pair.format(parts);
 }
 
 /** "9am to 1pm", "from 9am" or "until 1pm", or null with neither time. */
-function formatTimes({ from, to }: { from?: string; to?: string }): string | null {
-  if (from && to) return `${formatTime(from)} to ${formatTime(to)}`;
-  if (from) return `from ${formatTime(from)}`;
-  return to ? `until ${formatTime(to)}` : null;
+function formatTimes({ from, to }: { from?: string; to?: string }, locale: string): string | null {
+  if (from && to) return `${formatTime(from, locale)} to ${formatTime(to, locale)}`;
+  if (from) return `from ${formatTime(from, locale)}`;
+  return to ? `until ${formatTime(to, locale)}` : null;
 }
 
 /**
  * A one-day answer's day and times, as the screen and Back write them:
  * "Saturday, November 14" (with the year when it isn't this one) and
- * "9am to 1pm", "from 9am" or "until 1pm".
+ * "9am to 1pm", "from 9am" or "until 1pm". In Swedish the day is
+ * "lördag 14 november".
  */
 export function formatOneDay(
   when: Extract<WhenAnswer, { kind: 'one_day' }>,
+  locale: string,
   now: Date = new Date(),
 ): { day: string; times: string | null } {
   const [y = 0, m = 1, d = 1] = when.date.split('-').map(Number);
   const at = new Date(0);
   at.setUTCFullYear(y, m - 1, d);
-  const day = at.toLocaleDateString('en-US', {
+  const day = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     timeZone: 'UTC',
     ...(y === now.getFullYear() ? {} : { year: 'numeric' }),
-  });
-  return { day, times: formatTimes(when) };
+  }).format(at);
+  return { day, times: formatTimes(when, locale) };
 }
 
 /**
@@ -256,6 +302,7 @@ export function appendAnswers(
   prompt: string,
   questions: MagicComposeQuestions,
   answers: Answers,
+  locale: string,
   now?: Date,
 ): string {
   const followUp = buildFollowUp(questions, answers);
@@ -270,12 +317,12 @@ export function appendAnswers(
   }
   const when = followUp.when;
   if (when?.kind === 'one_day') {
-    const { day, times } = formatOneDay(when, now);
+    const { day, times } = formatOneDay(when, locale, now);
     lines.push(`When: ${times ? `${day}, ${times}` : day}`);
   } else if (when?.kind === 'several') {
     lines.push(`When: ${when.text}`);
   } else if (when && answers.when === 'one_day') {
-    const times = formatTimes(answers);
+    const times = formatTimes(answers, locale);
     if (times) lines.push(`When: ${times}`);
   }
   if (lines.length === 0) return prompt;

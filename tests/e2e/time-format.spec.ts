@@ -21,7 +21,7 @@ test.describe('time field display', () => {
     page,
   }) => {
     // A fresh signup per run so retries and projects never compete over one row.
-    // createSignup applies DEFAULT_TEMPLATE: fields `what` (text) and `date`.
+    // createSignup applies the default template: fields `what` (text) and `date`.
     const signup = await post(page.request, '/api/signups', {
       title: `Time format ${Date.now()}`,
       description: '',

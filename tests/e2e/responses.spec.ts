@@ -1,7 +1,11 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { removeRefusal } from '@/app/app/(chrome)/signups/[id]/responses/remove-refusal';
-import { CANCELLED_PAGE } from '@/app/s/[slug]/cancelled-message';
+import { cancelledPage } from '@/app/s/[slug]/cancelled-message';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { loginAsSeededOrganizer } from './helpers/auth';
+
+// The participant's cancelled page, in English, from the catalog.
+const CANCELLED_PAGE = cancelledPage(getTestTranslator('participant.cancelledPage'));
 
 /** Each row's Remove is named for its person and slot. */
 const REMOVE_SAM = 'Remove Sam Example from Fruit and water';

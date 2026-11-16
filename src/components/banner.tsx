@@ -6,23 +6,40 @@ const STYLES: Record<Kind, string> = {
   aiDraft: 'bg-brand/10 text-brand',
 };
 
+/** A ✕ that closes the banner, or none. */
+type Dismiss =
+  | { onDismiss?: undefined; dismissLabel?: undefined }
+  | {
+      onDismiss: () => void;
+      /**
+       * The ✕'s name for a screen reader, such as "Dismiss", in the page's
+       * language. A prop rather than a translation hook, because organizer
+       * pages show banners too, and they have no messages provider.
+       */
+      dismissLabel: string;
+    };
+
+/**
+ * A coloured notice near the top of a page, such as Preview or Closed. All its
+ * text comes from the caller, already in the page's language.
+ */
 export function Banner({
   kind,
   title,
   body,
   onDismiss,
+  dismissLabel,
   live = true,
 }: {
   kind: Kind;
   title: string;
   body: string;
-  onDismiss?: () => void;
   /**
    * A live region (`role="status"`) unless false: for a banner that says what
    * the page is, where the change that put it there is announced already.
    */
   live?: boolean;
-}) {
+} & Dismiss) {
   return (
     <div
       role={live ? 'status' : undefined}
@@ -36,7 +53,7 @@ export function Banner({
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Dismiss"
+          aria-label={dismissLabel}
           className="text-current/70 hover:bg-current/10 flex-shrink-0 rounded-md p-1 hover:text-current"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">

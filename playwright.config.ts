@@ -19,12 +19,26 @@ export default defineConfig({
     // Production server: run `pnpm build` first. Locally an already-running
     // `pnpm dev` on :3000 is reused instead.
     command: 'pnpm start',
+    // Shows the seeded Swedish signup in Swedish though Swedish hasn't shipped
+    // (`signupLocale` in src/i18n/config.ts), and nothing else: it can't make
+    // Swedish anybody's choice. A server you start yourself for these specs
+    // needs it too.
+    env: { E2E_UNSHIPPED_LOCALES: 'sv' },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Chromium on Linux saves a download only under a name the locale's
+        // character set can write: in the C locale, a container's default,
+        // "Räksmörgås.ics" becomes "download". People's desktops use UTF-8.
+        launchOptions: { env: { ...process.env, LC_CTYPE: 'C.UTF-8' } as Record<string, string> },
+      },
+    },
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 14'] },

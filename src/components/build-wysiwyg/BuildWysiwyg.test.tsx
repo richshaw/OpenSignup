@@ -31,6 +31,8 @@ const baseProps = {
   initialSlots: [],
   initialSettings: settings,
   committedBySlot: {},
+  locale: 'en' as const,
+  fieldDefaults: { name: 'Untitled', firstChoice: 'Option 1' },
 };
 
 function findSheet(container: HTMLElement): HTMLElement | null {
@@ -206,6 +208,83 @@ describe('BuildWysiwyg — group headers', () => {
 
     // Ann's group and the one empty group; no third group under an invisible heading.
     expect(screen.getAllByRole('button', { name: /Group header/ })).toHaveLength(2);
+  });
+});
+
+describe('BuildWysiwyg — the signup’s language', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** A signup grouped by a text field, its groups in no order. */
+  const groupedBy = (locale: 'en' | 'sv') =>
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        locale={locale}
+        initialFields={[
+          {
+            id: 'f-who',
+            ref: 'who',
+            label: 'Who',
+            fieldType: 'text',
+            sortOrder: 0,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+        ]}
+        initialSettings={{ ...settings, groupByFieldRefs: ['who'] }}
+        initialSlots={['Ödla', 'Zebra', 'Äpple', 'Apa'].map((who, i) => ({
+          id: `slot_${i}`,
+          capacity: 1,
+          sortOrder: i,
+          values: { who },
+        }))}
+      />,
+    );
+  const headings = () =>
+    screen
+      .getAllByRole('button', { name: /Group header/ })
+      .map((b) => b.getAttribute('aria-label')?.replace('Group header \u2014 ', ''));
+
+  it('sorts group headings in its alphabetical order, Å, Ä and Ö after Z in Swedish', () => {
+    groupedBy('sv');
+    expect(headings()).toEqual(['Apa', 'Zebra', 'Äpple', 'Ödla']);
+  });
+
+  it('sorts them in English’s for an English signup, whatever the browser’s language', () => {
+    groupedBy('en');
+    expect(headings()).toEqual(['Apa', 'Äpple', 'Ödla', 'Zebra']);
+  });
+
+  it('names a field added without a name, and its first option, with the defaults it’s given', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({ data: { id: 'f-new', sortOrder: 0, ...body } }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <BuildWysiwyg
+        {...baseProps}
+        locale="sv"
+        fieldDefaults={{ name: 'Namnlös', firstChoice: 'Alternativ 1' }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Fields/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'List' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Add field$/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/signups/sig_t/fields');
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      label: 'Namnlös',
+      config: { fieldType: 'enum', choices: ['Alternativ 1'] },
+    });
   });
 });
 

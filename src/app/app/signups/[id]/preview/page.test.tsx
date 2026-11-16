@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ship } from '@/i18n/testing/ship';
 import { ServiceException, serviceError } from '@/lib/errors';
 import { ok } from '@/lib/result';
 
@@ -22,6 +23,8 @@ vi.mock('@/services/commitments', () => ({
   committedBySlot: (...args: unknown[]) => committedBySlot(...args),
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: vi.fn() }));
+// Unit tests have no server environment; the instance sets no language.
+vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => undefined }));
 
 const { default: SignupPreviewPage, generateMetadata } = await import('./page');
 
@@ -41,7 +44,8 @@ const signup = {
   ],
 };
 
-type ViewProps = { slots: { id: string; committed: number }[] };
+type ViewProps = { slots: { id: string; committed: number }[]; locale: string };
+type PreviewPage = ReactElement<{ lang?: string; children: ReactElement<ViewProps> }>;
 
 describe('organizer preview page', () => {
   beforeEach(() => {
@@ -62,6 +66,28 @@ describe('organizer preview page', () => {
       ['slot_a', 1],
       ['slot_b', 1],
     ]);
+  });
+
+  // What participants will see, in the language they'll see it in, inside an
+  // organizer page that's in the organizer's.
+  it('wraps the participant view in a Swedish signup’s language, and gives its dates that language', async () => {
+    ship('participant', ['en', 'sv']);
+    getSignupForOrganizer.mockResolvedValue(ok({ ...signup, settings: { locale: 'sv' } }));
+    const page = (await SignupPreviewPage({
+      params: Promise.resolve({ id: 'sig_1' }),
+    })) as PreviewPage;
+
+    expect(page.props.lang).toBe('sv');
+    expect(page.props.children.props.locale).toBe('sv');
+  });
+
+  it('marks an English signup’s preview English, as its page is', async () => {
+    const page = (await SignupPreviewPage({
+      params: Promise.resolve({ id: 'sig_1' }),
+    })) as PreviewPage;
+
+    expect(page.props.lang).toBe('en');
+    expect(page.props.children.props.locale).toBe('en');
   });
 
   it('shows the not-found card for a signup in a workspace the organizer is not in', async () => {

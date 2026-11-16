@@ -37,7 +37,13 @@ function expectNoCard(region: HTMLElement) {
 describe('<Drafting />', () => {
   it('renders skeletons and no SAMPLE text when draft is null (pending phase)', () => {
     render(
-      <Drafting prompt="anything" draft={null} onCancel={() => {}} onAnimationDone={() => {}} />,
+      <Drafting
+        prompt="anything"
+        locale="en"
+        draft={null}
+        onCancel={() => {}}
+        onAnimationDone={() => {}}
+      />,
     );
     expect(screen.queryByText(/Snack duty, U9 Eagles/)).toBeNull();
     expect(screen.queryByText(/Spring season/)).toBeNull();
@@ -60,6 +66,7 @@ describe('<Drafting />', () => {
     render(
       <Drafting
         prompt="Bake sale"
+        locale="en"
         followUp={{
           what: { picked: ['Staff the table'], added: [] },
           when: { kind: 'not_decided' },
@@ -95,7 +102,15 @@ describe('<Drafting />', () => {
   });
 
   it('keeps the steps it always had for a description that drafts at once', () => {
-    render(<Drafting prompt="hello" draft={null} onCancel={() => {}} onAnimationDone={() => {}} />);
+    render(
+      <Drafting
+        prompt="hello"
+        locale="en"
+        draft={null}
+        onCancel={() => {}}
+        onAnimationDone={() => {}}
+      />,
+    );
     expect(screen.queryByText('A few details')).toBeNull();
     // Organizers read "fields" on the Build tab, so the drafting screen says the same.
     expect(screen.getByText('Fields')).toBeInTheDocument();
@@ -117,6 +132,7 @@ describe('<Drafting />', () => {
       const { unmount } = render(
         <Drafting
           prompt="Bake sale"
+          locale="en"
           followUp={followUp}
           draft={makeDraft(2, 3)}
           onCancel={() => {}}
@@ -147,7 +163,13 @@ describe('<Drafting />', () => {
     try {
       const draft = makeDraft(2, 3);
       render(
-        <Drafting prompt="hello" draft={draft} onCancel={() => {}} onAnimationDone={() => {}} />,
+        <Drafting
+          prompt="hello"
+          locale="en"
+          draft={draft}
+          onCancel={() => {}}
+          onAnimationDone={() => {}}
+        />,
       );
       // Advance past all step durations + typewriter (1200ms max + safety).
       act(() => {
@@ -169,7 +191,13 @@ describe('<Drafting />', () => {
     try {
       const draft = makeDraft(12, 50);
       render(
-        <Drafting prompt="big one" draft={draft} onCancel={() => {}} onAnimationDone={() => {}} />,
+        <Drafting
+          prompt="big one"
+          locale="en"
+          draft={draft}
+          onCancel={() => {}}
+          onAnimationDone={() => {}}
+        />,
       );
       act(() => {
         vi.advanceTimersByTime(15_000);

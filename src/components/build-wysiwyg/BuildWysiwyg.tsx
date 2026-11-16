@@ -13,7 +13,9 @@ import { useReorderable } from '../build-shared/useReorderable';
 import { Editable } from './Editable';
 import { EditingRail } from './EditingRail';
 import { FieldsPopover } from './FieldsPopover';
+import type { FieldDefaults } from './InlineFieldForm';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
+import type { CatalogLocale } from '@/i18n/config';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { MAX_CHOICES } from '@/schemas/slot-field-basics';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
@@ -36,6 +38,17 @@ type BuildWysiwygProps = {
    * Slots added in this session start empty, so they read 0 without an entry.
    */
   committedBySlot: Record<string, number>;
+  /**
+   * The signup's language, the one its participants get. Group headings sort
+   * in its alphabetical order, so the server's render and the browser's
+   * agree: each sorting in its own language could disagree. Dates and times
+   * here stay English, like the rest of the organizer's screens for now:
+   * they're formatted in the browser too, whose ICU can abbreviate a
+   * language's days differently from the server's.
+   */
+  locale: CatalogLocale;
+  /** What a new field gets for what the organizer leaves unset, in the signup's language. */
+  fieldDefaults: FieldDefaults;
 };
 
 const EMPTY_GROUP_KEY = '__empty__';
@@ -65,8 +78,15 @@ function sheetMaxWidthClass(fieldCount: number): string {
   return 'md:max-w-[960px]';
 }
 
-/** Bucket rows by the group field's value. Empty / missing values go into `__empty__`. */
-function partitionRows(rows: BuildRow[], groupField: BuildField | null): SlotGroup[] {
+/**
+ * Bucket rows by the group field's value, in `locale`'s alphabetical order.
+ * Empty / missing values go into `__empty__`, last.
+ */
+function partitionRows(
+  rows: BuildRow[],
+  groupField: BuildField | null,
+  locale: CatalogLocale,
+): SlotGroup[] {
   if (!groupField) {
     return [{ key: '__flat__', rawValue: '', rows }];
   }
@@ -84,7 +104,7 @@ function partitionRows(rows: BuildRow[], groupField: BuildField | null): SlotGro
   const keys = [...buckets.keys()].sort((a, b) => {
     if (a === EMPTY_GROUP_KEY) return 1;
     if (b === EMPTY_GROUP_KEY) return -1;
-    return a.localeCompare(b);
+    return a.localeCompare(b, locale);
   });
   return keys.map((k) => ({
     key: k,
@@ -100,6 +120,8 @@ export function BuildWysiwyg({
   initialSlots,
   initialSettings,
   committedBySlot,
+  locale,
+  fieldDefaults,
 }: BuildWysiwygProps) {
   const {
     state,
@@ -161,7 +183,10 @@ export function BuildWysiwyg({
   // collapsed row's anchor — order matters, no type-based promotion here.
   const displayFields = state.fields.filter((f) => f.ref !== groupField?.ref);
 
-  const groups = useMemo(() => partitionRows(state.rows, groupField), [state.rows, groupField]);
+  const groups = useMemo(
+    () => partitionRows(state.rows, groupField, locale),
+    [state.rows, groupField, locale],
+  );
   // Groups are keyed by their value, so a heading rename would remount the
   // group. A click outside the heading's picker commits it on mousedown, and
   // the remount before mouseup lost the click: Add a slot under the renamed
@@ -425,6 +450,7 @@ export function BuildWysiwyg({
         open={fieldsOpen}
         onOpenChange={setFieldsOpen}
         fields={state.fields}
+        fieldDefaults={fieldDefaults}
         groupByFieldRef={state.groupByFieldRef}
         reminderFieldRef={state.reminderFieldRef}
         onAddField={(name, config) => {
