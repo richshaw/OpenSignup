@@ -23,9 +23,13 @@ import { instanceDefaultLocale } from './server';
  * language from a layout above it: a client-side navigation re-renders the
  * page but not the layout, as `requireOrganizerSession` explains. It costs
  * no statement, since the session has read the stored language already.
+ * With no session (a tab title worked out for a visitor the page will send
+ * to sign in), it's the language of an account with none stored.
  */
-export function getOrganizerAppLocale(session: Pick<OrganizerSession, 'locale'>): CatalogLocale {
-  return organizerAppLocale(session.locale, instanceDefaultLocale());
+export function getOrganizerAppLocale(
+  session: Pick<OrganizerSession, 'locale'> | null,
+): CatalogLocale {
+  return organizerAppLocale(session?.locale ?? null, instanceDefaultLocale());
 }
 
 /**

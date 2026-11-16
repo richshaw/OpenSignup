@@ -31,6 +31,13 @@ const TRANSLATED = [
   // The emails a participant gets, the pieces they share, and any email
   // added here later, but the sign-in email (`NOT_YET_TRANSLATED`).
   'src/email/templates',
+  // The organizer app's header and crumbs, Your signups, and the card a
+  // signup's pages show when it can't be loaded.
+  'src/app/app/(chrome)/layout.tsx',
+  'src/app/app/(chrome)/page.tsx',
+  'src/app/app/(chrome)/@crumbs',
+  'src/components/chrome',
+  'src/components/signup/SignupLoadError.tsx',
 ];
 
 /**

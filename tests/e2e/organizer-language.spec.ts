@@ -41,6 +41,9 @@ function languageOf(locator: Locator): Promise<string | null | undefined> {
 /** A rich message as the page shows it: its text, tags and all left as text. */
 const plain = (chunks: string) => chunks;
 
+/** A tab title that starts with `text`, then the site's name. */
+const titled = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · `);
+
 for (const stored of STORED) {
   const locale = stored ?? 'en';
   const unshippedHint = stored
@@ -58,14 +61,42 @@ for (const stored of STORED) {
       await loginAsSeededOrganizer(context, { sessionToken: organizer.sessionToken });
     });
 
-    test(`sees the dashboard and the crumbs marked ${locale}`, async ({ page }) => {
+    test(`sees the header, Your signups and the crumbs in ${locale}`, async ({ page }) => {
+      const chrome = messagesIn(locale, 'organizer.chrome');
+      const dashboard = messagesIn(locale, 'organizer.dashboard');
+      const crumbs = messagesIn(locale, 'organizer.crumbs');
+
       await page.goto('/app');
       expect(await languageOf(page.getByRole('banner')), unshippedHint).toBe(locale);
-      expect(await languageOf(page.getByRole('heading', { level: 1 }))).toBe(locale);
+      const trail = page.getByRole('navigation', { name: chrome('breadcrumb') });
+      await expect(trail.getByRole('link', { name: chrome('home') })).toBeVisible();
+      await expect(page.getByRole('button', { name: chrome('signOut') })).toBeVisible();
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toHaveText(dashboard('title'));
+      expect(await languageOf(heading)).toBe(locale);
+      await expect(page).toHaveTitle(titled(dashboard('title')));
+      await expect(page.getByText(dashboard('total', { count: 2 }))).toBeVisible();
+      await expect(page.getByText(dashboard('draftOnlyYou'))).toBeVisible();
 
       await page.goto('/app/settings');
-      const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
-      expect(await languageOf(crumbs.locator('[aria-current="page"]'))).toBe(locale);
+      const here = trail.locator('[aria-current="page"]');
+      await expect(here).toHaveText(crumbs('settings'));
+      expect(await languageOf(here)).toBe(locale);
+      await page.goto('/app/settings/connected-apps');
+      await expect(trail.getByRole('link', { name: crumbs('settings') })).toBeVisible();
+      await expect(here).toHaveText(crumbs('connectedApps'));
+      await page.goto('/app/signups/new');
+      await expect(here).toHaveText(crumbs('newSignup'));
+    });
+
+    test(`is told in ${locale} when a signup can’t be found`, async ({ page }) => {
+      const loadError = messagesIn(locale, 'organizer.loadError');
+      await page.goto('/app/signups/sig_doesnotexist/build');
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(heading).toHaveText(loadError('notFound.title'));
+      expect(await languageOf(heading)).toBe(locale);
+      await expect(page).toHaveTitle(titled(loadError('tabTitle')));
+      await expect(page.getByRole('link', { name: loadError('goToSignups') })).toBeVisible();
     });
 
     test(`sees the strip on their signup’s page in ${locale}`, async ({ page }) => {
