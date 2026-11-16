@@ -39,7 +39,7 @@ How it looks in place, under `<repo root>/translation-review/`:
   subject as it's sent, from `email.subject` in the catalog (the word
   "Subject:" is the file's, not the email's). The "OpenSignup" below it is the
   product's name, the same in every language. In the `.html` the subject is
-  the hidden preview text at the top of `<body>`. `en/emails/` also holds the
+  the hidden preview text just before `<body>`. `en/emails/` also holds the
   sign-in email (`magic-link`), which has no translation on purpose: it's
   organizer text, still in English.
 
