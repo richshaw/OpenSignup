@@ -221,7 +221,7 @@ space, because it adds a sentence after the full stop before it, and the
 
 ```json
 "keep": "… so don't forward it.{reminder, select, yes { We'll also send you a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}}.} other {}}"
-"keep": "… så vidarebefordra inte mejlet.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
+"keep": "… så dela inte mejlet med någon.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
 ```
 
 `participant.dialog.emailHelp` starts its `yes` branch with ", and" for the
@@ -674,7 +674,7 @@ undo it by accident.
 | What, Date, Option 1 (a new signup's fields)                 | Vad, Datum, Alternativ 1      |                                                                                                                                                  |
 | Sorry                                                        | Tyvärr                        | "Tyvärr, den här länken fungerar inte"                                                                                                           |
 | Privacy (the footer link)                                    | Integritetspolicy             |                                                                                                                                                  |
-| Keep this email to yourself; keep it private                 | dela inte … med någon         | "Dela inte mejlet med någon", "så dela inte länken med någon"; or "vidarebefordra inte mejlet", as the confirmation says it. Not _håll … privat_ |
+| Keep this email to yourself; keep it private                 | dela inte … med någon         | "Dela inte mejlet med någon", "så dela inte länken med någon", also where the confirmation email says "so don't forward it". Not _håll … privat_ |
 | Too many tries just now                                      | För många försök på kort tid  | _Just nu_ means "right now", not "a moment ago"                                                                                                  |
 | Cookies (the footer link)                                    | Cookies                       | Kept: _kakor_ is the recommended word, but most Swedish sites say "Cookies"                                                                      |
 
@@ -902,6 +902,10 @@ The owner's tophat of the whole stack, on 15 November 2026, settled these.
    signup's "Skapa lista" (Organizer terms says why). Everywhere else it's
    the whole word, so account Settings' language help says "under dess flik
    Inställningar", not "under listans flik".
+2. **One way to say "don't share this email".** The confirmation email said
+   "vidarebefordra inte mejlet" and the reminder and time-change emails "Dela
+   inte mejlet med någon", for English's "don't forward it" and "Keep this
+   email to yourself". All three now say "dela inte mejlet med någon".
 
 ### Open questions
 

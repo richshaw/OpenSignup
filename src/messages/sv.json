@@ -256,7 +256,7 @@
     "confirmation": {
       "heading": "Du är anmäld",
       "intro": "Tack {name}, du har anmält dig till <b>{title}</b>.",
-      "keep": "Spara det här mejlet. Med knappen ovan kan du ändra eller avboka senare, utan att behöva något lösenord. Alla som har länken kan ändra din anmälan, så vidarebefordra inte mejlet.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
+      "keep": "Spara det här mejlet. Med knappen ovan kan du ändra eller avboka senare, utan att behöva något lösenord. Alla som har länken kan ändra din anmälan, så dela inte mejlet med någon.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
     },
     "reminder": {
       "heading": "Snart dags",
