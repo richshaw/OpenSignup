@@ -5,6 +5,7 @@ import { activity } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -103,19 +104,19 @@ describe('setOrganizerLocaleAction (db)', () => {
     // language, so none may be served from before the save.
     expect(revalidatePath).toHaveBeenCalledWith('/app', 'layout');
 
-    ship('participant', ['en', 'sv']);
-    expect(await submit({ locale: 'sv' })).toBe(SAVED);
-    expect(await stored(mine)).toBe('sv');
+    ship('participant', ['en', OTHER_LOCALE]);
+    expect(await submit({ locale: OTHER_LOCALE })).toBe(SAVED);
+    expect(await stored(mine)).toBe(OTHER_LOCALE);
   });
 
   it('saves on the signed-in organizer only, whoever the form names', async () => {
     await db.update(organizers).set({ locale: 'en' }).where(eq(organizers.id, theirs));
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
 
-    expect(await submit({ locale: 'sv', organizerId: theirs, id: theirs, organizer: theirs })).toBe(
-      SAVED,
-    );
-    expect(await stored(mine)).toBe('sv');
+    expect(
+      await submit({ locale: OTHER_LOCALE, organizerId: theirs, id: theirs, organizer: theirs }),
+    ).toBe(SAVED);
+    expect(await stored(mine)).toBe(OTHER_LOCALE);
     expect(await stored(theirs)).toBe('en');
   });
 
@@ -124,7 +125,7 @@ describe('setOrganizerLocaleAction (db)', () => {
     revalidatePath.mockClear();
 
     const forms: Record<string, string>[] = [
-      { locale: 'sv' },
+      { locale: OTHER_LOCALE },
       { locale: 'xx' },
       { locale: '' },
       {},

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getTranslator } from '@/i18n/translator';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { SlotFieldInputSchema } from '@/schemas/slot-fields';
 import { defaultTemplate } from './signup-templates';
@@ -37,10 +38,10 @@ describe('signup templates', () => {
     });
 
     it('names the columns from the catalog, in the language it is given', () => {
-      const asked = defaultTemplate(getStandInTranslator('sv', 'participant.defaults'));
+      const asked = defaultTemplate(getStandInTranslator(OTHER_LOCALE, 'participant.defaults'));
       expect(asked.fields.map((f) => f.label)).toEqual([
-        'participant.defaults.what in sv',
-        'participant.defaults.date in sv',
+        `participant.defaults.what in ${OTHER_LOCALE}`,
+        `participant.defaults.date in ${OTHER_LOCALE}`,
       ]);
       expect(defaultTemplate(swedish).fields.map((f) => f.label)).toEqual(['Vad', 'Datum']);
     });

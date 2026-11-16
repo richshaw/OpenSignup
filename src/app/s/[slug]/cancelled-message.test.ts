@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { cancelledPage, wasCancelled } from './cancelled-message';
 
@@ -71,30 +72,30 @@ describe('cancelledPage', () => {
 
   // In the page's language: each line is the catalog's, by its key.
   it('takes every line from the catalog in the translator’s language', () => {
-    expect(cancelledPage(getStandInTranslator('sv', 'participant.cancelledPage'))).toEqual({
+    expect(cancelledPage(getStandInTranslator(OTHER_LOCALE, 'participant.cancelledPage'))).toEqual({
       open: {
-        title: 'participant.cancelledPage.title in sv',
-        body: 'participant.cancelledPage.open in sv',
+        title: `participant.cancelledPage.title in ${OTHER_LOCALE}`,
+        body: `participant.cancelledPage.open in ${OTHER_LOCALE}`,
       },
       full: {
-        title: 'participant.cancelledPage.title in sv',
-        body: 'participant.cancelledPage.full in sv',
+        title: `participant.cancelledPage.title in ${OTHER_LOCALE}`,
+        body: `participant.cancelledPage.full in ${OTHER_LOCALE}`,
       },
       slotClosed: {
-        title: 'participant.cancelledPage.title in sv',
-        body: 'participant.cancelledPage.slotClosed in sv',
+        title: `participant.cancelledPage.title in ${OTHER_LOCALE}`,
+        body: `participant.cancelledPage.slotClosed in ${OTHER_LOCALE}`,
       },
       signupClosed: {
-        title: 'participant.cancelledPage.title in sv',
-        body: 'participant.cancelledPage.signupClosed in sv',
+        title: `participant.cancelledPage.title in ${OTHER_LOCALE}`,
+        body: `participant.cancelledPage.signupClosed in ${OTHER_LOCALE}`,
       },
       removed: {
-        title: 'participant.cancelledPage.removed.title in sv',
-        body: 'participant.cancelledPage.removed.body in sv',
+        title: `participant.cancelledPage.removed.title in ${OTHER_LOCALE}`,
+        body: `participant.cancelledPage.removed.body in ${OTHER_LOCALE}`,
       },
       moved: {
-        title: 'participant.cancelledPage.moved.title in sv',
-        body: 'participant.cancelledPage.moved.body in sv',
+        title: `participant.cancelledPage.moved.title in ${OTHER_LOCALE}`,
+        body: `participant.cancelledPage.moved.body in ${OTHER_LOCALE}`,
       },
     });
   });

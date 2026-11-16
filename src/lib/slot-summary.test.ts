@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { summarizeSlotValues } from './slot-summary';
 
@@ -88,9 +90,9 @@ describe('summarizeSlotValues', () => {
 
   it('reads the values in the language it is given', () => {
     const fields = [{ ...field('day', 'Day'), fieldType: 'date' as const }, field('role', 'Role')];
-    expect(summarizeSlotValues(fields, { day: '2025-05-03', role: 'Front desk' }, 'sv')).toBe(
-      'lör 3 maj · Front desk',
-    );
+    expect(
+      summarizeSlotValues(fields, { day: '2025-05-03', role: 'Front desk' }, OTHER_LOCALE),
+    ).toBe(`${formatSlotDate('2025-05-03', OTHER_LOCALE)} · Front desk`);
   });
 
   it('is empty rather than falling back to the slug-shaped ref', () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { rateLimitMessage } from './rate-limit-message';
 
@@ -60,13 +61,13 @@ describe('rateLimitMessage', () => {
   });
 
   it('takes its lines from the translator it is given', () => {
-    const sv = getStandInTranslator('sv', 'participant.errors');
-    expect(rateLimitMessage(limited(3412), sv)).toStrictEqual({
-      message: 'participant.errors.rateLimit.message in sv',
-      suggestion: 'participant.errors.rateLimit.wait in sv',
+    const other = getStandInTranslator(OTHER_LOCALE, 'participant.errors');
+    expect(rateLimitMessage(limited(3412), other)).toStrictEqual({
+      message: `participant.errors.rateLimit.message in ${OTHER_LOCALE}`,
+      suggestion: `participant.errors.rateLimit.wait in ${OTHER_LOCALE}`,
     });
-    expect(rateLimitMessage({ code: 'rate_limited' }, sv)?.suggestion).toBe(
-      'participant.errors.rateLimit.waitAWhile in sv',
+    expect(rateLimitMessage({ code: 'rate_limited' }, other)?.suggestion).toBe(
+      `participant.errors.rateLimit.waitAWhile in ${OTHER_LOCALE}`,
     );
   });
 

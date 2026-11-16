@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import { loadSeed } from './helpers/fixtures';
-import { gotoSwedish } from './helpers/swedish';
+import { gotoIn, matching, messagesIn, signUpButton } from './helpers/languages';
 
 /**
  * Messages with arguments, formatted the way production formats them.
@@ -11,11 +12,14 @@ import { gotoSwedish } from './helpers/swedish';
  * raw JSON and use the full formatter, so only a real build shows what pages
  * print. The footer's `{instance} · AGPL-3.0` is checked on every kind of
  * page, a slot row's count on the public signup page, and the text client
- * components read in the browser, in English and on the seeded Swedish
- * signup, whose plurals and number formats are Swedish's. Broken, a message prints its key path, like
- * `common.footer.license` (a compiled message mangled on its way to the
- * translator), or its own text, like `{instance} · AGPL-3.0` (a message that
- * skipped the loader, which this formatter leaves unfilled).
+ * components read in the browser, in English and on the seeded signup in
+ * each test language, whose plurals and number formats are its own. Broken,
+ * a message prints its key path, like `common.footer.license` (a compiled
+ * message mangled on its way to the translator), or its own text, like
+ * `{instance} · AGPL-3.0` (a message that skipped the loader, which this
+ * formatter leaves unfilled). A test language's expected text comes from its
+ * catalog through the full formatter (`messagesIn`), so the two formatters
+ * must agree on the built page.
  *
  * Run against a production build (`pnpm build`, then the config's
  * `pnpm start`). `pnpm dev` precompiles as well, so it passes there too.
@@ -56,22 +60,33 @@ test.describe('a participant message with arguments', () => {
     );
   });
 
-  test('counts in Swedish on the Swedish signup, plurals and all', async ({ page }) => {
-    const { slug, slots, noDateHeading } = seed.swedish;
-    await gotoSwedish(page, `/s/${slug}`);
-    const row = (label: string) => page.locator('li').filter({ hasText: label });
-    await expect(
-      row(slots.many).locator('[aria-hidden="true"]').filter({ hasText: /kvar/ }),
-    ).toHaveText(/^\d+ kvar$/);
-    await expect(row(slots.many).locator('.sr-only').filter({ hasText: /kvar/ })).toHaveText(
-      /^\d+ av 20 platser kvar$/,
-    );
-    // One and two people on slots with no limit: the plural's two branches.
-    await expect(row(slots.unlimitedOne).locator('.sr-only')).toHaveText('1 anmäld');
-    await expect(row(slots.unlimitedTwo).locator('.sr-only')).toHaveText('2 anmälda');
-    // The date field's label goes into "(utan {label})" lowercased.
-    await expect(page.getByRole('heading', { name: noDateHeading })).toBeVisible();
-  });
+  for (const locale of TEST_LOCALES) {
+    const language = englishName(locale);
+    test(`counts in ${language} on the ${language} signup, plurals and all`, async ({ page }) => {
+      const { slug, slots, noDateHeading } = seed.languages[locale].open;
+      const slot = messagesIn(locale, 'participant.slot');
+      await gotoIn(page, locale, `/s/${slug}`);
+      const row = (label: string) => page.locator('li').filter({ hasText: label });
+      // 19 of 20 left, as seeded; any number, as other specs may sign up.
+      const left = matching(slot('left', { left: 19 }), { locale, count: 19 });
+      const leftOf = matching(slot('leftOf', { left: 19, capacity: 20 }), { locale, count: 19 });
+      await expect(
+        row(slots.many).locator('[aria-hidden="true"]').filter({ hasText: left }),
+      ).toHaveText(left);
+      await expect(row(slots.many).locator('.sr-only').filter({ hasText: leftOf })).toHaveText(
+        leftOf,
+      );
+      // One and two people on slots with no limit: the plural's two branches.
+      await expect(row(slots.unlimitedOne).locator('.sr-only')).toHaveText(
+        slot('signedUp', { count: 1 }),
+      );
+      await expect(row(slots.unlimitedTwo).locator('.sr-only')).toHaveText(
+        slot('signedUp', { count: 2 }),
+      );
+      // The date field's label goes into "(no {label})" lowercased.
+      await expect(page.getByRole('heading', { name: noDateHeading })).toBeVisible();
+    });
+  }
 });
 
 /**
@@ -108,36 +123,43 @@ test.describe('a message a client component reads', () => {
     await expect(suggestion.locator('..')).toHaveText('Did you mean pat@gmail.com?');
   });
 
-  test('fills in the Swedish sign-up sheet’s messages with arguments', async ({ page }) => {
-    const { slug, slots } = seed.swedish;
-    await gotoSwedish(page, `/s/${slug}`);
-    const open = async (label: string) => {
-      const row = page.locator('li').filter({ hasText: label });
-      await row.getByRole('button', { name: /^Anmäl dig till / }).click();
-      return page.getByRole('dialog');
-    };
+  for (const locale of TEST_LOCALES) {
+    test(`fills in the ${englishName(locale)} sign-up sheet’s messages with arguments`, async ({
+      page,
+    }) => {
+      const { slug, slots } = seed.languages[locale].open;
+      const dialog = messagesIn(locale, 'participant.dialog');
+      const fields = messagesIn(locale, 'participant.fields');
+      const slot = messagesIn(locale, 'participant.slot');
+      await gotoIn(page, locale, `/s/${slug}`);
+      const open = async (label: string) => {
+        const row = page.locator('li').filter({ hasText: label });
+        await row.getByRole('button', { name: signUpButton(locale) }).click();
+        return page.getByRole('dialog');
+      };
 
-    const sheet = await open(slots.many);
-    await expect(sheet).toHaveAccessibleDescription(/^\d+ av 20 platser kvar$/);
-    const email = sheet.getByRole('textbox', { name: 'E-post (valfritt)' });
-    // A dated slot, with reminders on: the select's `yes`.
-    await expect(email).toHaveAccessibleDescription(
-      'Vi mejlar dig en länk för att ändra eller avboka, och en påminnelse innan det är dags. Utan e-post behöver du spara länken som visas när du har anmält dig.',
-    );
-    await email.fill('pat@gmial.com');
-    const suggestion = sheet.getByRole('button', { name: 'pat@gmail.com' });
-    await expect(suggestion.locator('..')).toHaveText('Menade du pat@gmail.com?');
-    await sheet.getByRole('button', { name: 'Avbryt' }).click();
-    await expect(sheet).toBeHidden();
+      const sheet = await open(slots.many);
+      await expect(sheet).toHaveAccessibleDescription(
+        matching(slot('leftOf', { left: 19, capacity: 20 }), { locale, count: 19 }),
+      );
+      const email = sheet.getByRole('textbox', { name: fields('emailOptional') });
+      // A dated slot, with reminders on: the select's `yes`.
+      await expect(email).toHaveAccessibleDescription(dialog('emailHelp', { reminder: 'yes' }));
+      await email.fill('pat@gmial.com');
+      const suggestion = sheet.getByRole('button', { name: 'pat@gmail.com' });
+      await expect(suggestion.locator('..')).toHaveText(
+        dialog.markup('didYouMean', { email: 'pat@gmail.com', suggestion: (chunks) => chunks }),
+      );
+      await sheet.getByRole('button', { name: dialog('cancel') }).click();
+      await expect(sheet).toBeHidden();
 
-    // No date, so no reminder: the select's other branch.
-    const undated = await open(slots.unlimitedOne);
-    await expect(
-      undated.getByRole('textbox', { name: 'E-post (valfritt)' }),
-    ).toHaveAccessibleDescription(
-      'Vi mejlar dig en länk för att ändra eller avboka. Utan e-post behöver du spara länken som visas när du har anmält dig.',
-    );
-  });
+      // No date, so no reminder: the select's other branch.
+      const undated = await open(slots.unlimitedOne);
+      await expect(
+        undated.getByRole('textbox', { name: fields('emailOptional') }),
+      ).toHaveAccessibleDescription(dialog('emailHelp', { reminder: 'no' }));
+    });
+  }
 
   test('names the box on the edit page, rendered on the server and then in the browser', async ({
     page,

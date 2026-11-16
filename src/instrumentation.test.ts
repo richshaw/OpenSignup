@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { register } from './instrumentation';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 const warn = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/log', () => ({ log: { warn } }));
@@ -12,10 +13,10 @@ describe('register (server start)', () => {
 
   it('warns once when the server starts with E2E_UNSHIPPED_LOCALES set', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
-    vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
+    vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
     await register();
     expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0]?.[0]).toEqual({ E2E_UNSHIPPED_LOCALES: 'sv' });
+    expect(warn.mock.calls[0]?.[0]).toEqual({ E2E_UNSHIPPED_LOCALES: OTHER_LOCALE });
     expect(warn.mock.calls[0]?.[1]).toMatch(/unset it on a real instance/);
   });
 
@@ -28,7 +29,7 @@ describe('register (server start)', () => {
 
   it('says nothing on the edge runtime, which has no logger', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'edge');
-    vi.stubEnv('E2E_UNSHIPPED_LOCALES', 'sv');
+    vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
     await register();
     expect(warn).not.toHaveBeenCalled();
   });

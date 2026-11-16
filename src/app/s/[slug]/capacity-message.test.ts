@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { capacityMessage, offersAlternatives } from './capacity-message';
 
@@ -93,31 +94,31 @@ describe('the counts in the catalog', () => {
 });
 
 describe('capacityMessage in the signup’s language', () => {
-  const sv = getStandInTranslator('sv', 'participant.errors');
-  const say = (key: string) => `participant.errors.${key} in sv`;
+  const other = getStandInTranslator(OTHER_LOCALE, 'participant.errors');
+  const say = (key: string) => `participant.errors.${key} in ${OTHER_LOCALE}`;
 
   it('takes every line from the translator it is given', () => {
-    expect(capacityMessage(full(0, 1, [{ id: 'slot_2' }]), 'join', sv)).toEqual({
+    expect(capacityMessage(full(0, 1, [{ id: 'slot_2' }]), 'join', other)).toEqual({
       message: say('capacity.filledUp'),
       suggestion: say('capacity.pickAnother'),
     });
-    expect(capacityMessage(full(1, 2), 'join', sv)).toEqual({
+    expect(capacityMessage(full(1, 2), 'join', other)).toEqual({
       message: say('capacity.onlyLeft'),
       suggestion: say('capacity.askForOne'),
     });
-    expect(capacityMessage(full(3, 5), 'join', sv)).toEqual({
+    expect(capacityMessage(full(3, 5), 'join', other)).toEqual({
       message: say('capacity.onlyLeft'),
       suggestion: say('capacity.askForOrFewer'),
     });
-    expect(capacityMessage(full(0, 2), 'change', sv)).toEqual({
+    expect(capacityMessage(full(0, 2), 'change', other)).toEqual({
       message: say('capacity.full'),
       suggestion: say('keepNumber'),
     });
-    expect(capacityMessage(full(1, 3), 'change', sv)).toEqual({
+    expect(capacityMessage(full(1, 3), 'change', other)).toEqual({
       message: say('capacity.atMost'),
       suggestion: say('capacity.keepYourOne'),
     });
-    expect(capacityMessage(full(4, 6), 'change', sv)).toEqual({
+    expect(capacityMessage(full(4, 6), 'change', other)).toEqual({
       message: say('capacity.atMost'),
       suggestion: say('capacity.askForOrFewer'),
     });
