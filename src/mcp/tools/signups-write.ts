@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { SHIPPED } from '@/i18n/config';
+import { newSignupLocale } from '@/i18n/organizer';
 import { log } from '@/lib/log';
 import { persistDraft } from '@/lib/magic-compose/persist';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
@@ -8,6 +10,7 @@ import { ok } from '@/lib/result';
 import { SignupSettingsSchema, SignupUpdateInputSchema } from '@/schemas/signups';
 import {
   archiveSignup,
+  checkSignupLocale,
   closeSignup,
   deleteSignup,
   getSignupForOrganizer,
@@ -24,26 +27,42 @@ export const createSignupTool = defineTool({
   name: 'create_signup',
   scope: 'signups:write',
   title: 'Create signup',
-  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. A value that does not fit its field, or a field with no value in any slot, makes the whole call fail with invalid_input and nothing is created, so fix the call and send it again.`,
+  description: `Create a signup with its fields and slots in one step. It starts as a draft that participants cannot see until publish_signup. The result lists every field and slot with its id, so a slot id can go straight to update_slot or delete_slot without calling get_signup. If the result has a note instead of fields and slots, the signup was still created, and get_signup with its id returns it. The result includes links.edit to change the signup and links.preview to see what participants will see; links.public only says the signup is not ready yet until it is published. ${FIELD_GUIDE} groupBy names a field ref to group slots by on the public page. locale sets the language of OpenSignup's own wording on the signup's page and in its emails to participants (the title, fields and slots stay as written). It takes a language code, one of: ${SHIPPED.participant.join(', ')}. Without it, the signup starts in the organizer's language for new signups. A value that does not fit its field, or a field with no value in any slot, makes the whole call fail with invalid_input and nothing is created, so fix the call and send it again.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
+  // `locale` is the tool's, not the draft's: FullDraftSchema is also Magic
+  // Compose's output schema.
   inputSchema: FullDraftSchema.extend({
     workspaceId: z
       .string()
       .min(1)
       .optional()
       .describe('Defaults to the account default workspace.'),
+    locale: z.string().optional(),
   }),
   handler: async (ctx, input) => {
-    const { workspaceId, ...draft } = input;
+    const { workspaceId, locale, ...draft } = input;
+    // Checked with the rest of the input, so a refused one costs no quota, and
+    // named as the tool's input names it.
+    const sent = checkSignupLocale(locale, 'locale');
+    if (!sent.ok) return sent;
     const ws = resolveWorkspaceId(ctx, workspaceId);
     if (!ws.ok) return ws;
     // Policy first: a viewer's attempt must not cost a create-quota unit.
     requireWorkspaceWrite(ctx.actor, ws.value);
     await consumeRateLimit(ctx.db, RateLimits.signupCreatePerOrganizer, ctx.actor.id);
+    // The language the assistant sent (`api`), else the organizer's, chosen as
+    // for a signup made in the browser (none while only one language has
+    // shipped) but with no browser step: an assistant's Accept-Language names
+    // its vendor's language, not the organizer's.
+    const language =
+      sent.value === undefined
+        ? newSignupLocale({ locale: ctx.locale }, null)
+        : { locale: sent.value, source: 'api' as const };
     const persisted = await persistDraft(ctx.db, ctx.actor, ws.value, draft, {
       templateId: 'mcp',
       strict: true,
       logContext: { clientId: ctx.clientId },
+      ...(language ? { locale: language } : {}),
     });
     if (!persisted.ok) return persisted;
     // Read it back so ids and order are the stored ones, exactly as get_signup

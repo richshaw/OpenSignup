@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
@@ -7,6 +7,7 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { type Audience, type CatalogLocale, SHIPPED } from '@/i18n/config';
 import { makeId } from '@/lib/ids';
 import { DESCRIPTION_MAX_LENGTH } from '@/schemas/signups';
 import { commitToSlot } from '@/services/commitments';
@@ -16,6 +17,14 @@ import { connectTestClient } from './testing/client';
 import { contextForOrganizer } from './testing/context';
 import { signupLinks } from './links';
 import { TOOLS } from './tools';
+
+// The environment's own parse refuses a DEFAULT_LOCALE with no catalog, and
+// Swedish has none yet.
+const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => instance.defaultLocale,
+}));
 
 const db = getDb();
 const CLIENT = 'https://assistant.example/oauth/metadata.json';
@@ -479,6 +488,147 @@ describe('signup write tools on Postgres', () => {
       .from(signups)
       .where(eq(signups.id, c.signup.id));
     expect(after?.settings).toEqual(before?.settings);
+  });
+});
+
+describe('create_signup and the signup’s language on Postgres', () => {
+  // Only English has shipped today. The tests that need a choice ship Swedish
+  // by changing the list itself, so config.ts's own `isShipped` sees it too.
+  const asShippedToday = { ...SHIPPED };
+
+  afterEach(async () => {
+    Object.assign(SHIPPED, asShippedToday);
+    instance.defaultLocale = undefined;
+    await db.update(organizers).set({ locale: null }).where(eq(organizers.id, organizerId));
+  });
+
+  /**
+   * The context the route builds once the organizer has saved `saved`, so
+   * `ctx.locale` comes from their row as it does for a real request.
+   */
+  async function contextSaving(saved: string | null) {
+    await db.update(organizers).set({ locale: saved }).where(eq(organizers.id, organizerId));
+    return contextForOrganizer(db, organizerId, CLIENT);
+  }
+
+  async function create(as: ToolContext, locale?: string) {
+    const client = await connectTestClient(as, TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+        ...(locale === undefined ? {} : { locale }),
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    const body = r.structuredContent as { signup: { id: string } };
+    const [row] = await db
+      .select({ settings: signups.settings })
+      .from(signups)
+      .where(eq(signups.id, body.signup.id));
+    const [created] = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, body.signup.id), eq(activity.eventType, 'signup.created')));
+    return {
+      client,
+      body,
+      settings: row!.settings as Record<string, unknown>,
+      telemetry: created!.payload as Record<string, unknown>,
+    };
+  }
+
+  it('stores a language the assistant sends, records it as sent by the app, and answers as get_signup does', async () => {
+    const { client, body, settings, telemetry } = await create(await contextSaving('sv'), 'en');
+    expect(settings).toMatchObject({ locale: 'en' });
+    expect(telemetry).toEqual({
+      templateId: 'mcp',
+      fieldsAdded: 1,
+      slotsAdded: 1,
+      locale: 'en',
+      localeSource: 'api',
+      viaClientId: CLIENT,
+    });
+    const read = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: body.signup.id },
+    });
+    expect(body.signup).toEqual((read.structuredContent as { signup: unknown }).signup);
+  });
+
+  it('stores and records none without one while only English has shipped, whatever the organizer saved', async () => {
+    for (const saved of ['sv', 'en', null]) {
+      instance.defaultLocale = 'en';
+      const { settings, telemetry } = await create(await contextSaving(saved));
+      expect(settings, String(saved)).not.toHaveProperty('locale');
+      expect(telemetry, String(saved)).toEqual({
+        templateId: 'mcp',
+        fieldsAdded: 1,
+        slotsAdded: 1,
+        viaClientId: CLIENT,
+      });
+    }
+  });
+
+  describe('once Swedish has shipped to participants', () => {
+    beforeEach(() => {
+      (SHIPPED as Record<Audience, readonly string[]>).participant = ['en', 'sv' as CatalogLocale];
+    });
+
+    it.each([
+      { step: 'setting', saved: 'sv', instanceDefault: 'en', locale: 'sv' },
+      { step: 'instance', saved: null, instanceDefault: 'sv', locale: 'sv' },
+      // No browser step: an assistant has no browser of the organizer's to ask.
+      { step: 'default', saved: null, instanceDefault: undefined, locale: 'en' },
+    ])(
+      'without one, takes the organizer’s language ($step)',
+      async ({ step, saved, instanceDefault, locale }) => {
+        instance.defaultLocale = instanceDefault;
+        const { settings, telemetry } = await create(await contextSaving(saved));
+        expect(settings).toMatchObject({ locale });
+        expect(telemetry).toMatchObject({ locale, localeSource: step, viaClientId: CLIENT });
+      },
+    );
+
+    it('stores the one the assistant sends over the organizer’s', async () => {
+      const { settings, telemetry } = await create(await contextSaving('sv'), 'en');
+      expect(settings).toMatchObject({ locale: 'en' });
+      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'api' });
+    });
+  });
+
+  it('refuses a language that has not shipped, as the REST API does, and creates nothing', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const count = async () =>
+      (
+        await db
+          .select({ id: signups.id })
+          .from(signups)
+          .where(eq(signups.workspaceId, workspaceId))
+      ).length;
+    const before = await count();
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [{ ref: 'what', label: 'What', fieldType: 'text' }],
+        slots: [{ values: { what: 'Fruit' } }],
+        locale: 'sv',
+      },
+    });
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toEqual({
+      error: {
+        code: 'invalid_input',
+        message: 'locale must be a language OpenSignup offers for signups',
+        field: 'locale',
+        received: 'sv',
+        suggestion: 'leave it out, or use one of: en',
+      },
+    });
+    expect(await count()).toBe(before);
   });
 });
 
