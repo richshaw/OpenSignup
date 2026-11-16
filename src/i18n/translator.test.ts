@@ -5,8 +5,9 @@ import { _createCache, _createIntlFormatters, IntlErrorCode } from 'use-intl/cor
 // The formatter next-intl's plugin puts in place of use-intl's full one in
 // the Next build when messages are precompiled.
 import formatPrecompiled from 'use-intl/format-message/format-only';
+import en from '@/messages/en.json';
 import { getTestTranslator } from './testing/translator';
-import { getTranslator, withEnglishUnder } from './translator';
+import { getTranslator, messagesFor, namespaceMessages, withEnglishUnder } from './translator';
 
 describe('getTranslator', () => {
   it('translates from the English catalog', () => {
@@ -46,6 +47,59 @@ describe('getTestTranslator', () => {
     const t = getTestTranslator('common.footer');
     // @ts-expect-error not a key in en.json
     expect(() => t('nowhere')).toThrow(/nowhere/);
+  });
+});
+
+describe('messagesFor', () => {
+  it('gives only the namespace asked for, under its path', () => {
+    expect(messagesFor('en', 'participant.fields')).toEqual({
+      participant: { fields: en.participant.fields },
+    });
+    expect(messagesFor('en', 'common.footer')).toEqual({ common: { footer: en.common.footer } });
+  });
+
+  it('gives a whole top-level namespace when that’s what is asked for', () => {
+    expect(messagesFor('en', 'common')).toEqual({ common: en.common });
+  });
+
+  it('builds each language’s namespace once', () => {
+    expect(messagesFor('en', 'participant.fields')).toBe(messagesFor('en', 'participant.fields'));
+  });
+});
+
+describe('namespaceMessages', () => {
+  const english = {
+    page: { title: 'Sign up' },
+    dialog: { confirm: 'Confirm', cancel: 'Cancel', fields: { name: 'Your name' } },
+  };
+
+  it('takes the namespace from the language, with English under it, and nothing else', () => {
+    const own = { page: { title: 'Anmäl dig' }, dialog: { confirm: 'Bekräfta' } };
+    expect(namespaceMessages('dialog', english, own)).toEqual({
+      dialog: { confirm: 'Bekräfta', cancel: 'Cancel', fields: { name: 'Your name' } },
+    });
+  });
+
+  it('goes as deep as the namespace does', () => {
+    const own = { dialog: { confirm: 'Bekräfta', fields: { name: 'Ditt namn' } } };
+    expect(namespaceMessages('dialog.fields', english, own)).toEqual({
+      dialog: { fields: { name: 'Ditt namn' } },
+    });
+  });
+
+  it('gives English where the language lacks the namespace, or has a message there', () => {
+    const englishOnly = { dialog: { fields: { name: 'Your name' } } };
+    expect(namespaceMessages('dialog.fields', english, {})).toEqual(englishOnly);
+    expect(namespaceMessages('dialog.fields', english, { dialog: 'Dialog' })).toEqual(englishOnly);
+    expect(namespaceMessages('dialog.fields', english, { dialog: { fields: 'Fält' } })).toEqual(
+      englishOnly,
+    );
+  });
+
+  it('gives an empty section for a namespace English hasn’t got', () => {
+    expect(namespaceMessages('dialog.nowhere', english, english)).toEqual({
+      dialog: { nowhere: {} },
+    });
   });
 });
 
@@ -142,6 +196,22 @@ describe('withEnglishUnder on precompiled catalogs', () => {
     // The catalog check refuses these, but the raw JSON could still hold them.
     const own = { title: null, greeting: 5, dialog: null } as never;
     expect(withEnglishUnder(english, own)).toEqual(english);
+  });
+
+  it('narrows to a namespace with each compiled message in it kept whole', () => {
+    expect(namespaceMessages('dialog', english, swedish)).toEqual({
+      dialog: { guide: (swedish.dialog as Record<string, unknown>).guide, cancel: 'Cancel' },
+    });
+  });
+
+  it('never takes a compiled message for a section on the way to a namespace', () => {
+    // An array is an object, so a walk that went by `typeof` would go into
+    // one, and find a plural's branches (`{ one: …, other: … }`) at `0.2`.
+    expect(english.spots).toEqual([
+      ['count', 2, expect.objectContaining({ one: expect.anything() })],
+    ]);
+    expect(namespaceMessages('spots.0.2', english, swedish)).toEqual({ spots: { 0: { 2: {} } } });
+    expect(namespaceMessages('greeting', english, swedish)).toEqual({ greeting: {} });
   });
 
   it('formats each merged message with the formatter the build uses', () => {

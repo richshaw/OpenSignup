@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { FormError, SuccessNotice } from '@/components/ui/form-error';
 import { spotCount } from '@/lib/spot-counts';
 import { wasCancelled } from '../../cancelled-message';
@@ -39,6 +40,7 @@ export default function EditForm({
   maxQuantity,
 }: EditFormProps) {
   const router = useRouter();
+  const tFields = useTranslations('participant.fields');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -162,7 +164,7 @@ export default function EditForm({
           You can have up to {spotCount(spotsMax)} on this slot.
         </p>
       ) : null}
-      <Field label="Your name" type="text" name="name" required defaultValue={initialName} />
+      <Field label={tFields('name')} type="text" name="name" required defaultValue={initialName} />
       <NotesAndSpots
         notes={{ defaultValue: initialNotes }}
         spots={

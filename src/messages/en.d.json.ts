@@ -49,6 +49,9 @@ declare const messages: {
       "left": "{left, number, ::group-off} left",
       "leftOf": "{left, number, ::group-off} of {capacity, number, ::group-off} spots left",
       "signedUp": "{count, number, ::group-off} signed up"
+    },
+    "fields": {
+      "name": "Your name"
     }
   },
   "organizer": {

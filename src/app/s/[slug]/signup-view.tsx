@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import { ClientMessages } from '@/i18n/ClientMessages';
 import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
-import type { Translator } from '@/i18n/translator';
+import { messagesFor, type Translator } from '@/i18n/translator';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { shownSignupStatus } from '@/lib/signup-closing';
@@ -218,7 +219,7 @@ export function SignupViewBody({
     </div>
   ) : null;
 
-  return (
+  const view = (
     <>
       {!showStateBanner ? null : tPreview ? (
         // A wrapper for its language, rather than a prop on the shared
@@ -381,6 +382,14 @@ export function SignupViewBody({
         ))}
       </div>
     </>
+  );
+  if (mode !== 'live') return view;
+  // The sign-up dialog's text, which it reads in the browser: only the live
+  // page has the dialog, and the messages go into the page with it.
+  return (
+    <ClientMessages locale={locale} messages={messagesFor(locale, 'participant.fields')}>
+      {view}
+    </ClientMessages>
   );
 }
 

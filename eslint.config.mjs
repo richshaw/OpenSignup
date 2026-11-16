@@ -76,7 +76,11 @@ const CLIENT_SAFE_I18N = ['i18n/config'].map((module) => path.join(SRC, module))
 
 /** What a client component does for its text instead. */
 const CLIENT_TEXT_INSTEAD =
-  'Translate in a server component and pass the text in as props. (A messages provider for client components comes with #629.)';
+  "Translate in a server component and pass the text in as props, or call next-intl's useTranslations under <ClientMessages> (src/i18n/ClientMessages.tsx), which a server component gives the messages from messagesFor.";
+
+/** What to do instead of importing next-intl's messages provider. */
+const PROVIDER_INSTEAD =
+  'Only src/i18n/ClientMessages.tsx may import the messages provider: wrap the client components in <ClientMessages>, with the messages from messagesFor, instead.';
 
 /** Whether the file opens with a 'use client' directive, which is how Next decides. */
 function isClientFile(program) {
@@ -355,6 +359,28 @@ const config = [
     // The rule reads each file's directive, so it looks at every TS file.
     files: ['**/*.{ts,tsx}'],
     rules: { 'opensignup/no-catalogs-in-client': 'error' },
+  },
+  {
+    // next-intl's provider, imported anywhere but ClientMessages, can end up
+    // in a server component, where `next-intl` gives the server's provider.
+    // That one fills every prop it isn't given from the request config, which
+    // reads the request's headers, so a page built once at build time would be
+    // rendered for every request. ClientMessages is a client component, so it
+    // gets the client's provider, which takes only the props it's given.
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['src/i18n/ClientMessages.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'next-intl', importNames: ['NextIntlClientProvider', 'IntlProvider'] },
+            { name: 'use-intl', importNames: ['IntlProvider'] },
+            { name: 'use-intl/react', importNames: ['IntlProvider'] },
+          ].map((entry) => ({ ...entry, message: PROVIDER_INSTEAD })),
+        },
+      ],
+    },
   },
   {
     // Where text has moved to the catalogs (`TRANSLATED`), no hard-coded text:

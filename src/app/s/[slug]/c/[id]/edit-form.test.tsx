@@ -3,13 +3,21 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import { englishMessages } from '@/i18n/testing/client-messages';
 import EditForm from './edit-form';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
 
 const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => router }));
 
-function renderForm(maxQuantity: number | null, initialQuantity = 1) {
+function renderForm(
+  maxQuantity: number | null,
+  initialQuantity = 1,
+  // What gives the form its messages: the page's, in English, unless a test says.
+  wrapper: (props: { children: ReactNode }) => ReactNode = englishMessages('participant.fields'),
+) {
   render(
     <EditForm
       commitmentId="com_1"
@@ -19,8 +27,33 @@ function renderForm(maxQuantity: number | null, initialQuantity = 1) {
       initialQuantity={initialQuantity}
       maxQuantity={maxQuantity}
     />,
+    { wrapper },
   );
 }
+
+describe('<EditForm /> name box', () => {
+  // The page gives the form its messages (ClientMessages). A stand-in shows
+  // the name box's label comes from them, not the file.
+  it('takes the name box’s label from the messages its page passes', () => {
+    renderForm(1, 1, ({ children }) => (
+      <ClientMessages
+        locale="en"
+        messages={{ participant: { fields: { name: 'participant.fields.name from the page' } } }}
+      >
+        {children}
+      </ClientMessages>
+    ));
+    expect(screen.getByLabelText('participant.fields.name from the page')).toHaveValue(
+      'Pat Example',
+    );
+    expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
+  });
+
+  it('labels the name box “Your name” in English', () => {
+    renderForm(1);
+    expect(screen.getByLabelText('Your name')).toHaveValue('Pat Example');
+  });
+});
 
 describe('<EditForm /> quantity', () => {
   afterEach(() => {
