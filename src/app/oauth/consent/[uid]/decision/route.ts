@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation';
-import { requireActor } from '@/auth/session';
+import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
+import type { CatalogLocale } from '@/i18n/config';
+import { localeOfOrganizer } from '@/i18n/locale';
+import { getServerTranslator } from '@/i18n/server';
 import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
@@ -18,6 +21,9 @@ import { renderErrorPage } from '@/oauth/provider';
  * from — an Origin header (every browser sends one on a form POST) or,
  * failing that, a same-origin Referer. A request with neither is refused
  * rather than waved through on cookies alone.
+ *
+ * The organizer is signed in by now, so a reply they read is in their
+ * language, as the consent page is.
  */
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -28,10 +34,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
 
   if (!sameOrigin(request)) return new Response('Forbidden', { status: 403 });
 
-  const actor = await requireActor();
+  // `requireActor` in two steps, so the session that gives the actor also
+  // gives the organizer's language, with no second read.
+  const session = await getOrganizerSession();
+  const actor = toActor(session);
   if (actor.kind !== 'organizer') {
     redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
   }
+  const locale = localeOfOrganizer(session);
+  const t = getServerTranslator(locale, 'auth.consent.decision');
 
   // The consent page posts one field; a bigger body is not from it.
   const form = await readFormData(request, 16 * 1024);
@@ -45,8 +56,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
       actor.id,
     );
     if (retryAfter !== null) {
-      const description = `Too many connection attempts. Wait ${waitInMinutes(retryAfter)} and try again.`;
-      return html(429, 'too_many_requests', description, { 'Retry-After': String(retryAfter) });
+      const description = t('tooManyAttempts', { wait: waitInMinutes(retryAfter, locale) });
+      return html(locale, 429, 'too_many_requests', description, {
+        'Retry-After': String(retryAfter),
+      });
     }
     return await decideConsent(uid, actor, decision);
   } catch (err) {
@@ -54,11 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
       redirect(consentPath(uid));
     }
     log.error({ err }, 'oauth: consent decision failed');
-    return html(
-      500,
-      'server_error',
-      'Something went wrong recording your decision. Nothing was connected.',
-    );
+    return html(locale, 500, 'server_error', t('failed'));
   }
 }
 
@@ -76,12 +85,13 @@ function sameOrigin(request: Request): boolean {
 }
 
 function html(
+  locale: CatalogLocale,
   status: number,
   error: string,
   description: string,
   extra: Record<string, string> = {},
 ): Response {
-  return new Response(renderErrorPage({ error, error_description: description }), {
+  return new Response(renderErrorPage({ error, error_description: description }, locale), {
     status,
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...extra },
   });

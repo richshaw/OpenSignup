@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import type { FieldType } from '@/schemas/slot-fields';
 import {
   checkBeforePublish,
@@ -6,6 +8,8 @@ import {
   publishCheckTarget,
   type PublishCheck,
 } from './publish-check';
+
+const en = getTestTranslator('organizer.signup.check');
 
 function field(ref: string, fieldType: FieldType = 'text', label: string = ref) {
   return { ref, label, fieldType };
@@ -123,7 +127,7 @@ describe('checkBeforePublish', () => {
 
 describe('publishCheckCopy', () => {
   it('asks for a slot when there are none', () => {
-    expect(publishCheckCopy({ kind: 'no_slots' })).toEqual({
+    expect(publishCheckCopy({ kind: 'no_slots' }, en)).toEqual({
       title: 'Nothing to sign up for yet',
       text: 'There are no slots yet. Add one, then publish.',
       fix: 'Add a slot',
@@ -132,7 +136,7 @@ describe('publishCheckCopy', () => {
   });
 
   it('asks for a field when there are none, with no fix to offer', () => {
-    expect(publishCheckCopy({ kind: 'no_fields' })).toEqual({
+    expect(publishCheckCopy({ kind: 'no_fields' }, en)).toEqual({
       title: 'Nothing to sign up for yet',
       text: 'Add a field that says what people sign up for, then publish.',
       fix: null,
@@ -141,7 +145,7 @@ describe('publishCheckCopy', () => {
   });
 
   it('says the slot is empty when there is one', () => {
-    expect(publishCheckCopy({ kind: 'all_blank', slotId: 's1', slotCount: 1 })).toEqual({
+    expect(publishCheckCopy({ kind: 'all_blank', slotId: 's1', slotCount: 1 }, en)).toEqual({
       title: 'Nothing to sign up for yet',
       text: 'The slot is empty. Say what people sign up for, then publish.',
       fix: 'Fill it in',
@@ -150,10 +154,29 @@ describe('publishCheckCopy', () => {
   });
 
   it('says every slot is empty when there are several', () => {
-    expect(publishCheckCopy({ kind: 'all_blank', slotId: 's1', slotCount: 4 })).toMatchObject({
+    expect(publishCheckCopy({ kind: 'all_blank', slotId: 's1', slotCount: 4 }, en)).toMatchObject({
       text: 'Every slot is empty. Say what people sign up for, then publish.',
     });
   });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    'takes every word from the catalog in %s',
+    (locale) => {
+      const t = getStandInTranslator(locale, 'organizer.signup.check');
+      const words = (key: string) => `organizer.signup.check.${key} in ${locale}`;
+      expect(publishCheckCopy({ kind: 'no_slots' }, t)).toEqual({
+        title: words('title'),
+        text: words('noSlots'),
+        fix: words('addSlot'),
+        secondary: words('notNow'),
+      });
+      expect(publishCheckCopy({ kind: 'no_fields' }, t)).toMatchObject({ text: words('noFields') });
+      expect(publishCheckCopy({ kind: 'all_blank', slotId: 's1', slotCount: 2 }, t)).toMatchObject({
+        text: words('allBlank'),
+        fix: words('fillIn'),
+      });
+    },
+  );
 });
 
 describe('publishCheckTarget', () => {
@@ -175,7 +198,7 @@ describe('publishCheckTarget', () => {
       { kind: 'all_blank', slotId: 's1', slotCount: 1 },
     ];
     for (const check of checks) {
-      expect(publishCheckTarget(check) !== null).toBe(publishCheckCopy(check).fix !== null);
+      expect(publishCheckTarget(check) !== null).toBe(publishCheckCopy(check, en).fix !== null);
     }
   });
 });

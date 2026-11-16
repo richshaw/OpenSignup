@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { extractClientIp, getCurrentRequestIp } from './request-context';
+import {
+  extractClientIp,
+  getCurrentRequestAcceptLanguage,
+  getCurrentRequestIp,
+} from './request-context';
 
 function headers(init: Record<string, string>): Headers {
   return new Headers(init);
@@ -49,5 +53,29 @@ describe('getCurrentRequestIp', () => {
       throw new Error('called outside a request');
     });
     expect(await getCurrentRequestIp()).toBeNull();
+  });
+});
+
+describe('getCurrentRequestAcceptLanguage', () => {
+  it('returns the live request’s Accept-Language as sent', async () => {
+    const { headers: mocked } = await import('next/headers');
+    vi.mocked(mocked).mockResolvedValueOnce(
+      new Headers({ 'accept-language': 'sv-SE,en;q=0.8' }) as never,
+    );
+    expect(await getCurrentRequestAcceptLanguage()).toBe('sv-SE,en;q=0.8');
+  });
+
+  it('returns null when the request has none', async () => {
+    const { headers: mocked } = await import('next/headers');
+    vi.mocked(mocked).mockResolvedValueOnce(new Headers() as never);
+    expect(await getCurrentRequestAcceptLanguage()).toBeNull();
+  });
+
+  it('returns null when next/headers throws (outside any request scope)', async () => {
+    const { headers: mocked } = await import('next/headers');
+    vi.mocked(mocked).mockImplementationOnce(() => {
+      throw new Error('called outside a request');
+    });
+    expect(await getCurrentRequestAcceptLanguage()).toBeNull();
   });
 });

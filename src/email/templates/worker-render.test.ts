@@ -52,10 +52,37 @@ describe('email templates under the worker toolchain', () => {
       ['exec', 'tsx', ...flags, 'scripts/render-email-templates.ts'],
       { cwd: repoRoot },
     );
-    expect(stdout).toContain('ok magic-link');
-    expect(stdout).toContain('ok commitment-confirmation');
-    expect(stdout).toContain('ok reminder');
-    expect(stdout).toContain('ok slot-changed');
+    // Each participant email in English and in Swedish, and the sign-in email
+    // in each language with a catalog, from the catalogs the worker loads: a
+    // catalog missing from its path, or a message missing from one, leaves
+    // text out and fails the run.
+    expect(stdout.trim().split('\n')).toEqual([
+      'ok magic-link',
+      'ok commitment-confirmation',
+      'ok reminder',
+      'ok reminder-changed',
+      'ok slot-changed',
+      'ok commitment-confirmation-sv',
+      'ok reminder-sv',
+      'ok reminder-changed-sv',
+      'ok slot-changed-sv',
+      'ok magic-link-sv',
+    ]);
+  }, 60_000);
+
+  it('translates under the flags the worker script uses', async () => {
+    // Emails take their text from the catalogs, so the translator and
+    // src/i18n/server.ts have to load in the worker, which has no Next.
+    const flags = workerScript().split(/\s+/).slice(1, -1);
+    const { stdout } = await run('pnpm', ['exec', 'tsx', ...flags, 'scripts/render-messages.ts'], {
+      cwd: repoRoot,
+    });
+    expect(stdout).toContain('ok translator Help | Example · AGPL-3.0');
+    // The subjects the worker sends, in English as they always were and in
+    // Swedish, each checked against its exact text in the script.
+    expect(stdout).toContain(
+      "ok subjects Reminder: Pat's {bake} sale · Sat, May 2 · 1:00\u00a0PM | Time changed: Bake sale",
+    );
   }, 60_000);
 
   it('previews emails under the flags the worker script uses', () => {

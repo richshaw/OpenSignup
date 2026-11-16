@@ -13,7 +13,14 @@ import { Spinner } from '@/components/ui/spinner';
  * window is left alone. Coming back to the page with the Back button resets
  * it, since that page may be restored from the back-forward cache as it was.
  */
-export function SignInLink({ href }: { href: string }) {
+export function SignInLink({
+  href,
+  text,
+}: {
+  href: string;
+  /** Its label, and what it says once clicked, in the sign-in pages' language. */
+  text: { signIn: string; signingIn: string };
+}) {
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
@@ -46,10 +53,10 @@ export function SignInLink({ href }: { href: string }) {
       {pending ? (
         <>
           <Spinner />
-          <span>Signing in…</span>
+          <span>{text.signingIn}</span>
         </>
       ) : (
-        'Sign in →'
+        text.signIn
       )}
     </a>
   );

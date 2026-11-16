@@ -1,11 +1,15 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireOrganizerSession } from '@/auth/session';
+import { getOrganizerSession, requireOrganizerSession } from '@/auth/session';
 import { signOutOrganizer } from '@/auth/sign-out';
+import { localeOfOrganizer } from '@/i18n/locale';
+import { getServerTranslator } from '@/i18n/server';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
-export const metadata = {
-  title: { default: 'Dashboard', template: `%s · ${INSTANCE_NAME}` },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getServerTranslator(localeOfOrganizer(await getOrganizerSession()), 'organizer.chrome');
+  return { title: { default: t('tabTitle'), template: `%s · ${INSTANCE_NAME}` } };
+}
 
 export default async function OrganizerLayout({
   children,
@@ -15,28 +19,34 @@ export default async function OrganizerLayout({
   crumbs: React.ReactNode;
 }) {
   const session = await requireOrganizerSession();
+  const locale = localeOfOrganizer(session);
+  const t = getServerTranslator(locale, 'organizer.chrome');
 
   async function handleSignOut() {
     'use server';
     await signOutOrganizer('/');
   }
 
+  // Marks the header and every page under it with the organizer app's
+  // language for this organizer. Saving a new one in account Settings
+  // revalidates this layout, so neither the mark nor the header's text can
+  // outlive the language.
   return (
-    <div className="min-h-[100svh] bg-surface">
+    <div lang={locale} className="min-h-[100svh] bg-surface">
       <header className="border-b border-surface-sunk bg-white">
         <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <nav
-            aria-label="Breadcrumb"
+            aria-label={t('breadcrumb')}
             className="flex min-w-0 items-center gap-2 text-sm text-ink-muted"
           >
             <Link href="/app" className="font-semibold tracking-tight text-ink">
-              OpenSignup
+              {t('home')}
             </Link>
             {crumbs}
           </nav>
           <nav className="flex shrink-0 items-center gap-4">
             <Link href="/help" className="text-sm text-ink-muted transition hover:text-ink">
-              Help
+              {t('help')}
             </Link>
             {/* The account itself is the way into settings; on narrow screens the
                 address would not fit, so the link reads "Account" there, not
@@ -44,14 +54,14 @@ export default async function OrganizerLayout({
             <Link
               href="/app/settings"
               className="max-w-[16rem] truncate text-sm text-ink-muted transition hover:text-ink"
-              title="Settings"
+              title={t('settings')}
             >
-              <span className="sm:hidden">Account</span>
+              <span className="sm:hidden">{t('account')}</span>
               <span className="hidden sm:inline">{session.email}</span>
             </Link>
             <form action={handleSignOut}>
               <button type="submit" className="text-sm text-ink-muted transition hover:text-ink">
-                Sign out
+                {t('signOut')}
               </button>
             </form>
           </nav>

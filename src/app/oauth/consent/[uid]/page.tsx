@@ -1,29 +1,49 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { getOrganizerSession } from '@/auth/session';
 import { signOutOrganizer } from '@/auth/sign-out';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
+import type { CatalogLocale } from '@/i18n/config';
+import { localeOfOrganizer } from '@/i18n/locale';
+import { getServerTranslator } from '@/i18n/server';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { consentPath, isInteractionUid } from '@/oauth/config';
 import { ConsentUnavailable, loadConsentContext, type ConsentContext } from '@/oauth/consent';
 import { ConsentForm } from './consent-form';
 
-export const metadata = { title: 'Connect an app', robots: { index: false } };
+/**
+ * The organizer is signed in by the time they get here, so the page is in
+ * their language (`localeOfOrganizer`), and so is the page saying a
+ * request has run out. The app's name and domain are shown as its metadata
+ * gives them.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = getServerTranslator(localeOfOrganizer(await getOrganizerSession()), 'auth.consent');
+  return { title: t('tabTitle'), robots: { index: false } };
+}
 export const dynamic = 'force-dynamic';
 
 export default async function ConsentPage({ params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
-  if (!isInteractionUid(uid)) return <Unavailable />;
   const session = await getOrganizerSession();
+  const locale = localeOfOrganizer(session);
+  if (!isInteractionUid(uid)) return <Unavailable locale={locale} />;
   if (!session) redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
 
   let ctx: ConsentContext;
   try {
     ctx = await loadConsentContext(uid);
   } catch (err) {
-    if (err instanceof ConsentUnavailable) return <Unavailable />;
+    if (err instanceof ConsentUnavailable) return <Unavailable locale={locale} />;
     throw err;
   }
+
+  const t = getServerTranslator(locale, 'auth.consent');
+  const describe = getServerTranslator(locale, 'auth.scopes');
+  const strong = (chunks: ReactNode) => <strong className="text-ink">{chunks}</strong>;
+  const { domain, name } = ctx.client;
 
   // Every organizer starts with one personal workspace, and the app never
   // shows workspaces, so a name here would mean nothing to them. Only mention
@@ -40,32 +60,22 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
   }
 
   return (
-    <CenteredPageFrame header gap="gap-8" padding="py-8">
+    <CenteredPageFrame header gap="gap-8" padding="py-8" locale={locale}>
       <div className="space-y-3">
-        <p className="text-sm text-ink-muted">Connection request</p>
+        <p className="text-sm text-ink-muted">{t('request')}</p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Allow <span className="break-all">{ctx.client.domain}</span> to use your {INSTANCE_NAME}{' '}
-          account?
+          {t.rich('heading', {
+            domain,
+            instance: INSTANCE_NAME,
+            host: (chunks) => <span className="break-all">{chunks}</span>,
+          })}
         </h1>
         <p className="text-ink-muted">
-          {ctx.client.isUrl ? (
-            <>
-              {ctx.client.name ? (
-                <>
-                  <strong className="text-ink">{ctx.client.name}</strong> from{' '}
-                </>
-              ) : (
-                'An app from '
-              )}
-              <strong className="text-ink">{ctx.client.domain}</strong> wants to connect to your
-              account. Only allow it if you trust {ctx.client.domain}.
-            </>
-          ) : (
-            <>
-              <strong className="text-ink">{ctx.client.name ?? ctx.client.domain}</strong> was set
-              up by the people who run this site.
-            </>
-          )}
+          {ctx.client.isUrl
+            ? name
+              ? t.rich('fromNamedApp', { name, domain, strong })
+              : t.rich('fromApp', { domain, strong })
+            : t.rich('setUpBySite', { name: name ?? domain, strong })}
         </p>
       </div>
 
@@ -74,7 +84,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
           id="permissions-heading"
           className="text-sm font-semibold uppercase tracking-wide text-ink-soft"
         >
-          It will be able to
+          {t('permissions')}
         </h2>
         <ul className="divide-y divide-surface-sunk rounded-xl border border-surface-sunk bg-white">
           {ctx.permissions.map((p) => (
@@ -84,36 +94,46 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
               </span>
               <div className="space-y-1">
                 <p className={p.sensitive ? 'font-medium text-warn' : 'font-medium'}>
-                  {p.description}
+                  {describe(p.message)}
                 </p>
                 {p.sensitive ? (
-                  <p className="text-sm text-ink-muted">
-                    Participants gave these details to you, not to this app. Only approve if you are
-                    comfortable with {ctx.client.domain} handling them.
-                  </p>
+                  <p className="text-sm text-ink-muted">{t('sensitive', { domain })}</p>
                 ) : null}
               </div>
             </li>
           ))}
         </ul>
         <p className="text-sm text-ink-muted">
-          It acts as you (<strong className="text-ink">{session.email}</strong>)
-          {workspaceCount > 1 ? ' in every workspace you belong to' : ''} and can&apos;t do anything
-          you couldn&apos;t do yourself.
+          {t.rich('actsAs', {
+            workspaces: workspaceCount > 1 ? 'many' : 'one',
+            email: session.email,
+            strong,
+          })}
         </p>
       </section>
 
-      <ConsentForm action={`${consentPath(uid)}/decision`} />
+      <ConsentForm
+        action={`${consentPath(uid)}/decision`}
+        text={{
+          allow: t('allow'),
+          allowing: t('allowing'),
+          deny: t('deny'),
+          denying: t('denying'),
+        }}
+      />
 
       <div className="text-sm text-ink-soft">
-        You can disconnect it at any time from{' '}
-        <Link href="/app/settings/connected-apps" className="underline">
-          Connected apps
-        </Link>
-        . Not you?{' '}
+        {t.rich('disconnect', {
+          link: (chunks) => (
+            <Link href="/app/settings/connected-apps" className="underline">
+              {chunks}
+            </Link>
+          ),
+        })}{' '}
+        {t('notYou')}{' '}
         <form action={switchAccount} className="inline">
           <button type="submit" className="underline">
-            Sign in as someone else
+            {t('switchAccount')}
           </button>
         </form>
       </div>
@@ -121,20 +141,16 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
   );
 }
 
-function Unavailable() {
+function Unavailable({ locale }: { locale: CatalogLocale }) {
+  const t = getServerTranslator(locale, 'auth.consent.expired');
   return (
-    <CenteredPageFrame>
+    <CenteredPageFrame locale={locale}>
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          This connection request has expired
-        </h1>
-        <p className="text-ink-muted">
-          Connection requests are only valid for a few minutes, and only in the browser that started
-          them. Nothing was connected. Go back to the application and start again.
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">{t('heading')}</h1>
+        <p className="text-ink-muted">{t('body')}</p>
       </div>
       <Link href="/app" className="text-sm text-ink-muted underline">
-        Go to your dashboard
+        {t('dashboard')}
       </Link>
     </CenteredPageFrame>
   );

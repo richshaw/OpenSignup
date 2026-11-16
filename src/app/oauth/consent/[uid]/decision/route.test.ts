@@ -1,9 +1,19 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { ship } from '@/i18n/testing/ship';
+import { waitInMinutes } from '@/lib/format-duration';
 
 vi.mock('@/lib/env', () => ({ getEnv: () => ({ AUTH_URL: 'https://signup.example.org' }) }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) as unknown }));
+// The signed-in organizer and the language stored on their account.
+const request = vi.hoisted(() => ({ locale: null as string | null, realText: false }));
 vi.mock('@/auth/session', () => ({
-  requireActor: async () => ({
+  getOrganizerSession: async () => ({
+    organizerId: 'org_1',
+    email: 'pat@example.com',
+    locale: request.locale,
+  }),
+  toActor: () => ({
     kind: 'organizer',
     id: 'org_1',
     email: 'pat@example.com',
@@ -12,9 +22,38 @@ vi.mock('@/auth/session', () => ({
   }),
 }));
 vi.mock('@/oauth/provider', () => ({
-  renderErrorPage: ({ error, error_description }: { error: string; error_description: string }) =>
-    `<p>${error} — ${error_description}</p>`,
+  renderErrorPage: (
+    { error, error_description }: { error: string; error_description: string },
+    locale: string,
+  ) => `<p lang="${locale}">${error} — ${error_description}</p>`,
 }));
+// English from the catalog; any other language answers with the key it was
+// asked for and the language (`getTestServerTranslator`), or with its real
+// text where a test asks for it.
+vi.mock('@/i18n/server', async () => {
+  const { getTestServerTranslator } = await import('@/i18n/testing/translator');
+  const { getTranslator } = await import('@/i18n/translator');
+  type Namespace = Parameters<typeof getTranslator>[1];
+  return {
+    instanceDefaultLocale: () => undefined,
+    getServerTranslator: (locale: string, namespace: Namespace) =>
+      request.realText
+        ? getTranslator(locale as 'en', namespace, {
+            onError: (error) => {
+              throw error;
+            },
+          })
+        : getTestServerTranslator(locale, namespace),
+  };
+});
+afterEach(() => {
+  request.locale = null;
+  request.realText = false;
+});
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
+
 const decide = vi.fn(async (..._args: unknown[]) => new Response(null, { status: 303 }));
 vi.mock('@/oauth/consent', () => ({
   ConsentUnavailable: class extends Error {},
@@ -62,5 +101,51 @@ describe('POST /oauth/consent/[uid]/decision', () => {
     expect(page).toContain('too_many_requests');
     expect(page).toContain('Too many connection attempts. Wait 10 minutes and try again.');
     expect(decide).not.toHaveBeenCalled();
+  });
+
+  it('says in English that the decision failed, as before', async () => {
+    const { POST } = await import('./route');
+    decide.mockRejectedValueOnce(new Error('database down'));
+    const r = await POST(submit(), params);
+    expect(r.status).toBe(500);
+    expect(await r.text()).toBe(
+      '<p lang="en">server_error — Something went wrong recording your decision. Nothing was connected.</p>',
+    );
+  });
+
+  describe.each(OTHER_LANGUAGES)('for an organizer whose language is %s', (other) => {
+    it('stays English while that language hasn’t shipped to organizers', async () => {
+      request.locale = other;
+      const { POST } = await import('./route');
+      check.mockResolvedValueOnce(600);
+      expect(await (await POST(submit(), params)).text()).toBe(
+        '<p lang="en">too_many_requests — Too many connection attempts. Wait 10 minutes and try again.</p>',
+      );
+    });
+
+    it('replies in it once it has shipped to organizers', async () => {
+      ship('organizer', ['en', other]);
+      request.locale = other;
+      const { POST } = await import('./route');
+      check.mockResolvedValueOnce(600);
+      expect(await (await POST(submit(), params)).text()).toBe(
+        `<p lang="${other}">too_many_requests — auth.consent.decision.tooManyAttempts in ${other}</p>`,
+      );
+      decide.mockRejectedValueOnce(new Error('database down'));
+      expect(await (await POST(submit(), params)).text()).toBe(
+        `<p lang="${other}">server_error — auth.consent.decision.failed in ${other}</p>`,
+      );
+    });
+
+    it('says how long to wait in it', async () => {
+      ship('organizer', ['en', other]);
+      request.locale = other;
+      request.realText = true;
+      const { POST } = await import('./route');
+      check.mockResolvedValueOnce(600);
+      const wait = waitInMinutes(600, other);
+      expect(wait).not.toBe(waitInMinutes(600, 'en'));
+      expect(await (await POST(submit(), params)).text()).toContain(wait);
+    });
   });
 });

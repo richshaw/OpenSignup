@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RULES_IN_BOTH } from '@/lib/signup-rules';
 import { SignupCreateInputSchema } from '@/schemas/signups';
-import { REF_MAX_LENGTH, SlotFieldInputSchema } from '@/schemas/slot-fields';
+import { REF_MAX_LENGTH, RefSchema, SlotFieldInputSchema } from '@/schemas/slot-fields';
 import { buildFollowUpMessages } from './follow-up';
 import { WHAT_OPTION_MAX_LENGTH, WHAT_OPTIONS_MAX, WHAT_OPTIONS_MIN } from './limits';
 import {
@@ -20,7 +20,7 @@ import {
 import { QUESTION_TOPICS } from './questions';
 
 describe('system prompt', () => {
-  const sys = buildMessages('x')[0]!.content;
+  const sys = buildMessages('x', { fallbackLocale: 'en' })[0]!.content;
 
   it('lists the closed fieldType enum', () => {
     expect(sys).toContain('text, date, time, number, enum');
@@ -66,7 +66,7 @@ describe('system prompt', () => {
     expect(sys).toContain('{ "questions": { "topics": [');
     for (const topic of QUESTION_TOPICS) expect(sys).toContain(`"${topic}"`);
     expect(sys).toContain(
-      `${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, in the prompt's language, each at most ${WHAT_OPTION_MAX_LENGTH} characters.`,
+      `${WHAT_OPTIONS_MIN} to ${WHAT_OPTIONS_MAX} kinds of thing people could sign up for, each at most ${WHAT_OPTION_MAX_LENGTH} characters.`,
     );
     expect(sys).toContain('Never a date, a time or a count');
   });
@@ -77,15 +77,50 @@ describe('system prompt', () => {
   });
 
   // follow-up.ts words the second call's message; these hold the prompt to its words.
-  const followUp = buildFollowUpMessages('Bake sale', {
-    what: { picked: ['Staff the table'], added: [] },
-    howMany: [null],
-  })[1]!.content;
+  const followUp = buildFollowUpMessages(
+    'Bake sale',
+    { what: { picked: ['Staff the table'], added: [] }, howMany: [null] },
+    { fallbackLocale: 'en' },
+  )[1]!.content;
 
   it('never answers a message carrying answers with questions, by the label they come under', () => {
     const label = followUp.split('\n').find((l) => l.startsWith('Answers to'));
     expect(label).toBe('Answers to your questions:');
     expect(sys).toContain(`"${label}" is never answered with questions.`);
+  });
+
+  it('writes the draft and the options in the prompt’s language, or the one it asks for', () => {
+    expect(sys).toContain(
+      'LANGUAGE — write the title, description, field labels, enum choices, text values and whatOptions in the language the prompt is written in, unless it asks for the signup in another language: then in that one.',
+    );
+    expect(sys).toContain(
+      'If the prompt is too short or too mixed to tell (a few names and dates), write in English.',
+    );
+  });
+
+  it('says the language once, in its rule, not again on the whatOptions lines', () => {
+    expect(sys).not.toContain("in the prompt's language");
+    expect(sys).not.toContain('in its language');
+    expect(sys.match(/^- whatOptions,[^\n]*language/gm)).toBeNull();
+  });
+
+  it('tells the organizer’s words from the English the app adds, by the label the answers come under', () => {
+    const label = followUp.split('\n').find((l) => l.startsWith('Answers to'));
+    expect(sys).toContain(
+      `Only the organizer's own words decide the language: the lines the app adds after them ("${label}", its labels and the closing instruction) are always in English.`,
+    );
+  });
+
+  it('keeps names, places and titles as the prompt writes them', () => {
+    expect(sys).toContain(
+      'Keep names, places and titles exactly as the prompt writes them (people, teams, classes, venues, anything in quotes): translating or rewording them is inventing (rule 4).',
+    );
+  });
+
+  it('keeps refs to the letters RefSchema takes, whatever the draft’s language', () => {
+    expect(sys).toContain('in every language they stay lowercase-kebab in a-z and 0-9 (rule 5).');
+    expect(RefSchema.safeParse('plats-for-barn').success).toBe(true);
+    expect(RefSchema.safeParse('plats-för-barn').success).toBe(false);
   });
 
   it('reads "no limit", as an answer puts it, as a null capacity, and nothing else', () => {
@@ -121,7 +156,7 @@ describe('system prompt', () => {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .trim()} `;
-    const system = buildMessages('x')[0]!.content;
+    const system = buildMessages('x', { fallbackLocale: 'en' })[0]!.content;
     const quoted = [...system.matchAll(/e\.g\. "([^"]+)"/g)].map((m) => m[1]!);
     expect(quoted.length).toBeGreaterThan(0);
     const texts = [
@@ -179,14 +214,32 @@ describe('system prompt', () => {
 
 describe('buildMessages', () => {
   it('returns a system + user pair', () => {
-    const out = buildMessages('hello world');
+    const out = buildMessages('hello world', { fallbackLocale: 'en' });
     expect(out).toHaveLength(2);
     expect(out[0]?.role).toBe('system');
     expect(out[1]).toEqual({ role: 'user', content: 'hello world' });
   });
 
+  it.each([
+    ['en', 'English'],
+    ['sv', 'Swedish'],
+  ] as const)(
+    'fills the fallback language with its English name, for %s',
+    (fallbackLocale, name) => {
+      const system = buildMessages('hello', { fallbackLocale })[0]!.content;
+      expect(system).toContain(
+        `too short or too mixed to tell (a few names and dates), write in ${name}.`,
+      );
+      // Every slot is filled: none reaches the model as written.
+      expect(system).not.toMatch(/\{\{[A-Z_]+\}\}/);
+    },
+  );
+
   it("injects today's date into the system prompt", () => {
-    const out = buildMessages('hello', new Date('2026-05-15T12:00:00Z'));
+    const out = buildMessages('hello', {
+      now: new Date('2026-05-15T12:00:00Z'),
+      fallbackLocale: 'en',
+    });
     expect(out[0]?.content).toContain("Today's date is 2026-05-15");
   });
 
@@ -195,8 +248,10 @@ describe('buildMessages', () => {
   // A plain read, not a file snapshot: `vitest -u` cannot rewrite it and a missing file fails.
   // Changing the prompt on purpose: write the new render over the golden yourself, and only
   // after an eval run (`pnpm eval:magic-compose`) says the new wording is no worse.
+  // Pinned with English as the fallback language, which every organizer gets while only
+  // English has shipped.
   it('renders the system prompt byte for byte as the golden file has it', () => {
-    const out = buildMessages('x', new Date('2026-05-15T00:00:00Z'));
+    const out = buildMessages('x', { now: new Date('2026-05-15T00:00:00Z'), fallbackLocale: 'en' });
     const golden = readFileSync(path.join(__dirname, '__golden__/system-prompt.txt'), 'utf8');
     expect(out[0]?.content).toBe(golden);
   });

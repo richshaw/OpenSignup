@@ -1,34 +1,26 @@
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-notice';
+import type { Translator } from '@/i18n/translator';
 import type { ServiceError } from '@/lib/errors';
+import { refusalText } from '@/lib/organizer-errors';
 
 /**
  * What an organizer reads when Publish, Close signup or Reopen signup is
  * refused, in place of the service's message, which is written for
- * developers ("cannot open a signup that is closed", "your role cannot
- * modify this workspace"). A `conflict` on the status means another
- * tab or person changed it since the page loaded; the only other conflict is
- * publishing or reopening a signup with no slots.
+ * developers ("cannot open a signup that is closed"), and in the organizer's
+ * language: the header's own lines, through `refusalText`. `status_changed`
+ * means another tab or person changed the status since the page loaded, and
+ * `no_slots` that a signup to publish or reopen has none.
  */
-export function statusRefusal(error: ServiceError, change: 'publish' | 'close' | 'reopen'): string {
-  switch (error.code) {
-    case 'forbidden':
-      return SAVE_ERROR_MESSAGE.forbidden;
-    case 'not_found':
-      return 'This signup is no longer available.';
-    case 'conflict':
-      if (error.field === 'status') {
-        return 'This signup changed since the page loaded. Reload to see the latest.';
-      }
-      if (change === 'publish') return 'Add a slot before publishing.';
-      if (change === 'reopen' && error.field === 'slots') return 'Add a slot before reopening.';
-      break;
-  }
-  switch (change) {
-    case 'publish':
-      return 'Couldn’t publish. Try again.';
-    case 'close':
-      return 'Couldn’t close the signup. Try again.';
-    case 'reopen':
-      return 'Couldn’t reopen the signup. Try again.';
-  }
+export function statusRefusal(
+  error: ServiceError,
+  change: 'publish' | 'close' | 'reopen',
+  t: { signup: Translator<'organizer.signup.refusal'>; errors: Translator<'organizer.errors'> },
+): string {
+  return refusalText(t.errors, error, {
+    status_changed: t.signup('changed'),
+    ...(change === 'close'
+      ? {}
+      : { no_slots: t.signup(change === 'publish' ? 'addSlotToPublish' : 'addSlotToReopen') }),
+    not_found: t.signup('gone'),
+    other: t.signup(`${change}Failed`),
+  });
 }

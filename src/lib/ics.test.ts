@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildIcs } from './ics';
+import { buildIcs, calendarFileName } from './ics';
 
 describe('buildIcs', () => {
   it('renders a minimal event with required fields', () => {
@@ -136,6 +136,32 @@ describe('buildIcs', () => {
     expect(ics).not.toContain('�');
     // Unfolding (removing CRLF + the single leading space) restores the line.
     expect(ics.replace(/\r\n /g, '')).toContain(`SUMMARY:${title}`);
+  });
+
+  it('folds a long Swedish line without splitting å, ä or ö', () => {
+    // Each of å, ä and ö is two octets in UTF-8, and this line has one across
+    // each of its first three fold points (skolgården, köket, ändra). Cut
+    // where the octets run out, each would leave half a letter on either
+    // side of the fold.
+    const description =
+      'Ta gärna med kakor och bullar till vårfestens fika på skolgården. Vi börjar vid två och hjälps åt att städa efteråt så att köket är klart före fem. Om du blir sjuk går det bra att avboka eller ändra via länken.';
+    const ics = buildIcs({
+      uid: 'com_x@opensignup.org',
+      title: 'Fika',
+      description,
+      start: new Date('2026-05-02T15:00:00Z'),
+      now: new Date('2026-04-30T12:00:00Z'),
+    });
+    const lines = ics.split('\r\n');
+    const first = lines.findIndex((l) => l.startsWith('DESCRIPTION:'));
+    const folded = lines.slice(first, first + 4);
+    const octets = (line: string) => new TextEncoder().encode(line).length;
+    // Each fold comes one octet early, before the letter rather than inside it.
+    expect(folded.slice(0, 3).map(octets)).toEqual([74, 74, 74]);
+    expect(folded.slice(1).map((l) => l.slice(0, 2))).toEqual([' å', ' ö', ' ä']);
+    expect(lines[first + 4]).toBe('END:VEVENT');
+    expect(ics).not.toContain('\uFFFD');
+    expect(ics.replace(/\r\n /g, '').split('\r\n')).toContain(`DESCRIPTION:${description}`);
   });
 
   it.each([
@@ -281,5 +307,117 @@ describe('buildIcs', () => {
         expect(allDay).toContain('DTEND;VALUE=DATE:20261119');
       }
     });
+  });
+});
+
+describe('calendarFileName', () => {
+  // The name before letters other than A to Z were kept (#633).
+  const before = (slug: string, title: string) =>
+    `${slug}-${title}.ics`.replace(/[^A-Za-z0-9._-]+/g, '-');
+  const octets = (name: string) => new TextEncoder().encode(name).length;
+
+  it('keeps å, ä and ö', () => {
+    expect(calendarFileName('fika', 'Fika på fredag')).toBe('fika-Fika-på-fredag.ics');
+    expect(calendarFileName('fika', 'Räksmörgås och äppelmust')).toBe(
+      'fika-Räksmörgås-och-äppelmust.ics',
+    );
+    expect(calendarFileName('fika', 'ÅÄÖ')).toBe('fika-ÅÄÖ.ics');
+  });
+
+  it('gives a letter typed with a combining mark the same name as the letter', () => {
+    // "å" as "a" and a combining ring, as some keyboards and copied text give it.
+    expect(calendarFileName('fika', 'Sma\u030Aland')).toBe('fika-Småland.ics');
+    expect(calendarFileName('fika', 'Sma\u030Aland')).toBe(calendarFileName('fika', 'Småland'));
+  });
+
+  it('keeps the letters of other scripts whole, with their vowel signs', () => {
+    expect(calendarFileName('x', 'Πέμπτη')).toBe('x-Πέμπτη.ics');
+    expect(calendarFileName('x', 'Пятница вечером')).toBe('x-Пятница-вечером.ics');
+    expect(calendarFileName('x', '金曜日のお茶会')).toBe('x-金曜日のお茶会.ics');
+    expect(calendarFileName('x', 'שישי')).toBe('x-שישי.ics');
+    // Hindi and Thai have no precomposed letters: their vowel signs and the
+    // virama are combining marks, and dropping them would break each word.
+    expect(calendarFileName('x', 'नमस्ते')).toBe('x-नमस्ते.ics');
+    expect(calendarFileName('x', 'สวัสดี')).toBe('x-สวัสดี.ics');
+  });
+
+  it('names a slot with an English title as before', () => {
+    for (const title of [
+      'Cookies',
+      'Saturday drive',
+      'Sat, May 16',
+      '9:00 AM',
+      'Q&A with the coach',
+      'Set up / tear down',
+      'Room 101 (gym) at 3',
+      'snack_duty v2.1',
+    ]) {
+      expect(calendarFileName('bake-sale-k3x9q', title)).toBe(before('bake-sale-k3x9q', title));
+    }
+    // Every ASCII character, printable or not, between two words.
+    for (let code = 0; code < 0x80; code++) {
+      const title = `Before${String.fromCharCode(code)}after`;
+      expect(calendarFileName('bake-sale', title)).toBe(before('bake-sale', title));
+    }
+  });
+
+  it('turns path separators and what file systems refuse into "-"', () => {
+    expect(calendarFileName('x', 'a/b\\c:d*e?f"g<h>i|j')).toBe('x-a-b-c-d-e-f-g-h-i-j.ics');
+    expect(calendarFileName('x', '../../etc/passwd')).toBe('x-..-..-etc-passwd.ics');
+    expect(calendarFileName('x', '..')).toBe('x.ics');
+  });
+
+  it('turns control characters and invisible ones into "-"', () => {
+    expect(calendarFileName('x', 'Fika\nkl. 3\tidag\u0000\u001f\u007f!')).toBe(
+      'x-Fika-kl.-3-idag.ics',
+    );
+    // Were it kept, the right-to-left override would make this read "x-Fikasci.exe.docs".
+    expect(calendarFileName('x', 'Fika\u202Escod.exe')).toBe('x-Fika-scod.exe.ics');
+    expect(calendarFileName('x', 'Fi\u200Bka\u00ADdag\uFEFF')).toBe('x-Fi-ka-dag.ics');
+  });
+
+  it('drops emoji, with the marks that go with them', () => {
+    // U+FE0F after the cup asks for its emoji form: a mark with nothing to mark once the cup goes.
+    expect(calendarFileName('x', 'Fika \u2615\uFE0F')).toBe('x-Fika.ics');
+    // A flag, and a family joined by U+200D.
+    expect(
+      calendarFileName('x', '\u{1F1F8}\u{1F1EA} Midsommar \u{1F468}\u200D\u{1F469}\u200D\u{1F467}'),
+    ).toBe('x-Midsommar.ics');
+    expect(calendarFileName('x', 'Kaffe \u2615 och \u{1F36A} kakor')).toBe('x-Kaffe-och-kakor.ics');
+  });
+
+  it('leaves no "-" or "." at either end of the name, nor two together', () => {
+    expect(calendarFileName('x', 'Help!')).toBe('x-Help.ics');
+    expect(calendarFileName('x', '(AM) shift')).toBe('x-AM-shift.ics');
+    expect(calendarFileName('x', 'Setup - day 1')).toBe('x-Setup-day-1.ics');
+    expect(calendarFileName('x', 'Snacks etc.')).toBe('x-Snacks-etc.ics');
+    expect(calendarFileName('x', '--Fika--')).toBe('x-Fika.ics');
+  });
+
+  it('is the slug alone when nothing of the title can stay', () => {
+    expect(calendarFileName('fika', '🍪')).toBe('fika.ics');
+    expect(calendarFileName('fika', '')).toBe('fika.ics');
+    expect(calendarFileName('fika', ' / ')).toBe('fika.ics');
+  });
+
+  it('falls back to "signup" when nothing is left at all', () => {
+    expect(calendarFileName('', '🍪')).toBe('signup.ics');
+    expect(calendarFileName('', '')).toBe('signup.ics');
+  });
+
+  it('cuts a long title between whole letters, within 200 bytes', () => {
+    const long = calendarFileName('x', 'å'.repeat(300));
+    expect(long).toBe(`x-${'å'.repeat(99)}.ics`);
+    expect(octets(long.slice(0, -'.ics'.length))).toBe(200);
+
+    // Four bytes each, and two UTF-16 units: never half of one.
+    expect(calendarFileName('x', '𠀀'.repeat(100))).toBe(`x-${'𠀀'.repeat(49)}.ics`);
+
+    // A cut just after a space leaves no "-" at the end.
+    expect(calendarFileName('x', `${'a'.repeat(197)} b`)).toBe(`x-${'a'.repeat(197)}.ics`);
+
+    // An English title that fits is named as before.
+    const fits = 'Sunday morning set-up crew '.repeat(4).trim();
+    expect(calendarFileName('bake-sale-k3x9q', fits)).toBe(before('bake-sale-k3x9q', fits));
   });
 });

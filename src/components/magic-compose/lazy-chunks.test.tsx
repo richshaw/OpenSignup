@@ -2,9 +2,16 @@
 
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { cleanup, fireEvent, render as renderBare, screen } from '@testing-library/react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { Drafting } from './Drafting';
 import { MagicComposeRoot } from './MagicComposeRoot';
+
+/** As Magic Compose's page renders it, with its messages in English. */
+const render = (ui: ReactElement) =>
+  renderBare(ui, { wrapper: englishMessages(MAGIC_COMPOSE_NAMESPACES) });
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 // As after a deploy since the page opened: the chunks it asks for are gone.
@@ -51,6 +58,7 @@ describe('lazy parts of Magic Compose that fail to load', () => {
     render(
       <Drafting
         prompt="Bake sale"
+        locale="en"
         followUp={{ what: { picked: ['Staff the table'], added: [] } }}
         draft={null}
         onCancel={() => {}}

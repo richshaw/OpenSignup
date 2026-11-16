@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowRight, Check, Sparkles } from 'lucide-react';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
-import { STARTER_PROMPTS } from '@/lib/magic-compose/templates';
+import { starterPrompts } from '@/lib/magic-compose/templates';
 import { handFillHref } from './hand-fill';
 
 /** The count shows from this many characters, so it's there before Back's answers tip it over. */
@@ -23,6 +24,8 @@ export function Compose({
   /** Back from the questions: focus the description, with the caret after the answers. */
   focusAtEnd?: boolean;
 }) {
+  const t = useTranslations('organizer.compose');
+  const starters = starterPrompts(useTranslations('organizer.compose.starters'));
   const taRef = useRef<HTMLTextAreaElement>(null);
   // A hard maxLength would cut off the answers Back adds, so the box takes
   // any length and Draft waits until it's short enough.
@@ -56,28 +59,27 @@ export function Compose({
       <header className="flex flex-col items-start gap-2.5">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-xs font-medium tracking-wide text-brand">
           <Sparkles className="h-3 w-3" aria-hidden="true" />
-          New signup
+          {t('eyebrow')}
         </span>
         <h1 className="text-4xl font-semibold leading-tight tracking-tight md:text-[44px]">
-          What are you organizing?
+          {t('heading')}
         </h1>
         <p className="text-base leading-relaxed text-ink-muted md:text-lg">
-          <span className="font-medium text-ink">
-            Say what people sign up for, when, and how many of each.
-          </span>{' '}
-          We&apos;ll turn it into a title, blurb, and slots for you to edit.
+          {t.rich('intro', {
+            strong: (chunks) => <span className="font-medium text-ink">{chunks}</span>,
+          })}
         </p>
       </header>
 
       <div className="overflow-hidden rounded-2xl border border-surface-sunk bg-white shadow-sm transition focus-within:border-brand">
         <textarea
           ref={taRef}
-          aria-label="Describe your signup"
+          aria-label={t('describe')}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={onKeyDown}
           aria-describedby={showCount ? COUNT_ID : undefined}
-          placeholder="e.g. Snack duty for our U9 soccer team. 6 Saturday games starting April 25, two families per game, no nuts please."
+          placeholder={t('placeholder')}
           className="min-h-[160px] w-full resize-none border-0 bg-white px-6 pb-3 pt-5 text-base leading-relaxed text-ink outline-none"
         />
         <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-3 pt-2">
@@ -86,16 +88,16 @@ export function Compose({
               id={COUNT_ID}
               className={`mr-auto px-2 text-[13px] ${over > 0 ? 'font-medium text-danger' : 'text-ink-muted'}`}
             >
-              {prompt.length.toLocaleString('en-US')} / {PROMPT_MAX_LENGTH.toLocaleString('en-US')}{' '}
-              characters
-              {over > 0 && `. Shorten it by ${over.toLocaleString('en-US')} to draft.`}
+              {over > 0
+                ? t('countOver', { count: prompt.length, max: PROMPT_MAX_LENGTH, over })
+                : t('count', { count: prompt.length, max: PROMPT_MAX_LENGTH })}
             </p>
           )}
           <Link
-            href={handFillHref(prompt)}
+            href={handFillHref(prompt, starters)}
             className="inline-flex items-center gap-2 rounded-xl border border-surface-sunk bg-white px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-raised"
           >
-            Skip, fill in by hand
+            {t('skip')}
           </Link>
           <button
             type="button"
@@ -104,15 +106,15 @@ export function Compose({
             className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            Draft my signup
+            {t('draft')}
           </button>
         </div>
       </div>
 
       <section className="flex flex-col gap-3">
-        <div className="text-sm font-medium text-ink-muted">Or start from an example</div>
+        <div className="text-sm font-medium text-ink-muted">{t('examples')}</div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {STARTER_PROMPTS.map((s) => {
+          {starters.map((s) => {
             const isCurrent = prompt === s.body;
             return (
               <button
@@ -136,11 +138,11 @@ export function Compose({
                 >
                   {isCurrent ? (
                     <>
-                      <Check className="h-3 w-3" aria-hidden="true" /> Loaded
+                      <Check className="h-3 w-3" aria-hidden="true" /> {t('loaded')}
                     </>
                   ) : (
                     <>
-                      Try this <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                      {t('tryThis')} <ArrowRight className="h-3 w-3" aria-hidden="true" />
                     </>
                   )}
                 </div>
@@ -151,24 +153,11 @@ export function Compose({
       </section>
 
       <section className="flex flex-col gap-3.5 border-t border-surface-sunk pt-5">
-        <div className="text-sm font-medium text-ink-muted">Tips for a better draft</div>
+        <div className="text-sm font-medium text-ink-muted">{t('tips.heading')}</div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          <Tip
-            title="Mention dates"
-            body={
-              'A range like \u201CSaturdays Apr 25 to May 30\u201D lets us generate one slot per date.'
-            }
-          />
-          <Tip
-            title="Say how many"
-            body={
-              '\u201CTwo families per game\u201D or \u201Csix volunteers per shift\u201D, so we can set capacity.'
-            }
-          />
-          <Tip
-            title="Flag the gotchas"
-            body="Allergies, locations, no-shows policy. Anything participants should know."
-          />
+          <Tip title={t('tips.dates.title')} body={t('tips.dates.body')} />
+          <Tip title={t('tips.howMany.title')} body={t('tips.howMany.body')} />
+          <Tip title={t('tips.gotchas.title')} body={t('tips.gotchas.body')} />
         </div>
       </section>
     </div>

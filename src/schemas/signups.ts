@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ZodIssueReasons } from '@/lib/errors';
 import {
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -38,6 +39,16 @@ export const SignupSettingsSchema = z
      * the signup has no date field at all.
      */
     reminderFromFieldRef: z.string().optional(),
+    /**
+     * The language the signup is written in. Absent until someone chooses
+     * one: read it with `localeOfSignup` from `@/i18n/locale`. Lenient, so a
+     * stored value can't break `requiresEmail`, `sendsReminders` or the next
+     * save: a language that has since left the list still parses, and
+     * anything that isn't a short string reads as none. So this never refuses
+     * a value; `createSignup` and `updateSignup` refuse one the caller sends
+     * unless it has shipped to participants.
+     */
+    locale: z.string().max(35).optional().catch(undefined),
   })
   .default({});
 
@@ -82,6 +93,18 @@ export const TitleSchema = z
   .max(TITLE_MAX_LENGTH)
   .trim()
   .min(TITLE_MIN_LENGTH, TITLE_TOO_SHORT_MESSAGE);
+
+/**
+ * The `details.reason` a refused create or update carries for each check the
+ * organizer screens word themselves, by field and Zod issue code (see
+ * `ErrorReason`). Only a title that's too short: the New signup form and the
+ * Build tab keep everything else these schemas check within bounds, so any
+ * other refusal comes from a request they didn't send, and is worded by its
+ * code.
+ */
+export const SIGNUP_INPUT_REASONS = {
+  title: { too_small: 'title_too_short' },
+} as const satisfies ZodIssueReasons;
 
 export const SignupCreateInputSchema = z.object({
   title: TitleSchema,

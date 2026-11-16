@@ -25,6 +25,8 @@ export interface ToolContext {
   clientId: string;
   defaultWorkspaceId: string | null;
   workspaces: ToolWorkspace[];
+  /** The organizer's saved language as stored, or null: the bearer seam's `locale`. */
+  locale: string | null;
 }
 
 /** The workspace a tool acts in: the argument if given, else the organizer's default. */

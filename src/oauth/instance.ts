@@ -3,6 +3,7 @@ import type Provider from 'oidc-provider';
 import { getDb, type Db } from '@/db/client';
 import { eq } from 'drizzle-orm';
 import { organizers } from '@/db/schema/organizers';
+import { signInLocale } from '@/i18n/locale';
 import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
@@ -107,6 +108,7 @@ async function build(): Promise<Provider> {
     findGrantId: (accountId, clientId) => findGrantIdFor(db, accountId, clientId),
     allowCimdFetch: (clientId) => allowCimdFetch(db, clientId),
     onGrantUsed: (grantId) => touchGrantUsed(db, grantId),
+    errorPageLocale: signInLocale(),
   });
   log.info(
     { issuer: oauthIssuer(), resource: mcpResourceUrl(), keys: keys.privateKeys.length },

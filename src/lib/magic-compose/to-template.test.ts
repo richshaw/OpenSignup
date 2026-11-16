@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { FullDraftSchema } from './prompt';
-import { buildWarnings, magicComposeToTemplate } from './to-template';
+import { warningSentence } from './draft-warnings';
+import { draftWarnings, magicComposeToTemplate, type DroppedSummary } from './to-template';
+
+/** The warnings as the API words them, in English, from their codes. */
+const buildWarnings = (dropped: DroppedSummary) => draftWarnings(dropped).map(warningSentence);
 
 function parse(raw: unknown) {
   const r = FullDraftSchema.parse(raw);
@@ -431,5 +435,38 @@ describe('buildWarnings', () => {
       emptyEnumFields: ['role'],
     });
     expect(out).toHaveLength(4);
+  });
+});
+
+describe('draftWarnings', () => {
+  it('gives each kind of change as a code with its arguments, in the order they are worded', () => {
+    expect(
+      draftWarnings({
+        duplicateRefs: ['date', 'time'],
+        strayValueKeys: ['typo'],
+        coercionFailures: [
+          { slot: 0, ref: 'date', reason: 'date' },
+          { slot: 1, ref: 'time', reason: 'time' },
+          { slot: 2, ref: 'time', reason: 'time' },
+        ],
+        emptyEnumFields: ['Shift', 'Role'],
+      }),
+    ).toEqual([
+      { code: 'values_blanked', count: 3 },
+      { code: 'enum_fields_to_text', fields: ['Shift', 'Role'] },
+      { code: 'duplicate_fields', count: 2 },
+      { code: 'stray_values', count: 1 },
+    ]);
+  });
+
+  it('gives none for a clean conversion', () => {
+    expect(
+      draftWarnings({
+        duplicateRefs: [],
+        strayValueKeys: [],
+        coercionFailures: [],
+        emptyEnumFields: [],
+      }),
+    ).toEqual([]);
   });
 });

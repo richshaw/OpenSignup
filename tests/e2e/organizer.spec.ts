@@ -267,7 +267,7 @@ test.describe('organizer flow', () => {
   });
 
   test('the slot editor takes no date before 1900', async ({ page }) => {
-    // A fresh signup per run. createSignup applies DEFAULT_TEMPLATE: fields
+    // A fresh signup per run. createSignup applies the default template: fields
     // `what` (text) and `date`.
     const created = await page.request.post('/api/signups', {
       data: {
@@ -309,7 +309,7 @@ test.describe('organizer flow', () => {
     await date.fill('1899-12-31');
     expect(await date.evaluate((el: HTMLInputElement) => el.validity.rangeUnderflow)).toBe(true);
     expect((await saved).status()).toBe(400);
-    await expect(page.getByText('"date" must be a date in 1900 or later')).toBeVisible();
+    await expect(page.getByText('Dates must be in 1900 or later.')).toBeVisible();
     expect(await storedDate()).toBe('2030-04-06');
 
     // The first day of 1900 is in range and saves.
@@ -343,8 +343,12 @@ test.describe('organizer flow', () => {
 
     const settings = `/app/signups/${signup.id}/settings`;
     await page.goto(settings);
-    // The header has a live region of its own.
-    const saved = page.getByRole('region', { name: 'Sign-up form' }).getByRole('status');
+    // The tab's settings are one form, with one Save and its Saved under them
+    // all. The header has a live region of its own.
+    const saved = page
+      .locator('form')
+      .filter({ has: page.getByRole('group', { name: 'Ask for an email address' }) })
+      .getByRole('status');
     const required = page.getByRole('radio', { name: 'Required' });
     const optional = page.getByRole('radio', { name: 'Optional' });
     await expect(required).toBeChecked();

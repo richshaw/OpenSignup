@@ -202,7 +202,7 @@ export async function addField(
   return withSignupWriteLock(db, actor, signupId, async (tx, signupRow) => {
     // An omitted sortOrder appends. The build page never sends one, and
     // defaulting it to 0 put every field it added ahead of the template's
-    // date column (DEFAULT_TEMPLATE pins it at 1), so a new column
+    // date column (the default template pins it at 1), so a new column
     // reappeared mid-grid after a reload.
     let sortOrder = data.sortOrder;
     // In front of another field: the new field takes that field's position,
@@ -443,7 +443,11 @@ export async function updateField(
       if (offending.length > 0) {
         return err(
           serviceError('conflict', 'change would invalidate existing slot values', {
-            details: { slotIds: offending.slice(0, 20), count: offending.length },
+            details: {
+              reason: 'invalidates_slot_values',
+              slotIds: offending.slice(0, 20),
+              count: offending.length,
+            },
           }),
         );
       }
@@ -719,7 +723,7 @@ function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<vo
           serviceError(
             'invalid_input',
             `"${field.ref}" must be a date in ${MIN_DATE_YEAR} or later`,
-            { field: field.ref, received: value },
+            { field: field.ref, received: value, details: { reason: 'date_too_early' } },
           ),
         );
       }

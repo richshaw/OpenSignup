@@ -3,7 +3,9 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { LoginForm, type CodeActionResult, type LoginActionResult } from './login-form';
+import { loginFormText } from './login-text';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 
@@ -12,11 +14,18 @@ const SETTLED = { timeout: 2000 };
 
 function renderForm(
   result: LoginActionResult,
-  redeemResult: CodeActionResult = { ok: false, message: 'That code is not right.' },
+  redeemResult: CodeActionResult = { ok: false, reason: 'wrong' },
 ) {
   const action = vi.fn(async (_formData: FormData) => result);
   const redeem = vi.fn(async (_formData: FormData) => redeemResult);
-  render(<LoginForm action={action} redeem={redeem} callbackUrl="/app" />);
+  render(
+    <LoginForm
+      action={action}
+      redeem={redeem}
+      callbackUrl="/app"
+      text={loginFormText(getTestTranslator('auth'))}
+    />,
+  );
   return {
     action,
     redeem,

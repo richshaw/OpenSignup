@@ -279,8 +279,11 @@ test.describe('help: create and publish your first signup', () => {
 
     await page.goto(`/app/signups/${signup.id}/build`);
     await page.getByRole('tab', { name: UI.settings }).click();
-    const form = page.getByRole('region', { name: UI.signupForm });
-    const ask = form.getByRole('group', { name: UI.askForEmail });
+    const ask = page
+      .getByRole('region', { name: UI.signupForm })
+      .getByRole('group', { name: UI.askForEmail });
+    // The tab's settings are one form, with one Save under them all.
+    const form = page.locator('form').filter({ has: ask });
     // "A signup asks people for their email unless you make it optional."
     await expect(ask.getByRole('radio', { name: UI.emailRequired })).toBeChecked();
     await ask.getByRole('radio', { name: UI.emailOptional }).check();

@@ -1,10 +1,19 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, within } from '@testing-library/react';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { getTestServerTranslator } from '@/i18n/testing/translator';
 import type { SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
+import { signupHeaderText } from './header-text';
 import { SignupHeader } from './SignupHeader';
 import type { StatusChangeAction } from './StatusActionForm';
+
+// English from the catalog; any other language answers with the key it was
+// asked for and the language (`getTestServerTranslator`).
+vi.mock('@/i18n/server', async () => ({
+  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
+}));
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const SPOTS: SpotCounts = { taken: 3, total: 21, open: 18, allSlotsOpen: true };
@@ -18,9 +27,14 @@ function renderHeader(
   status: SignupStatus,
   spots: SpotCounts | null = SPOTS,
   reopenAction: StatusChangeAction = async () => null,
+  locale: CatalogLocale = 'en',
+  contentLocale: CatalogLocale = locale,
 ) {
   const { container } = render(
     <SignupHeader
+      locale={locale}
+      contentLocale={contentLocale}
+      text={signupHeaderText(getTestServerTranslator(locale, 'organizer.signup'))}
       signupId="sig_1"
       title="Bake sale helpers"
       status={status}
@@ -176,3 +190,114 @@ describe('SignupHeader on a phone', () => {
     expect(phone.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 });
+
+describe('SignupHeader’s status', () => {
+  it.each(['draft', 'open', 'closed', 'archived'] as const)(
+    'says %s on both headers, in the catalog’s words',
+    (status) => {
+      const { computer, phone } = renderHeader(status);
+      expect(computer.getByText(status, { exact: true })).toBeInTheDocument();
+      expect(phone.getByText(status, { exact: true })).toBeInTheDocument();
+    },
+  );
+});
+
+describe('SignupHeader’s title', () => {
+  it('carries no mark of its own in the organizer’s language', () => {
+    const { computer, phone } = renderHeader('open');
+    for (const header of [computer, phone]) {
+      expect(header.getByRole('heading', { level: 1 })).not.toHaveAttribute('lang');
+    }
+  });
+
+  // Each pair of a language with a catalog and another: the title is in the
+  // signup's, the header around it in the organizer's.
+  it.each(
+    CATALOG_LOCALES.flatMap((organizer) =>
+      CATALOG_LOCALES.filter((signup) => signup !== organizer).map((signup) => [organizer, signup]),
+    ),
+  )(
+    'is marked with the signup’s language on both headers, organizer %s, signup %s',
+    (organizer, signup) => {
+      const { computer, phone } = renderHeader('open', SPOTS, undefined, organizer, signup);
+      for (const header of [computer, phone]) {
+        const title = header.getByRole('heading', { level: 1 });
+        expect(title).toHaveTextContent('Bake sale helpers');
+        expect(title).toHaveAttribute('lang', signup);
+      }
+      // The header's own words stay unmarked, in the organizer's.
+      expect(computer.getByRole('link', { name: /Preview|signup\.preview/ })).not.toHaveAttribute(
+        'lang',
+      );
+    },
+  );
+
+  it('is marked in the phone’s More actions sheet too', () => {
+    const other = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+    const { phone } = renderHeader('open', SPOTS, undefined, 'en', other);
+    fireEvent.click(phone.getByRole('button', { name: 'More actions' }));
+    const sheet = within(document.body).getByRole('dialog', { name: 'Bake sale helpers' });
+    expect(within(sheet).getByText('Bake sale helpers')).toHaveAttribute('lang', other);
+  });
+
+  it('isn’t marked in the sheet in the organizer’s language', () => {
+    const { phone } = renderHeader('open');
+    fireEvent.click(phone.getByRole('button', { name: 'More actions' }));
+    const sheet = within(document.body).getByRole('dialog', { name: 'Bake sale helpers' });
+    expect(within(sheet).getByRole('heading', { name: 'Bake sale helpers' })).toBeInTheDocument();
+    expect(sheet.querySelector('[lang]')).toBeNull();
+  });
+});
+
+describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  'SignupHeader in %s',
+  (locale) => {
+    const words = (key: string) => `organizer.${key} in ${locale}`;
+
+    it('takes a draft’s words from the catalog in that language', () => {
+      const { computer, phone, bar } = renderHeader('draft', null, undefined, locale);
+      expect(computer.getByText(words('status.draft'))).toBeInTheDocument();
+      expect(computer.getByText(words('signup.draftLine'))).toBeInTheDocument();
+      expect(computer.getByRole('link', { name: words('signup.preview') })).toBeInTheDocument();
+      expect(
+        computer.getByRole('button', { name: words('signup.publish.label') }),
+      ).toBeInTheDocument();
+      expect(phone.getByText(words('signup.draftLine'))).toBeInTheDocument();
+      expect(phone.getByRole('button', { name: words('signup.moreActions') })).toBeInTheDocument();
+      expect(
+        within(bar!).getByRole('button', { name: words('signup.publish.label') }),
+      ).toBeInTheDocument();
+    });
+
+    it('takes an open or closed signup’s words from the catalog in that language', () => {
+      const open = renderHeader('open', SPOTS, undefined, locale);
+      expect(open.computer.getByText(words('status.open'))).toBeInTheDocument();
+      expect(open.computer.getByText(words('signup.spots.line'))).toBeInTheDocument();
+      expect(
+        open.computer.getByRole('button', { name: words('signup.moreActions') }),
+      ).toBeInTheDocument();
+
+      const closed = renderHeader('closed', SPOTS, undefined, locale);
+      expect(
+        closed.computer.getByRole('button', { name: words('signup.reopen.action') }),
+      ).toBeInTheDocument();
+    });
+
+    it('takes Share’s and the public link’s words from the catalog in that language', () => {
+      const { computer, phone, bar } = renderHeader('open', SPOTS, undefined, locale);
+      for (const header of [computer, phone]) {
+        expect(header.getByText(words('share.chip.label'))).toBeInTheDocument();
+        expect(header.getByRole('button', { name: words('share.chip.copy') })).toHaveAttribute(
+          'title',
+          words('share.chip.copyTip'),
+        );
+        expect(header.getByRole('link', { name: words('share.chip.open') })).toHaveAttribute(
+          'title',
+          words('share.chip.openTip'),
+        );
+      }
+      expect(computer.getByRole('button', { name: words('share.button') })).toBeInTheDocument();
+      expect(within(bar!).getByRole('button', { name: words('share.button') })).toBeInTheDocument();
+    });
+  },
+);

@@ -16,6 +16,8 @@ export interface PublishCheckPanelProps {
   /** Opens the slot the check is about; false when it can't, and focus comes back here. */
   onFix: () => boolean;
   onSecondary: () => void;
+  /** The sheet's ✕ on a phone, from the server. */
+  closeLabel: string;
 }
 
 /**
@@ -32,6 +34,7 @@ export function PublishCheckPanel({
   onClose,
   onFix,
   onSecondary,
+  closeLabel,
 }: PublishCheckPanelProps) {
   const first = useRef<HTMLButtonElement>(null);
   // Off once the fix has sent focus to the slot it opens.
@@ -85,6 +88,7 @@ export function PublishCheckPanel({
       open={answer !== null}
       onClose={onClose}
       title={answer?.copy.title}
+      closeLabel={closeLabel}
       describedBy={textId}
       compact
       onOpenAutoFocus={(e) => {

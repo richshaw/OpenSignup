@@ -7,11 +7,14 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { participants } from '@/db/schema/participants';
 import { rateLimits } from '@/db/schema/rate-limits';
+import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { getEmailTransport } from '@/email';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
+import { NOTES_MAX_LENGTH, QUANTITY_MAX } from '@/lib/participant-limits';
+import { PUBLIC_COMMITMENT_FIELDS } from '@/lib/public-commitment';
 import { RateLimits } from '@/lib/rate-limit';
 import {
   appendReturningCommit,
@@ -169,6 +172,57 @@ describe('/api/commitments/[id] (db)', () => {
     expect(payload.data.participantName).toBe('Route Tester');
     expect(payload.data).not.toHaveProperty('editTokenHash');
     expect(payload.data).not.toHaveProperty('idempotencyKeyHash');
+  });
+
+  // Anyone holding an edit link can call this, and a signup's settings are
+  // its organizer's: the reminder switch, the lockout, the message shown
+  // after signing up. The answer is the commitment, who made it and its
+  // signup's slug, with none of them, nor the language the edit page reads.
+  it("GET answers with none of the signup's settings", async () => {
+    const signup = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+      title: 'Organizer keeps these',
+      description: '',
+      tags: [],
+      visibility: 'unlisted' as const,
+      settings: {
+        sendReminders: false,
+        lockoutHoursBeforeSlot: 6,
+        maxCommitmentsPerParticipant: 2,
+        confirmationMessage: 'Organizers only: the gate code is 4321',
+      },
+    });
+    if (!signup.ok) throw new Error(signup.error.message);
+    // Written to the row, as the e2e seed does: `createSignup` refuses a
+    // language that hasn't shipped.
+    await fx.db
+      .update(signups)
+      .set({ settings: { ...signup.value.settings, locale: 'sv' } })
+      .where(eq(signups.id, signup.value.id));
+    const slot = await addSlot(fx.db, fx.actor, signup.value.id, { values: {}, capacity: 5 });
+    if (!slot.ok) throw new Error(slot.error.message);
+    const pub = await publishSignup(fx.db, fx.actor, signup.value.id);
+    if (!pub.ok) throw new Error(pub.error.message);
+    const committed = await commitToSlot(fx.db, slot.value.id, {
+      name: 'Route Tester',
+      email: `route-${makeId('com').slice(-8).toLowerCase()}@example.test`,
+      quantity: 1,
+    });
+    if (!committed.ok) throw new Error(committed.error.message);
+
+    const { req, ctx } = makeRequest(committed.value.commitment.id, {
+      token: committed.value.editToken,
+    });
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.data).not.toHaveProperty('settings');
+    expect(Object.keys(payload.data).sort()).toEqual(
+      [...PUBLIC_COMMITMENT_FIELDS, 'participantName', 'participantEmail', 'signupSlug'].sort(),
+    );
+    // Nowhere, nested or not, by key or by value.
+    expect(JSON.stringify(payload)).not.toMatch(
+      /"(settings|locale|signupLocale|sendReminders|lockoutHoursBeforeSlot|maxCommitmentsPerParticipant|confirmationMessage)"|gate code/,
+    );
   });
 
   it('GET accepts the token from the x-edit-token header', async () => {
@@ -378,6 +432,73 @@ describe('/api/commitments/[id] (db)', () => {
     expect(limited).not.toBeNull();
     expect(limited!.headers.get('Retry-After')).toMatch(/^\d+$/);
     const payload = await limited!.json();
-    expect(payload.error.code).toBe('rate_limited');
+    // As it has always been: the code and its wait say it all, so no reason.
+    expect(payload).toEqual({
+      error: {
+        code: 'rate_limited',
+        message: 'too many requests',
+        suggestion: expect.stringMatching(/^wait \d+s and retry$/),
+        details: {
+          retryAfterSeconds: expect.any(Number),
+          bucket: RateLimits.commitmentTokenOpsPerIp.bucket,
+        },
+      },
+    });
+    expect(Object.keys(payload.error.details)).toEqual(['retryAfterSeconds', 'bucket']);
+  });
+
+  // The edit form words an `invalid_input` by its `details.reason`. The reason
+  // comes after the fields the API has always sent, which stay as they were,
+  // byte for byte, in English for API callers.
+  it.each([
+    [
+      'too many spots',
+      { quantity: QUANTITY_MAX + 1 },
+      `{"error":{"code":"invalid_input","message":"Number must be less than or equal to ${QUANTITY_MAX}","field":"quantity","suggestion":"Check the value of \\"quantity\\"."}}`,
+      'quantity_too_large',
+    ],
+    [
+      'notes too long',
+      { notes: 'n'.repeat(NOTES_MAX_LENGTH + 1) },
+      `{"error":{"code":"invalid_input","message":"String must contain at most ${NOTES_MAX_LENGTH} character(s)","field":"notes","suggestion":"Check the value of \\"notes\\"."}}`,
+      'notes_too_long',
+    ],
+    [
+      'a blank name',
+      { name: '' },
+      '{"error":{"code":"invalid_input","message":"name is required","field":"name","suggestion":"Check the value of \\"name\\"."}}',
+      'name_required',
+    ],
+  ])('PATCH names %s in details.reason', async (_label, body, before, reason) => {
+    const c = await makeCommitment(fx);
+    const { req, ctx } = makeRequest(c.id, { method: 'PATCH', token: c.token, body });
+    const res = await PATCH(req, ctx);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toBe(`${before.slice(0, -2)},"details":{"reason":"${reason}"}}}`);
+  });
+
+  // The edit link's other refusals: each code means one thing to the edit
+  // form, so they carry no reason and read exactly as they always have.
+  it('PATCH answers a bad token and an inactive sign-up as before, with no reason', async () => {
+    const c = await makeCommitment(fx);
+    const patch = async (token: string | undefined) => {
+      const { req, ctx } = makeRequest(c.id, { method: 'PATCH', token, body: { notes: 'x' } });
+      const res = await PATCH(req, ctx);
+      return [res.status, await res.text()];
+    };
+    expect(await patch(undefined)).toEqual([
+      403,
+      '{"error":{"code":"forbidden","message":"edit token required","field":"token"}}',
+    ]);
+    expect(await patch('not-the-token')).toEqual([
+      403,
+      '{"error":{"code":"forbidden","message":"invalid edit token"}}',
+    ]);
+    const { req, ctx } = makeRequest(c.id, { method: 'DELETE', token: c.token });
+    expect((await DELETE(req, ctx)).status).toBe(200);
+    expect(await patch(c.token)).toEqual([
+      409,
+      '{"error":{"code":"conflict","message":"commitment is not active","details":{"status":"cancelled"}}}',
+    ]);
   });
 });

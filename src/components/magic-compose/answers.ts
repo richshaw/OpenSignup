@@ -1,3 +1,4 @@
+import type { Translator } from '@/i18n/translator';
 import {
   EARLIEST_DATE_YEAR,
   HOW_MANY_MAX,
@@ -168,20 +169,25 @@ export function sameAnswers(a: Answers, b: Answers): boolean {
 }
 
 /**
- * Why these answers can't go yet, in the words the screen shows, or null. It
- * reads the boxes rather than `buildFollowUp`, which drops times with no date.
+ * Why these answers can't go yet, in the words the screen shows (`t`, in the
+ * organizer's language), or null. It reads the boxes rather than
+ * `buildFollowUp`, which drops times with no date.
  */
-export function answersProblem(questions: MagicComposeQuestions, answers: Answers): string | null {
+export function answersProblem(
+  questions: MagicComposeQuestions,
+  answers: Answers,
+  t: Translator<'organizer.compose.questions.problems'>,
+): string | null {
   const { date, from, to } = answers;
   if (questions.topics.includes('when') && answers.when === 'one_day' && (date || from || to)) {
     // With no date the answer would go as "not decided", and the times with it.
-    if (!date) return 'Add a date, or leave the times empty.';
+    if (!date) return t('noDate');
     // A short year is an easy slip in a date box (202 becomes 0202), and the
     // server refuses a year before EARLIEST_DATE_YEAR, or one that isn't four
     // digits, as not a real day.
     const year = date.split('-')[0] ?? '';
-    if (year.length !== 4 || Number(year) < EARLIEST_DATE_YEAR) return "Check the date's year.";
-    if (from && to && from >= to) return 'The end time must be after the start time.';
+    if (year.length !== 4 || Number(year) < EARLIEST_DATE_YEAR) return t('year');
+    if (from && to && from >= to) return t('timeOrder');
   }
   // A count isn't rounded, so 2.5 is stopped here rather than sent as 3.
   if (
@@ -191,54 +197,117 @@ export function answersProblem(questions: MagicComposeQuestions, answers: Answer
       return count !== null && !Number.isInteger(count);
     })
   ) {
-    return 'Use whole numbers for how many people.';
+    return t('wholeNumbers');
   }
   return null;
 }
 
-/** "9am", "1:30pm", "12pm" for noon. */
-function formatTime(hhmm: string): string {
+/*
+ * The formatters below take the organizer's language as `locale` ('en', 'sv'),
+ * and the words around the times and answers ("to", "from", "What:") from
+ * `organizer.compose.answers` in that language (`t`).
+ */
+
+type AnswersTranslator = Translator<'organizer.compose.answers'>;
+
+/**
+ * A time from a time box: "9am", "1:30pm", "12pm" for noon in English, the
+ * short way of writing it Magic Compose has always used; in other languages,
+ * the short time `Intl` gives, as a slot's time shows it (`formatSlotTime`):
+ * "09:00" in Swedish.
+ */
+function formatTime(hhmm: string, locale: string): string {
   const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  if (locale !== 'en') {
+    return new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone: 'UTC' }).format(
+      Date.UTC(1970, 0, 1, h, m),
+    );
+  }
   const hour = h % 12 || 12;
   return `${hour}${m ? `:${String(m).padStart(2, '0')}` : ''}${h < 12 ? 'am' : 'pm'}`;
 }
 
-/** How long from `start` to `end`, both "HH:MM": "15 min", "4 hr", "1 hr 30 min". */
-export function timeLength(start: string, end: string): string {
+/** `timeLength`'s formatters, made once per language: it runs for every time in a list. */
+const lengthFormats = new Map<
+  string,
+  { hour: Intl.NumberFormat; minute: Intl.NumberFormat; pair: Intl.ListFormat }
+>();
+
+function lengthFormatsFor(locale: string) {
+  let formats = lengthFormats.get(locale);
+  if (!formats) {
+    const short = (unit: 'hour' | 'minute') =>
+      new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' });
+    formats = {
+      hour: short('hour'),
+      minute: short('minute'),
+      pair: new Intl.ListFormat(locale, { type: 'unit', style: 'narrow' }),
+    };
+    lengthFormats.set(locale, formats);
+  }
+  return formats;
+}
+
+/**
+ * How long from `start` to `end`, both "HH:MM", in short units: "15 min",
+ * "4 hr", "1 hr 30 min" in English, "1 tim 30 min" in Swedish.
+ */
+export function timeLength(start: string, end: string, locale: string): string {
   const minutes = (hhmm: string) => +hhmm.slice(0, 2) * 60 + +hhmm.slice(3);
   const length = minutes(end) - minutes(start);
   const h = Math.floor(length / 60);
   const m = length % 60;
-  return [h && `${h} hr`, m && `${m} min`].filter(Boolean).join(' ');
+  const { hour, minute, pair } = lengthFormatsFor(locale);
+  const parts: string[] = [];
+  if (h) parts.push(hour.format(h));
+  if (m) parts.push(minute.format(m));
+  return pair.format(parts);
 }
 
 /** "9am to 1pm", "from 9am" or "until 1pm", or null with neither time. */
-function formatTimes({ from, to }: { from?: string; to?: string }): string | null {
-  if (from && to) return `${formatTime(from)} to ${formatTime(to)}`;
-  if (from) return `from ${formatTime(from)}`;
-  return to ? `until ${formatTime(to)}` : null;
+function formatTimes(
+  { from, to }: { from?: string; to?: string },
+  locale: string,
+  t: AnswersTranslator,
+): string | null {
+  if (from && to) {
+    return t('fromTo', { from: formatTime(from, locale), to: formatTime(to, locale) });
+  }
+  if (from) return t('from', { from: formatTime(from, locale) });
+  return to ? t('until', { to: formatTime(to, locale) }) : null;
 }
 
 /**
  * A one-day answer's day and times, as the screen and Back write them:
  * "Saturday, November 14" (with the year when it isn't this one) and
- * "9am to 1pm", "from 9am" or "until 1pm".
+ * "9am to 1pm", "from 9am" or "until 1pm". In Swedish the day is
+ * "lördag 14 november".
  */
 export function formatOneDay(
   when: Extract<WhenAnswer, { kind: 'one_day' }>,
+  locale: string,
+  t: AnswersTranslator,
   now: Date = new Date(),
 ): { day: string; times: string | null } {
   const [y = 0, m = 1, d = 1] = when.date.split('-').map(Number);
   const at = new Date(0);
   at.setUTCFullYear(y, m - 1, d);
-  const day = at.toLocaleDateString('en-US', {
+  const day = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     timeZone: 'UTC',
     ...(y === now.getFullYear() ? {} : { year: 'numeric' }),
-  });
-  return { day, times: formatTimes(when) };
+  }).format(at);
+  return { day, times: formatTimes(when, locale, t) };
+}
+
+/**
+ * Items as one list in `locale`, without "and": "a, b, c" in English, as
+ * Back has always written them.
+ */
+function listOf(items: string[], locale: string): string {
+  return new Intl.ListFormat(locale, { type: 'unit', style: 'short' }).format(items);
 }
 
 /**
@@ -256,6 +325,8 @@ export function appendAnswers(
   prompt: string,
   questions: MagicComposeQuestions,
   answers: Answers,
+  locale: string,
+  t: AnswersTranslator,
   now?: Date,
 ): string {
   const followUp = buildFollowUp(questions, answers);
@@ -263,20 +334,22 @@ export function appendAnswers(
   const items = followUpItems(followUp);
   if (items.length > 0) {
     const counts = followUp.howMany;
-    const described = items.map((item, i) =>
-      counts ? `${item} (${counts[i] ?? 'no limit'})` : item,
-    );
-    lines.push(`What: ${described.join(', ')}`);
+    const described = items.map((item, i) => {
+      if (!counts) return item;
+      const count = counts[i] ?? null;
+      return count === null ? t('itemNoLimit', { item }) : t('item', { item, count });
+    });
+    lines.push(t('what', { items: listOf(described, locale) }));
   }
   const when = followUp.when;
   if (when?.kind === 'one_day') {
-    const { day, times } = formatOneDay(when, now);
-    lines.push(`When: ${times ? `${day}, ${times}` : day}`);
+    const { day, times } = formatOneDay(when, locale, t, now);
+    lines.push(t('when', { when: times ? t('dayAndTimes', { day, times }) : day }));
   } else if (when?.kind === 'several') {
-    lines.push(`When: ${when.text}`);
+    lines.push(t('when', { when: when.text }));
   } else if (when && answers.when === 'one_day') {
-    const times = formatTimes(answers);
-    if (times) lines.push(`When: ${times}`);
+    const times = formatTimes(answers, locale, t);
+    if (times) lines.push(t('when', { when: times }));
   }
   if (lines.length === 0) return prompt;
   return [prompt.trimEnd(), ...lines].join('\n');
