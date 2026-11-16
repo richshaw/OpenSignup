@@ -203,7 +203,7 @@ declare const messages: {
       },
       "invalid": {
         "title": "This link isn't valid",
-        "body": "It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
+        "body": "The link may be incomplete, or the signup has been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop."
       },
       "confirm": {
         "title": "Stop reminder emails?",

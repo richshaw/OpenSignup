@@ -135,7 +135,7 @@
   "participant.unsubscribe.incomplete.title": "This link is incomplete",
   "participant.unsubscribe.incomplete.body": "Unsubscribe links only work in full. Open the link straight from your reminder email, or reply to the organizer to ask them to stop.",
   "participant.unsubscribe.invalid.title": "This link isn't valid",
-  "participant.unsubscribe.invalid.body": "It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop.",
+  "participant.unsubscribe.invalid.body": "The link may be incomplete, or the signup has been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop.",
   "participant.unsubscribe.confirm.title": "Stop reminder emails?",
   "participant.unsubscribe.confirm.body": "We'll stop sending reminders for <b>{title}</b>, and emails when the organizer changes your slot's date or time. This only affects this signup, and your slot stays as it is.",
   "participant.unsubscribe.confirm.bodyWithEmail": "We'll stop sending {email} reminders for <b>{title}</b>, and emails when the organizer changes your slot's date or time. This only affects this signup, and your slot stays as it is.",

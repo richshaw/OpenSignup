@@ -200,7 +200,7 @@
       },
       "invalid": {
         "title": "Länken är inte giltig",
-        "body": "Länken kan ha skadats på vägen, eller så kan anmälningslistan ha tagits bort. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
+        "body": "Länken kan vara ofullständig, eller så har anmälningslistan tagits bort. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
       },
       "confirm": {
         "title": "Vill du stänga av påminnelserna?",

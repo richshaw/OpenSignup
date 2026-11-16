@@ -292,7 +292,7 @@ describe('unsubscribe page — its words in English', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent("This link isn't valid");
     expect(
       screen.getByText(
-        'It may have been mangled in transit, or the signup may have been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop.',
+        'The link may be incomplete, or the signup has been deleted. Open the link straight from your reminder email, or reply to the organizer to ask them to stop.',
       ),
     ).toBeInTheDocument();
   });
