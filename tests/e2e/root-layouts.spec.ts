@@ -3,6 +3,7 @@ import { NOT_FOUND_PAGE } from '@/app/not-found-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
 import { createDisposableSession } from './helpers/seed';
+import { expectSignupLayoutIn } from './helpers/signup-layout';
 
 const seed = loadSeed();
 
@@ -83,6 +84,28 @@ test.describe('root layouts', () => {
     await expect(page.getByRole('contentinfo')).toBeVisible();
     await expectIconsAndManifest(page);
   });
+
+  // The participant layout takes the signup's language (src/app/s/[slug]/
+  // layout.tsx): for these, which store none, English, as before. An unknown
+  // slug has no signup, so it gets the instance's language, English here.
+  for (const { name, path, status } of [
+    { name: 'a signup page', path: `/s/${seed.publicSlug}`, status: 200 },
+    {
+      name: 'an edit link',
+      path: `/s/${seed.editSlug}/c/${seed.editCommitmentId}?token=${seed.editToken}`,
+      status: 200,
+    },
+    { name: 'an unsubscribe page', path: `/s/${seed.publicSlug}/unsubscribe`, status: 200 },
+    { name: 'an unknown slug', path: '/s/this-slug-does-not-exist', status: 404 },
+  ]) {
+    test(`${name} is marked English, tells link previews so, and has the English footer`, async ({
+      page,
+    }) => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(status);
+      await expectSignupLayoutIn(page, 'en');
+    });
+  }
 });
 
 test.describe('an address no page matches', () => {

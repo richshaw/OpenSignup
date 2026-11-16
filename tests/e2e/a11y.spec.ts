@@ -25,8 +25,8 @@ test.describe('accessibility', () => {
     ).toEqual([]);
   });
 
-  // In Swedish, the page's language is on <main>, and longer words go in the
-  // same boxes.
+  // In Swedish, the page's language is on <html> and <main>, and longer
+  // words go in the same boxes.
   test('the Swedish test signup’s page has no WCAG A/AA violations', async ({ page }) => {
     await gotoSwedish(page, `/s/${seed.swedish.slug}`);
     await expect(page.getByRole('heading', { name: seed.swedish.title })).toBeVisible();
@@ -96,6 +96,41 @@ test.describe('accessibility', () => {
       const row = page.locator('li').filter({ hasText: slotLabel });
       await row.getByRole('button', { name: signUp }).click();
       await expect(page.getByLabel(yourName)).toBeVisible();
+
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+
+      expect(
+        results.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          nodes: v.nodes.map((n) => n.target),
+        })),
+      ).toEqual([]);
+    });
+  }
+
+  // A sign-up's own pages, in English and in the Swedish test signup's
+  // language, which the whole page takes, from <html lang> to the footer.
+  for (const { name, path, swedish } of [
+    {
+      name: 'an edit page',
+      path: `/s/${seed.editSlug}/c/${seed.editCommitmentId}?token=${seed.editToken}`,
+      swedish: false,
+    },
+    { name: 'the Swedish test signup’s edit page', path: seed.swedish.editPath, swedish: true },
+    { name: 'an unsubscribe page', path: `/s/${seed.publicSlug}/unsubscribe`, swedish: false },
+    {
+      name: 'the Swedish test signup’s unsubscribe page',
+      path: seed.swedish.unsubscribePath,
+      swedish: true,
+    },
+  ]) {
+    test(`${name} has no WCAG A/AA violations`, async ({ page }) => {
+      if (swedish) await gotoSwedish(page, path);
+      else await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
