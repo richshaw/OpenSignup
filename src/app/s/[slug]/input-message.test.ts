@@ -58,7 +58,7 @@ const REASONS: readonly (readonly [ErrorReason, Copy, Copy])[] = [
       [
         reason,
         { message: `Enter a whole number of spots, from 1 to ${QUANTITY_MAX}.` },
-        { message: `Ange ett helt antal platser, från 1 till ${QUANTITY_MAX}.` },
+        { message: `Ange antalet platser som ett heltal från 1 till ${QUANTITY_MAX}.` },
       ] as const,
   ),
 ];
