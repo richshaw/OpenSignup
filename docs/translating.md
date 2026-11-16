@@ -14,7 +14,8 @@ glossary is at the end.
 Translations are made and checked by machine. Nobody is paid to translate, so
 a Claude session translates with the `translate` skill
 (`.claude/skills/translate/SKILL.md`), and a different model reviews the result
-from screenshots of the participant screens and the rendered emails.
+from screenshots of the participant and organizer screens and the rendered
+emails.
 Corrections from people who speak the language are welcome as pull requests.
 
 ## Where the words live
@@ -599,8 +600,17 @@ for it. Every language with a catalog but English is a test language
   Build-tab specs run on them too;
 - `tests/e2e/slot-row-layout.spec.ts` checks that the row buttons' labels and
   the sign-up sheet's field labels fit their boxes, down to 320 pixels;
-- the organizer specs (`organizer-language*.spec.ts` and the Build tab's)
-  store it on an account and check the organizer app in it;
+- the e2e seed makes an organizer whose account stores it, with a signup of
+  their own in each state, and `tests/e2e/translated-organizer.spec.ts` walks
+  them through making, building and publishing a signup and opening Responses
+  and account Settings: each screen must say it's in the language (on
+  `<html lang>` and the app's wrapper) and show no English, by the same check
+  as the participant pages. The same spec checks the signup's tabs and header
+  buttons fit their boxes down to 320 pixels, and the accessibility spec
+  checks Your signups and the Build tab in it;
+- the other organizer specs (`organizer-language*.spec.ts` and the Build
+  tab's) store it on an account of their own and check the organizer app's
+  messages in it;
 - the email checks render each participant email and the sign-in email in
   it, through the web process's formatter and the worker's;
 - `pnpm translation:screenshots` saves its screens to
@@ -618,11 +628,13 @@ a word with English:
 - `inSentence` in `src/i18n/config.test.ts`, how each language writes each
   language's name inside a sentence. `pnpm typecheck` asks for the new
   language's row and column, with the catalog.
-- `SHARED_WITH_ENGLISH` in `tests/e2e/translated-signup.spec.ts`, the words
-  of the English the spec looks for on a translated page (`ENGLISH_WORDS`)
-  that the language writes as its own too, as Dutch writes "link". A
-  language without an entry shares none, so a page that shows one of those
-  words fails, and the failure names the catalog's messages that write it.
+- `SHARED_WITH_ENGLISH` in `tests/e2e/helpers/no-english.ts`, the words of
+  the English that `translated-signup.spec.ts` and
+  `translated-organizer.spec.ts` look for on a translated page
+  (`ENGLISH_WORDS`) that the language writes as its own too, as Dutch writes
+  "link". A language without an entry shares none, so a page that shows one
+  of those words fails, and the failure names the catalog's messages that
+  write it.
   Translate each, or add the word if the language really says it: never to
   quiet a message left in English, which is what the check is there to catch.
 
@@ -654,7 +666,8 @@ translator. Each one is made and checked the same way:
    today's English.
 2. The checks above pass.
 3. A different model from the translator's reviews the result in context:
-   screenshots of the participant screens and states, and every email's HTML.
+   screenshots of the participant screens and states and of the organizer's
+   main screens, and every email's HTML.
    It checks meaning against the English, the glossary, the tone, natural word
    order and plurals, and text too long for its place.
 4. The translator fixes what the review finds, and the pull request lists
@@ -669,9 +682,12 @@ pnpm translation:screenshots
 It sets `TRANSLATION_SCREENSHOTS=1`, which makes the email tests write each
 email's HTML and plain text, in English and every other language with a
 catalog, with the subject on the text's first line, and makes
-`tests/e2e/translated-signup.spec.ts` save a screenshot of each screen and
-state it checks, in each of those languages, on a desktop and at a phone's
-width (390 pixels). Everything goes to `translation-review/<code>/`, which git
+`tests/e2e/translated-signup.spec.ts` and `translated-organizer.spec.ts` save
+a screenshot of each screen and state they check, in each of those languages,
+on a desktop and at a phone's width (390 pixels). The organizer's are named
+`organizer-…`: Your signups, New signup (and Magic Compose's first screen,
+where the server has an AI set up), the Build tab with its Fields dialog and
+a slot's editor, the share panel, Responses and account Settings. Everything goes to `translation-review/<code>/`, which git
 ignores. Without the flag the tests write nothing, so CI is unaffected. In
 Claude's cloud container, Playwright's own Chromium isn't installed: add
 `-c .claude/skills/run-opensignup/playwright.container.config.ts`.
@@ -685,7 +701,9 @@ site's language, which can't be a language that hasn't shipped. And the spec
 doesn't reach a few rarer states: a cancelled spot whose slot has since filled
 or closed, someone the organizer took off a slot or moved, someone signed up
 for more than one slot, the edit page's errors when cancelling, and copying
-the link.
+the link. On the organizer's side, the other screens (Connected apps, a
+signup's Settings tab, Magic Compose's later steps, a refusal) have no
+screenshot: take the ones a change touches by hand.
 
 ## Swedish glossary
 
