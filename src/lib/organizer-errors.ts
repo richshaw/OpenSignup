@@ -10,7 +10,9 @@ import { TITLE_MIN_LENGTH } from './signup-limits';
  * code it words, and `other` for any refusal it has no line for. None for
  * `forbidden`, which reads the same on every screen.
  */
-type OwnLines = Partial<Record<ErrorReason | Exclude<ErrorCode, 'forbidden'> | 'other', string>>;
+export type OwnLines = Partial<
+  Record<ErrorReason | Exclude<ErrorCode, 'forbidden'> | 'other', string>
+>;
 
 /**
  * What an organizer page rendered on the server says for a refusal, in the
