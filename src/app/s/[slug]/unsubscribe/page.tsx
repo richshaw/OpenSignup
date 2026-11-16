@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
-import { type CatalogLocale, signupLocale } from '@/i18n/config';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import { unsubscribePath } from '@/lib/links';
 import { previewReminderOptOut } from '@/services/reminder-optout';
 import { requestedSignupLocale } from '../signup-locale';
@@ -100,7 +101,7 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
     redirect(unsubscribePath(target.signupSlug, participantId, token));
   }
   // The signup's language, from the row the token was checked against.
-  const locale = signupLocale(target.signupLocale, instanceDefaultLocale());
+  const locale = localeOfSignup(target.signupLocale);
   const t = getServerTranslator(locale, 'participant.unsubscribe');
   // The signup's title in bold, and the address in the sentence when there
   // is one: a whole sentence for each, so a language can put the address

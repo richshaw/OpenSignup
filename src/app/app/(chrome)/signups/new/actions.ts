@@ -3,7 +3,8 @@
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { getOrganizerAppLocale, newSignupLocale } from '@/i18n/organizer';
+import { newSignupLocale } from '@/i18n/locale';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
 import { waitMinutes } from '@/lib/format-duration';
 import { refusalText } from '@/lib/organizer-errors';

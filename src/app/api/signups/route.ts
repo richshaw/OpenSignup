@@ -1,7 +1,7 @@
 import type { OrganizerSession } from '@/auth/organizer-session';
 import { getOrganizerSession } from '@/auth/session';
-import { newSignupLocale } from '@/i18n/organizer';
-import type { SignupLocaleSource } from '@/i18n/organizer-locale';
+import { newSignupLocale } from '@/i18n/locale';
+import type { SignupLocaleSource } from '@/i18n/config';
 import { fail, readJson, respond } from '@/lib/api-response';
 import { link, publicSignupUrl } from '@/lib/links';
 import { organizerRoute } from '@/lib/organizer-route';

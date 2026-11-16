@@ -1,8 +1,8 @@
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { Crumb } from '@/components/chrome/Crumb';
-import { langWhereDifferent, signupLocale } from '@/i18n/config';
+import { langWhereDifferent } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { instanceDefaultLocale } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 
 type CrumbParams = { params: Promise<{ id: string }> };
@@ -20,7 +20,7 @@ export async function SignupTitleCrumb({ params }: CrumbParams) {
   if (!result.ok) return null;
   const sig = result.value;
   const lang = langWhereDifferent(
-    signupLocale(sig.settings.locale, instanceDefaultLocale()),
+    localeOfSignup(sig.settings.locale),
     getOrganizerAppLocale(session),
   );
   return (

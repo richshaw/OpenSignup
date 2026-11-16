@@ -7,22 +7,7 @@
  * out of this file and out of server.ts, since the reminder worker imports
  * server.ts under tsx.
  */
-import { type Audience, type CatalogLocale, isShipped, resolveLocale } from './config';
-
-export type { SignupLocaleSource } from './config';
-
-/** `resolveLocale`, as it was called before it took any audience. */
-export function chooseOrganizerLocale({
-  audience,
-  saved,
-  instanceDefault,
-}: {
-  audience: Audience;
-  saved: string | null;
-  instanceDefault: CatalogLocale | undefined;
-}) {
-  return resolveLocale(audience, saved, instanceDefault);
-}
+import { type CatalogLocale, isShipped } from './config';
 
 /**
  * The language a new organizer account stores, or null to store none. The

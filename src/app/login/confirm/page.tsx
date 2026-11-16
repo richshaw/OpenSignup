@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
-import { signInLocale } from '@/i18n/organizer';
+import { signInLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { getEnv } from '@/lib/env';
 import { SignInLink } from './sign-in-link';

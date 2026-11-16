@@ -4,9 +4,10 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
-import { type CatalogLocale, openGraphLocale, signupLocale } from '@/i18n/config';
+import { type CatalogLocale, openGraphLocale } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     return { title: t('title'), robots };
   }
   const sig = result.value;
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const locale = localeOfSignup(sig.settings.locale);
   const t = getServerTranslator(locale, 'participant.signupPage');
   // Trimmed for a description saved as only spaces before the schema trimmed it.
   const text = sig.description.trim();
@@ -125,7 +126,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
   const sig = result.value;
   // Worked out here, not left to a layout: a soft navigation renders the page
   // without its layout.
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const locale = localeOfSignup(sig.settings.locale);
 
   const cookieStore = await cookies();
   const returningRaw = cookieStore.get(COMMIT_COOKIE_NAME)?.value ?? null;

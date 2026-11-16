@@ -11,9 +11,10 @@ import {
 } from '@/services/commitments';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { StatusPill } from '@/components/status-pill';
-import { langWhereDifferent, signupLocale } from '@/i18n/config';
+import { langWhereDifferent } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import { commitmentStatusLabel } from '@/lib/commitment-status-label';
 import type { SignupStatus } from '@/schemas/signups';
 import { summarizeSlotValues } from '@/lib/slot-summary';
@@ -54,7 +55,7 @@ export default async function ResponsesTab({ params }: PageParams) {
   // stays as written, unmarked: it's in whatever language each person typed.
   const organizerLocale = getOrganizerAppLocale(session);
   const t = getServerTranslator(organizerLocale, 'organizer.responses');
-  const contentLocale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const contentLocale = localeOfSignup(sig.settings.locale);
   const contentLang = langWhereDifferent(contentLocale, organizerLocale);
   const totals = summarizeResponses(commitments, ended, t);
   // Every row's Remove says the same. One object, so the page's RSC payload

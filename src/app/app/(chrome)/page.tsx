@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDb } from '@/db/client';
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
-import { langWhereDifferent, signupLocale } from '@/i18n/config';
+import { langWhereDifferent } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import { publicSignupPath } from '@/lib/links';
 import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { StatusPill } from '@/components/status-pill';
@@ -33,8 +34,6 @@ export default async function DashboardPage() {
   }
   const result = await listSignupSummariesForWorkspace(getDb(), actor, workspaceId);
   const rows = result.ok ? result.value : [];
-  // A title is in its signup's language, which may not be the organizer's.
-  const instanceDefault = instanceDefaultLocale();
 
   return (
     <div className="space-y-6">
@@ -72,8 +71,9 @@ export default async function DashboardPage() {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
+                    {/* A title is in its signup's language, which may not be the organizer's. */}
                     <p
-                      lang={langWhereDifferent(signupLocale(r.locale, instanceDefault), locale)}
+                      lang={langWhereDifferent(localeOfSignup(r.locale), locale)}
                       className="truncate font-medium"
                     >
                       {r.title}

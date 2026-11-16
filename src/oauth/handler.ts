@@ -1,6 +1,6 @@
 import { extractClientIp } from '@/auth/request-context';
 import { getDb } from '@/db/client';
-import { signInLocale } from '@/i18n/organizer';
+import { signInLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';

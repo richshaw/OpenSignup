@@ -1,7 +1,7 @@
 import { getOrganizerSession, requireOrganizerSession, toActor } from '@/auth/session';
-import { signupLocale } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
@@ -62,7 +62,7 @@ export default async function SignupPreviewPage({ params }: PageParams) {
   // What participants will see, so in the signup's language: marked with it,
   // inside an organizer page that's in the organizer's. The Preview banner
   // over it is the organizer's.
-  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const locale = localeOfSignup(sig.settings.locale);
   return (
     <main lang={locale} className="flex min-h-[100svh] flex-col py-8">
       <SignupView

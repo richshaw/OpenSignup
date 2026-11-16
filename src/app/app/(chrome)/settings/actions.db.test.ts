@@ -282,4 +282,12 @@ describe('switchOpenSignupsLocaleAction (db)', () => {
     expect(await localeOf(ids.english)).toBe('en');
     expect(revalidatePath).not.toHaveBeenCalled();
   });
+
+  // The page shows no button then, so only a forged press gets here.
+  it('does nothing while only one language has shipped, as there is nothing to switch to', async () => {
+    expect(await press()).toBe('stayed');
+    expect(await localeOf(ids.english)).toBe('en');
+    expect(await localeOf(ids.none)).toBeUndefined();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
 });

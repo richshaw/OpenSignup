@@ -9,7 +9,7 @@ import { getCurrentRequestIp } from '@/auth/request-context';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
 import { FormError } from '@/components/ui/form-error';
 import { getDb } from '@/db/client';
-import { signInLocale } from '@/i18n/organizer';
+import { signInLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { EmailSchema } from '@/schemas/common';

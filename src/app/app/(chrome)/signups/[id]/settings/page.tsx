@@ -1,10 +1,11 @@
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { SavedNotice } from '@/components/ui/save-notice';
-import { type CatalogLocale, SHIPPED, languageName, signupLocale } from '@/i18n/config';
+import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
+import { localeOfSignup } from '@/i18n/locale';
 import { refusalFromQuery } from '@/lib/organizer-errors';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -183,7 +184,7 @@ function SignupLanguageForm({
   // A signup with no language of its own is in the instance's. One whose
   // language has since left the list shows that too, so the choice shown is
   // always one that saves, and is the language its pages use (`signupLocale`).
-  const current = signupLocale(stored, instanceDefaultLocale());
+  const current = localeOfSignup(stored);
 
   return (
     <section

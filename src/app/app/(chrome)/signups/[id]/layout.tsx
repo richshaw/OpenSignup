@@ -14,10 +14,10 @@ import { hasPhoneBar, PHONE_BAR_ROOM } from '@/components/signup/phone-bar';
 import { TabsNav } from '@/components/signup/TabsNav';
 import { AiDraftBanner } from '@/components/magic-compose/AiDraftBanner';
 import { SignupLoadError, signupNotFoundTitle } from '@/components/signup/SignupLoadError';
-import { signupLocale } from '@/i18n/config';
 import { getOrganizerAppLocale } from '@/i18n/organizer';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { getServerTranslator } from '@/i18n/server';
 import { messagesFor } from '@/i18n/translator';
+import { localeOfSignup } from '@/i18n/locale';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
 
@@ -73,7 +73,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   // The signup's language. Its title is in it, and so is the message the
   // share panel offers to send, which is for participants, as its page is:
   // neither is in the organizer's.
-  const contentLocale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const contentLocale = localeOfSignup(sig.settings.locale);
   const message = shareMessage(
     sig,
     publicUrl,

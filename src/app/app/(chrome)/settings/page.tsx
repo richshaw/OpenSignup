@@ -11,7 +11,8 @@ import { FormError } from '@/components/ui/form-error';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { getDb } from '@/db/client';
 import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
-import { getOrganizerAppLocale, getOrganizerLocale } from '@/i18n/organizer';
+import { newSignupLocale } from '@/i18n/locale';
+import { getOrganizerAppLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
 import { refusalAsResult } from '@/lib/errors';
@@ -109,9 +110,11 @@ interface OpenSignupCounts {
  * until then none, and no statement.
  */
 async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<OpenSignupCounts> {
-  if (SHIPPED.participant.length < 2) return { open: 0, toSwitch: 0 };
-  const { locale } = getOrganizerLocale(session, 'participant');
-  const read = await refusalAsResult(() => openSignupsToSwitch(getDb(), toActor(session), locale));
+  const mine = newSignupLocale(session);
+  if (!mine) return { open: 0, toSwitch: 0 };
+  const read = await refusalAsResult(() =>
+    openSignupsToSwitch(getDb(), toActor(session), mine.locale),
+  );
   return read.ok
     ? { open: read.value.open, toSwitch: read.value.toSwitch.length }
     : { open: 0, toSwitch: 0 };
@@ -157,11 +160,13 @@ function OrganizerLanguageForm({
   switched: boolean;
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
-  if (languages.length < 2) return null;
   // The language new signups get now: the one stored on the account, or with
   // none stored (or one that has left the list) the instance's, else English.
-  // So the choice shown is always one that saves.
-  const { locale: current } = getOrganizerLocale(session, 'participant');
+  // So the choice shown is always one that saves. None while there's only
+  // one language to choose.
+  const mine = newSignupLocale(session);
+  if (!mine) return null;
+  const current = mine.locale;
   // Only a code the action sends shows, in the words the Settings tab uses,
   // so a link can't put its own words on the page.
   const refusal = refusalFromQuery(

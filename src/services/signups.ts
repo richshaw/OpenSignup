@@ -3,9 +3,9 @@ import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { type CatalogLocale, SHIPPED, isShipped, signupLocale } from '@/i18n/config';
-import type { SignupLocaleSource } from '@/i18n/organizer-locale';
-import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
+import { type CatalogLocale, SHIPPED, type SignupLocaleSource, isShipped } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
 import {
   activityActor,
   recordActivities,
@@ -135,10 +135,7 @@ export async function createSignup(
   const template =
     opts.template ??
     defaultTemplate(
-      getServerTranslator(
-        signupLocale(data.settings.locale, instanceDefaultLocale()),
-        'participant.defaults',
-      ),
+      getServerTranslator(localeOfSignup(data.settings.locale), 'participant.defaults'),
     );
 
   const parsedFields: SlotFieldInput[] = [];
@@ -449,13 +446,12 @@ function ownOpenSignups(actor: Actor) {
   return { organizerId, workspaceIds: writableWorkspaceIds(actor), status: 'open' as const };
 }
 
-/** Those of `rows` whose participants get another language than `locale`, as `signupLocale` reads it. */
+/** Those of `rows` whose participants get another language than `locale`, as `localeOfSignup` reads it. */
 function notIn<T extends { settings: StoredSignupSettings }>(
   rows: readonly T[],
   locale: CatalogLocale,
 ): T[] {
-  const instanceDefault = instanceDefaultLocale();
-  return rows.filter((row) => signupLocale(row.settings.locale, instanceDefault) !== locale);
+  return rows.filter((row) => localeOfSignup(row.settings.locale) !== locale);
 }
 
 /**

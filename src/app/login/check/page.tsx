@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { safeCallbackUrl } from '@/auth/callback-url';
 import { getMagicLinkMaxAgeMinutes } from '@/auth/magic-link-expiry';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
-import { signInLocale } from '@/i18n/organizer';
+import { signInLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { formatDuration } from '@/lib/format-duration';
 import { SessionWatcher } from '../session-watcher';
