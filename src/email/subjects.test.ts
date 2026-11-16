@@ -106,10 +106,16 @@ describe('email subjects from the precompiled catalogs', () => {
       ]),
     );
 
-  it.each<[CatalogLocale, Translator<'email.subject'>]>([
-    ['en', en],
-    ['sv', sv],
-  ])('are the ones the raw %s catalog gives', async (locale, raw) => {
+  it.each<[CatalogLocale, Translator<'email.subject'>]>(
+    CATALOG_LOCALES.map((locale) => [
+      locale,
+      getTranslator(locale, 'email.subject', {
+        onError: (error) => {
+          throw error;
+        },
+      }),
+    ]),
+  )('are the ones the raw %s catalog gives', async (locale, raw) => {
     const precompiled = await getPrecompiledTranslator(locale, 'email.subject');
     expect(each(precompiled)).toEqual(each(raw));
   });

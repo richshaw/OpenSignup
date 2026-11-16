@@ -26,6 +26,7 @@ import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import { removeParticipantEmail } from '@/services/testing/participants';
 import { DELETE, GET, PATCH } from './route';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 // Work handed to after() runs once the response has gone. Kept here so a test
 // can run it and see what it did.
@@ -196,7 +197,7 @@ describe('/api/commitments/[id] (db)', () => {
     // language that hasn't shipped.
     await fx.db
       .update(signups)
-      .set({ settings: { ...signup.value.settings, locale: 'sv' } })
+      .set({ settings: { ...signup.value.settings, locale: OTHER_LOCALE } })
       .where(eq(signups.id, signup.value.id));
     const slot = await addSlot(fx.db, fx.actor, signup.value.id, { values: {}, capacity: 5 });
     if (!slot.ok) throw new Error(slot.error.message);

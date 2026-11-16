@@ -182,8 +182,12 @@ and so does every translation:
 
 A plural picks a branch by a number. Each language has its own branches
 (CLDR's plural categories): English and Swedish use `one` and `other`; Polish
-uses `one`, `few`, `many` and `other`. `other` is always required. `=1` or
-`=24` matches that exact number, and `#` inside a branch prints the number.
+uses `one`, `few`, `many` and `other`. `other` is always required, and the
+catalog check fails a translation's plural that lacks a branch its language
+has. `=1` or `=24` matches that exact number, and `#` inside a branch prints
+the number. `=1` can stand in for `one` only in a language whose `one` holds
+no other number: Swedish's, not Russian's (which holds 21 too) or French's
+(which holds 0).
 
 ```json
 "onlyLeft": "Only {remaining, plural, one {{remaining, number, ::group-off} spot is} other {{remaining, number, ::group-off} spots are}} left, and you asked for {requested, number, ::group-off}."
@@ -312,8 +316,8 @@ anmälan till {slot} – med den här länken …").
 - `src/i18n/precompiled.test.ts`: both formatters print every message alike
 - `src/i18n/messages-declaration.test.ts`: `en.d.json.ts` matches `en.json`
 - `src/email/templates/emails.test.tsx` and `worker-render.test.ts`: every
-  email sample renders in English and Swedish, both ways, and under the
-  worker's own build
+  email sample renders in English and in every other language with a
+  catalog, both ways, and under the worker's own build
 
 Run just these with `pnpm test src/i18n src/email`. The catalog check takes a
 few seconds to start, because it reads the app's code with the TypeScript
@@ -340,6 +344,22 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
 - an entry in a language's record for a message English or the translation
   doesn't have, or a record for a language with no translation.
 
+These four apply in every language with a catalog, shipped or not. Each
+language's lists are in `src/i18n/testing/language-rules.ts`:
+
+- a plural without a branch for one of its language's plural categories
+  (`Intl.PluralRules`), say a Polish plural with only `one` and `other`;
+- a translation identical to its English, unless it has no letters outside
+  its placeholders and tags (`{day} · {times}`), or its language's
+  `sameAsEnglish` list names it with why (Swedish's "Status" and "Cookies");
+  a key on that list whose translation isn't a copy fails too, so the list
+  stays short;
+- a translation of English that names the product, "OpenSignup", without the
+  name;
+- a word its language's glossary rules out, from the language's `banned`
+  list: each pattern with the glossary line it enforces and, where it
+  applies to some namespaces only, those.
+
 ### What the checks miss
 
 - **A number dropped from one plural branch.** The check sees the number in
@@ -347,9 +367,11 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
   so only a reader can tell.
 - **A tag or placeholder dropped from one select branch** while another keeps
   it.
-- **A plural branch the language needs and the message lacks.** The number
-  falls back to `other`, which may be wrong grammar.
-- **English left untranslated.** A copy of the English passes.
+- **English left in part of a message.** Only a whole copy of the English
+  fails.
+- **Words the glossary rules out that aren't on its `banned` list**, and
+  any glossary term used where another was meant. The list holds only what a
+  pattern can tell; the rest is for the reader.
 - **Spaces at the start or end of a branch**, and any punctuation.
 - **Meaning, terms, tone, word order and length.** Whether the words say what
   the English says, use the glossary, sound natural, and fit their place on a
@@ -464,8 +486,9 @@ has also passed the review in context, which no test can check: the pull
 request that adds it says so.
 
 `E2E_UNSHIPPED_LOCALES` is for tests only. `playwright.config.ts` sets it for
-the server it starts, to every language with a catalog that hasn't shipped,
-so the seeded Swedish signups show in Swedish before Swedish ships, and an
+the server it starts, to every language with a catalog that hasn't shipped
+(`UNSHIPPED_LOCALES` in `tests/e2e/helpers/unshipped-locales.ts`), so each
+seeded test signup shows in its language before that language ships, and an
 organizer whose account stores a listed language sees the organizer app in it
 (`tests/e2e/organizer-language.spec.ts`, and the whole story, from account
 Settings to a participant's email, in `organizer-language-story.spec.ts`).
@@ -477,8 +500,9 @@ choice. It's read in one place, `shown` in `src/i18n/locale.ts`, which
 what's shown, never what's stored; `src/i18n/locale.test.ts` fails if any
 other module reads it. The web
 server and the worker log a warning when they start with it set. A reused
-`pnpm dev` needs it too: `E2E_UNSHIPPED_LOCALES=sv pnpm dev`. Never set it on
-a real site.
+`pnpm dev` needs it too, today `E2E_UNSHIPPED_LOCALES=sv pnpm dev`: a spec
+that finds a seeded signup in English names the value. Never set it on a
+real site.
 
 ### An organizer's language
 
@@ -545,39 +569,76 @@ run every row of this table against it.
 
 ## Adding a language
 
-1. **Make its catalog.** Add `src/messages/<code>.json` (start it as `{}`),
-   add the code to `CATALOG_LOCALES`, and import the catalog into `CATALOGS`
-   in `src/i18n/translator.ts`. Use a bare language code, like `sv`, never a
+1. **Make its catalog.** Add `src/messages/<code>.json`, add the code to
+   `CATALOG_LOCALES`, and import the catalog into `CATALOGS` in
+   `src/i18n/translator.ts`. Use a bare language code, like `sv`, never a
    region (`sv-SE`). Its record, `src/i18n/translated-from/<code>.json`,
-   comes with the first messages you mark as translated. `pnpm typecheck`
-   then points at the tests that keep a table by language, like
-   `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`: give each
-   an entry once the messages it checks are translated.
-2. **Give it test signups.** Add a seed like `makeSwedishSignup` in
-   `tests/e2e/helpers/seed.ts` (`playwright.config.ts` puts the code in
-   `E2E_UNSHIPPED_LOCALES` itself), and write a spec like
-   `tests/e2e/swedish-signup.spec.ts` that saves a `translationShot` of every
-   screen it checks. Add the spec to `TRANSLATION_SPECS` in
-   `playwright.config.ts`, and to `pnpm translation:screenshots` in
-   `package.json`. Add the participant emails in the language to
-   `scripts/lib/email-samples.ts` (the sign-in email's sample,
-   `magic-link-<code>`, comes with the catalog), and every one's name to the
-   list in `src/email/templates/worker-render.test.ts`. The list in
-   `emails.test.tsx` beside it holds only the Swedish ones
-   (`lang === 'sv'`), so give the new language an assertion of its own there.
-3. **Write its glossary** below, before translating: the product's own terms,
-   the tone and the date style.
-4. **Translate and review** with the `translate` skill, namespace by
-   namespace, for both audiences: participant text and organizer text
-   (`to-translate.mjs <code> --audience organizer`).
-5. **Check the layout.** `tests/e2e/slot-row-layout.spec.ts` checks that the
-   row buttons and the sheet's labels fit their boxes, on the English and the
-   Swedish signup. Add the new language's signup to it.
-6. **Launch** in a pull request of its own, which the owner approves: add the
-   code to `SHIPPED.participant` and `SHIPPED.organizer` together, and say
-   what changes in `CHANGELOG.md` and the README. Tests that check the
-   language stays unshipped (English pages, no picker, a refused save) fail
-   then; update them in the same pull request.
+   comes with the first messages you mark as translated.
+2. **Write its glossary** below, before translating: the product's own terms,
+   the tone and the date style. Give the language an entry in
+   `LANGUAGE_RULES` (`src/i18n/testing/language-rules.ts`) for the words the
+   glossary rules out that a pattern can catch.
+3. **Translate** with the `translate` skill, namespace by namespace, for both
+   audiences: participant text (`participant`, `email` and `common`) and
+   organizer text (`to-translate.mjs <code> --audience organizer`). Do at
+   least the participant text in the same pull request as the catalog, since
+   the tests below fail on English left on its pages.
+4. **Review it in context** with the `translate` skill, from the screenshots
+   and emails `pnpm translation:screenshots` makes (see "How translations are
+   made and checked").
+
+The tests pick the language up from `CATALOG_LOCALES`, and nothing is written
+for it. Every language with a catalog but English is a test language
+(`TEST_LOCALES` in `src/i18n/testing/locales.ts`), and for each one:
+
+- the e2e seed makes its test signups (open, a draft, closed and archived),
+  and `playwright.config.ts` shows them in the language until it ships;
+- `tests/e2e/translated-signup.spec.ts` checks every participant screen and
+  state on them, and the page around them (`<html lang>`, `og:locale` and the
+  footer), taking each expected text from the language's catalog, and fails
+  on English left on the page; the accessibility, precompiled-message and
+  Build-tab specs run on them too;
+- `tests/e2e/slot-row-layout.spec.ts` checks that the row buttons' labels and
+  the sign-up sheet's field labels fit their boxes, down to 320 pixels;
+- the organizer specs (`organizer-language*.spec.ts` and the Build tab's)
+  store it on an account and check the organizer app in it;
+- the email checks render each participant email and the sign-in email in
+  it, through the web process's formatter and the worker's;
+- `pnpm translation:screenshots` saves its screens to
+  `translation-review/<code>/screens/` and its emails to
+  `translation-review/<code>/emails/`.
+
+A few tests keep what a language says in a table by language. The first two
+need the new language's entry, and the third one only if the language shares
+a word with English:
+
+- `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`, the words
+  in the share text that warn whoever has the link can change the sign-up.
+  `pnpm test` fails, naming the table, until it has one: add it once those
+  messages are translated.
+- `inSentence` in `src/i18n/config.test.ts`, how each language writes each
+  language's name inside a sentence. `pnpm typecheck` asks for the new
+  language's row and column, with the catalog.
+- `SHARED_WITH_ENGLISH` in `tests/e2e/translated-signup.spec.ts`, the words
+  of the English the spec looks for on a translated page (`ENGLISH_WORDS`)
+  that the language writes as its own too, as Dutch writes "link". A
+  language without an entry shares none, so a page that shows one of those
+  words fails, and the failure names the catalog's messages that write it.
+  Translate each, or add the word if the language really says it: never to
+  quiet a message left in English, which is what the check is there to catch.
+
+The test signups and email samples also carry what an organizer would write
+(titles, slots' names). A language without its own gets names that read as
+names in most languages; to make its screenshots read as a real signup's,
+give it an entry in `ORGANIZER_TEXT` in `tests/e2e/helpers/seed.ts` and
+`SAMPLE_TEXT` in `scripts/lib/email-samples.ts`, as Swedish has.
+
+**Launch** it in a pull request of its own, which the owner approves: add the
+code to `SHIPPED.participant` and `SHIPPED.organizer` together, and say what
+changes in `CHANGELOG.md` and the README. Tests that check the language stays
+unshipped (English pages, no picker, a refused save) fail then; update them in
+the same pull request. The e2e run stops listing it in
+`E2E_UNSHIPPED_LOCALES` by itself.
 
 Node's official builds include every language's date and number data. A
 Node built with English-only ICU would print the new language's dates in
@@ -608,12 +669,14 @@ pnpm translation:screenshots
 ```
 
 It sets `TRANSLATION_SCREENSHOTS=1`, which makes the email tests write each
-email's HTML and plain text, in English and Swedish, with the subject on the
-text's first line, and makes the Swedish e2e specs save a screenshot of each
-screen and state they check, on a desktop and at a phone's width (390
-pixels): the participant screens from `swedish-signup.spec.ts`, and the
-organizer screens, named `organizer-…`, from `organizer-language.spec.ts` and
-`build-tab-language.spec.ts`, for an account that stores the language. Everything goes to `translation-review/`, which git ignores. Without
+email's HTML and plain text, in English and every other language with a
+catalog, with the subject on the text's first line, and makes the e2e specs
+save a screenshot of each screen and state they check, in each of those
+languages, on a desktop and at a phone's width (390 pixels): the participant
+screens from `tests/e2e/translated-signup.spec.ts`, and the organizer screens,
+named `organizer-…`, from `organizer-language.spec.ts` and
+`build-tab-language.spec.ts`, for an account that stores the language.
+Everything goes to `translation-review/<code>/`, which git ignores. Without
 the flag the tests write nothing, so CI is unaffected. In Claude's cloud
 container, Playwright's own Chromium isn't installed: add
 `-c .claude/skills/run-opensignup/playwright.container.config.ts`.
@@ -623,7 +686,7 @@ The reviewer's prompt (`.claude/skills/translate/references/review.md`) names
 the ones only in a tab's title, a link preview, what a screen reader says, or
 what a button hands to another app. A signup that doesn't exist has no
 language, so its not-found page (`participant.gonePage.signup`) is in the
-site's language, which can't be Swedish until Swedish ships. And the spec
+site's language, which can't be a language that hasn't shipped. And the spec
 doesn't reach a few rarer states: a cancelled spot whose slot has since filled
 or closed, someone the organizer took off a slot or moved, someone signed up
 for more than one slot, the edit page's errors when cancelling, and copying
@@ -819,6 +882,11 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
   after it reads as a technical detail, not as the end of a Swedish sentence.
 
 ### Style
+
+The catalog check enforces the rules a pattern can tell: _ni_, _din plats_ in
+participant text and emails, and "..." (`LANGUAGE_RULES.sv.banned` in
+`src/i18n/testing/language-rules.ts`). Changing one of those lines means
+changing that list, and the other way round.
 
 - **Tone.** _Du_, never _ni_, and the plain, friendly tone of the English.
   Instructions are imperatives: "Försök igen.", "Kontrollera den och försök

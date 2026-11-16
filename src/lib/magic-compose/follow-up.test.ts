@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { buildFollowUpMessages, buildReplyNowMessages, FollowUpSchema } from './follow-up';
 import { buildMessages } from './prompt';
 import type { FollowUp } from './questions';
@@ -123,12 +124,14 @@ describe('buildFollowUpMessages', () => {
       const messages = buildFollowUpMessages(
         'Bake sale',
         { what: { picked: ['A'], added: [] } },
-        { firmly, now: NOW, fallbackLocale: 'sv' },
+        { firmly, now: NOW, fallbackLocale: OTHER_LOCALE },
       );
       expect(messages.map((m) => m.role)).toEqual(['system', 'user']);
-      expect(messages[0]).toEqual(buildMessages('x', { now: NOW, fallbackLocale: 'sv' })[0]);
+      expect(messages[0]).toEqual(
+        buildMessages('x', { now: NOW, fallbackLocale: OTHER_LOCALE })[0],
+      );
       expect(messages[0]!.content).toContain('2026-10-24');
-      expect(messages[0]!.content).toContain('write in Swedish.');
+      expect(messages[0]!.content).toContain(`write in ${OTHER_LANGUAGE}.`);
     },
   );
 
@@ -191,10 +194,10 @@ describe('buildReplyNowMessages', () => {
   it('sends the description again with the firm line, under the same system prompt', () => {
     const messages = buildReplyNowMessages('Bake sale for the PTA', {
       now: NOW,
-      fallbackLocale: 'sv',
+      fallbackLocale: OTHER_LOCALE,
     });
-    expect(messages[0]).toEqual(buildMessages('x', { now: NOW, fallbackLocale: 'sv' })[0]);
-    expect(messages[0]!.content).toContain('write in Swedish.');
+    expect(messages[0]).toEqual(buildMessages('x', { now: NOW, fallbackLocale: OTHER_LOCALE })[0]);
+    expect(messages[0]!.content).toContain(`write in ${OTHER_LANGUAGE}.`);
     expect(messages[1]).toEqual({
       role: 'user',
       content:

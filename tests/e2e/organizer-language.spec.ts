@@ -4,6 +4,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatGrantDate } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/grant-date';
 import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { accessTokenLifetime } from '@/lib/lifetimes';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL } from './helpers/fixtures';
@@ -611,7 +612,7 @@ for (const stored of STORED) {
       // The CSV's column names and statuses come in the organizer's language,
       // whatever the browser asks for. The signup's own column names stay.
       const csv = await page.request.get(`/api/signups/${organizer.open.id}/export.csv`, {
-        headers: { 'accept-language': locale === 'en' ? 'sv' : 'en' },
+        headers: { 'accept-language': locale === 'en' ? OTHER_LOCALE : 'en' },
       });
       expect(csv.ok()).toBe(true);
       const lines = (await csv.text()).replace(/^\uFEFF/, '').split('\n');

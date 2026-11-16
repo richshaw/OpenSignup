@@ -51,6 +51,7 @@ import {
   startAuthorization,
   type Driver,
 } from './testing/flow-driver';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 /**
  * The authorization code flow against real Postgres: the Drizzle adapter,
@@ -290,7 +291,7 @@ describe('authorization code flow on Postgres', () => {
     }
     // The organizer's saved language rides along raw, even one that names no
     // language, and stays off the actor: the cookie path's actor still matches.
-    for (const saved of ['sv', 'not a language at all']) {
+    for (const saved of [OTHER_LOCALE, 'not a language at all']) {
       await db.update(organizers).set({ locale: saved }).where(eq(organizers.id, organizerId));
       const withLocale = await resolveBearerActor(bearer(tokens.access_token));
       expect(withLocale.ok).toBe(true);
