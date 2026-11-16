@@ -94,7 +94,7 @@ console.log(
     STATUSES.map((status) => `${count(status)} ${status}`).join(', '),
 );
 const show = (value) => JSON.stringify(value);
-const label = (name) => `  ${`${name}:`.padEnd(9)}`;
+const label = (name) => `  ${`${name}:`.padEnd(10)}`;
 const sectionOf = (key) => key.split('.').slice(0, -1).join('.');
 let section = null;
 for (const item of found.sort((a, b) => a.key.localeCompare(b.key))) {
