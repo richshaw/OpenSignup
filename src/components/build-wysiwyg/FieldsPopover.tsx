@@ -9,13 +9,15 @@ import type { BuildField } from '../build-shared/useBuildState';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import { useOutsideClose } from '@/hooks/useOutsideClose';
-import { InlineFieldForm, type InlineFieldFormMode } from './InlineFieldForm';
+import { InlineFieldForm, type FieldDefaults, type InlineFieldFormMode } from './InlineFieldForm';
 import { PickerOption } from './PickerOption';
 
 type FieldsPopoverProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fields: BuildField[];
+  /** What a new or changed field gets for what the organizer leaves unset. */
+  fieldDefaults: FieldDefaults;
   groupByFieldRef: string | null;
   /** Ref of the date field reminders are sent for, or null when they are off. */
   reminderFieldRef: string | null;
@@ -58,6 +60,7 @@ export function FieldsPopover({ open, onOpenChange, ...body }: FieldsPopoverProp
  */
 function FieldsPopoverBody({
   fields,
+  fieldDefaults,
   groupByFieldRef,
   reminderFieldRef,
   onAddField,
@@ -88,6 +91,7 @@ function FieldsPopoverBody({
       {formMode ? (
         <InlineFieldForm
           formMode={formMode}
+          defaults={fieldDefaults}
           reminderFieldRef={reminderFieldRef}
           reminderFieldLabel={reminderField?.name ?? null}
           onCancel={() => setFormMode(null)}

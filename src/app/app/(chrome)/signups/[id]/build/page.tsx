@@ -1,4 +1,6 @@
 import { requireOrganizerSession, toActor } from '@/auth/session';
+import { signupLocale } from '@/i18n/config';
+import { getServerTranslator, instanceDefaultLocale } from '@/i18n/server';
 import { loadCommittedBySlotForOrganizer, loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { BuildWysiwyg } from '@/components/build-wysiwyg/BuildWysiwyg';
@@ -15,6 +17,12 @@ export default async function BuildTab({ params }: PageParams) {
   const filled = await loadCommittedBySlotForOrganizer(actor, id);
   if (!filled.ok) return null;
   const sig = result.value;
+  // The Build tab's text is the organizer's, in English for now, but what it
+  // writes into the signup for participants to read is in the signup's
+  // language: decided here and handed down as props, so the browser loads no
+  // catalog.
+  const locale = signupLocale(sig.settings.locale, instanceDefaultLocale());
+  const t = getServerTranslator(locale, 'participant.defaults');
   await trackOrganizerView({
     actor,
     signupId: sig.id,
@@ -38,6 +46,8 @@ export default async function BuildTab({ params }: PageParams) {
         }))}
         initialSettings={SignupSettingsSchema.parse(sig.settings)}
         committedBySlot={filled.value}
+        locale={locale}
+        fieldDefaults={{ name: t('untitledField'), firstChoice: t('firstChoice') }}
       />
     </>
   );

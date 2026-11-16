@@ -59,6 +59,8 @@ export interface SeedData {
   optionalEmailSlotLabel: string;
   /** Published signup in Swedish: see makeSwedishSignup. */
   swedish: SwedishSeed;
+  /** Draft in Swedish for its Build tab: see makeSwedishBuildSignup. */
+  swedishBuild: SwedishBuildSeed;
 }
 
 /**
@@ -103,6 +105,19 @@ interface SwedishSeed {
   /** The unsubscribe link of the person on `slots.unlimitedOne`, who has turned reminders off, and their email. */
   optedOutUnsubscribePath: string;
   optedOutEmail: string;
+}
+
+/**
+ * The Swedish Build-tab draft's groups, in Swedish alphabetical order, where
+ * Å, Ä and Ö come after Z. English puts Äpple and Ödla among the A's and O's,
+ * before Zebra. The draft's slots are in neither order.
+ */
+const SWEDISH_BUILD_GROUPS = ['Apa', 'Zebra', 'Äpple', 'Ödla'] as const;
+
+interface SwedishBuildSeed {
+  id: string;
+  /** The group field's values, in the order the Build tab sorts them. */
+  groups: typeof SWEDISH_BUILD_GROUPS;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -182,7 +197,7 @@ async function makePublishedSignup(
     }),
     `createSignup(${title})`,
   );
-  // createSignup applies DEFAULT_TEMPLATE: a 'what' text field, a 'date'
+  // createSignup applies the default template: a 'what' text field, a 'date'
   // field, and one empty slot. Keep the fields, drop the placeholder slot so
   // the page shows exactly the labeled slots below.
   await db.delete(slots).where(eq(slots.signupId, signup.id));
@@ -349,6 +364,67 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
   };
 }
 
+/**
+ * A draft whose language is Swedish, for the specs on its Build tab, which
+ * sorts groups in the signup's language and names a new field's defaults in
+ * it. Grouped by a text field, so the order of its groups depends on the
+ * language, with a date and a time on each slot, which the tab formats.
+ * Swedish is written into the row afterwards, as for makeSwedishSignup, and
+ * shows only on a server started with `E2E_UNSHIPPED_LOCALES=sv`. Specs may
+ * add fields to it.
+ */
+async function makeSwedishBuildSignup(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+): Promise<SwedishBuildSeed> {
+  const template: SignupTemplate = {
+    id: 'e2e-swedish-build',
+    fields: [
+      {
+        ref: 'grupp',
+        label: 'Grupp',
+        fieldType: 'text',
+        sortOrder: 0,
+        config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
+      },
+      {
+        ref: 'datum',
+        label: 'Datum',
+        fieldType: 'date',
+        sortOrder: 1,
+        config: { fieldType: 'date' },
+      },
+      { ref: 'tid', label: 'Tid', fieldType: 'time', sortOrder: 2, config: { fieldType: 'time' } },
+    ],
+    slots: ['Ödla', 'Zebra', 'Äpple', 'Apa'].map((grupp, i) => ({
+      capacity: 2,
+      values: { grupp, datum: dayFromNow(30 + i), tid: '18:30' },
+    })),
+  };
+  const signup = unwrap(
+    await createSignup(
+      db,
+      actor,
+      workspaceId,
+      {
+        title: 'Städdag i parken',
+        description: 'Seeded by tests/e2e/helpers/seed.ts',
+        tags: [],
+        visibility: 'unlisted' as const,
+        settings: { groupByFieldRefs: ['grupp'] },
+      },
+      { template },
+    ),
+    'createSignup(Städdag i parken)',
+  );
+  await db
+    .update(signups)
+    .set({ settings: { ...signup.settings, locale: 'sv' } })
+    .where(eq(signups.id, signup.id));
+  return { id: signup.id, groups: SWEDISH_BUILD_GROUPS };
+}
+
 export async function seedE2E(): Promise<SeedData> {
   const db = getDb();
   await removeOrganizer(db, E2E_ORGANIZER_EMAIL, E2E_WORKSPACE_SLUG);
@@ -428,6 +504,7 @@ export async function seedE2E(): Promise<SeedData> {
   );
 
   const swedish = await makeSwedishSignup(db, actor, workspaceId);
+  const swedishBuild = await makeSwedishBuildSignup(db, actor, workspaceId);
 
   // Draft signup for the organizer publish flow.
   const draft = unwrap(
@@ -461,6 +538,7 @@ export async function seedE2E(): Promise<SeedData> {
     optionalEmailSlug: optionalEmailSignup.slug,
     optionalEmailSlotLabel: 'Park gate',
     swedish,
+    swedishBuild,
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;
