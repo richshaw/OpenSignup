@@ -23,8 +23,9 @@ export interface OrganizerIn {
    */
   open: { id: string; slug: string; slotId: string };
   /**
-   * A draft of theirs, whose page tells its own organizer about it, as a new
-   * signup starts: two fields and one slot.
+   * A draft of theirs, with only the empty slot a new signup starts with: its
+   * page tells its own organizer about it, and Publish and share's check stops
+   * it.
    */
   draft: { id: string; slug: string };
 }

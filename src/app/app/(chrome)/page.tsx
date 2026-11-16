@@ -7,6 +7,8 @@ import { getServerTranslator } from '@/i18n/server';
 import { publicSignupPath } from '@/lib/links';
 import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { StatusPill } from '@/components/status-pill';
+import { signupStatusLabel } from '@/components/signup/status-label';
+import type { SignupStatus } from '@/schemas/signups';
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = getOrganizerAppLocale(await getOrganizerSession());
@@ -15,7 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function DashboardPage() {
   const session = await requireOrganizerSession();
-  const t = getServerTranslator(getOrganizerAppLocale(session), 'organizer.dashboard');
+  const locale = getOrganizerAppLocale(session);
+  const t = getServerTranslator(locale, 'organizer.dashboard');
+  const tStatus = getServerTranslator(locale, 'organizer.status');
   const actor = toActor(session);
   const workspaceId = session.defaultWorkspaceId;
   if (!workspaceId) {
@@ -76,7 +80,10 @@ export default async function DashboardPage() {
                       </p>
                     )}
                   </div>
-                  <StatusPill status={r.status} />
+                  <StatusPill
+                    status={r.status}
+                    label={signupStatusLabel(r.status as SignupStatus, tStatus)}
+                  />
                 </div>
               </Link>
             </li>

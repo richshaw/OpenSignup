@@ -3,7 +3,6 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
@@ -209,8 +208,11 @@ describe('the organizer’s own text on the public signup page', () => {
     storeSignup({ status: 'draft', settings: { locale: 'sv' } });
     await renderPage();
     expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
-    // The organizer's other pages say it with the same words.
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(DRAFT_ONLY_YOU);
+    // The organizer's other pages say it with the same words: Your signups
+    // and the signup's header (src/components/signup/header-text.test.ts).
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Only you can see this draft',
+    );
     expect(
       screen.getByText(
         `People who open this link see “${swedish('draft.title')}” until you publish it. Renaming the draft gives it a new link, so share it after you publish.`,

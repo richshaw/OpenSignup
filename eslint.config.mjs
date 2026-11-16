@@ -47,21 +47,32 @@ const TRANSLATED = [
   'src/app/app/(chrome)/page.tsx',
   'src/app/app/(chrome)/@crumbs',
   'src/components/chrome',
-  'src/components/signup/SignupLoadError.tsx',
   // New signup: the form, and Magic Compose's screens, its questions and the
   // banner on a draft it made included.
   'src/app/app/(chrome)/signups/new',
   'src/components/magic-compose',
   // Account Settings and Connected apps, the disconnect button included.
   'src/app/app/(chrome)/settings',
+  // A signup's header, tabs, status pill and closed box, on every tab, and the
+  // card its pages show when it can't be loaded, but the share button and
+  // panel (`NOT_YET_TRANSLATED`).
+  'src/app/app/(chrome)/signups/[id]/layout.tsx',
+  'src/components/signup',
+  'src/components/status-pill.tsx',
 ];
 
 /**
  * Files inside a `TRANSLATED` folder whose text hasn't moved yet, left out of
  * the rules until it does, written as in `TRANSLATED`. The sign-in email is
- * organizer text, which moves to the catalogs after the participant's.
+ * organizer text, which moves to the catalogs after the participant's. The
+ * signup header's Share button and the share panel's scope move with the
+ * share panel (#942).
  */
-const NOT_YET_TRANSLATED = ['src/email/templates/magic-link.tsx'];
+const NOT_YET_TRANSLATED = [
+  'src/email/templates/magic-link.tsx',
+  'src/components/signup/ShareButton.tsx',
+  'src/components/signup/ShareScope.tsx',
+];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a

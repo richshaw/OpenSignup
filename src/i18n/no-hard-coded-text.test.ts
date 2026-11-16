@@ -77,6 +77,21 @@ const TRANSLATED_FILES = [
   'src/app/app/(chrome)/settings/page.tsx',
   'src/app/app/(chrome)/settings/connected-apps/page.tsx',
   'src/app/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
+  'src/app/app/(chrome)/signups/[id]/layout.tsx',
+  'src/components/signup/SignupHeader.tsx',
+  'src/components/signup/HeaderParts.tsx',
+  'src/components/signup/MobileSignupHeader.tsx',
+  'src/components/signup/MobileMoreMenuSheet.tsx',
+  'src/components/signup/MoreActionsMenu.tsx',
+  'src/components/signup/PhoneBar.tsx',
+  'src/components/signup/PublishButton.tsx',
+  'src/components/signup/PublishCheckPanel.tsx',
+  'src/components/signup/CloseSignupConfirm.tsx',
+  'src/components/signup/ReopenButton.tsx',
+  'src/components/signup/ClosedNotice.tsx',
+  'src/components/signup/HeaderAnnouncer.tsx',
+  'src/components/signup/TabsNav.tsx',
+  'src/components/status-pill.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -313,6 +328,15 @@ describe('where the rules apply', () => {
   it('are on for a new Magic Compose screen', async () => {
     const text = '<p>Sign up</p><button aria-label="Close" />';
     expect(await lint(text, 'src/components/magic-compose/Review.tsx')).toHaveLength(2);
+  });
+
+  // The signup header's folder is listed whole too. Its Share button and the
+  // share panel's scope move with the share panel (#942), so they're off.
+  it('are on for a new file in the signup header’s folder, and off for its share files', async () => {
+    const text = '<p>Publish</p><button aria-label="Close" />';
+    expect(await lint(text, 'src/components/signup/NewPart.tsx')).toHaveLength(2);
+    expect(await lint(text, 'src/components/signup/ShareButton.tsx')).toEqual([]);
+    expect(await lint(text, 'src/components/signup/ShareScope.tsx')).toEqual([]);
   });
 
   it('read an email’s preview text as text', async () => {

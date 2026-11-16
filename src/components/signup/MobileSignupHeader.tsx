@@ -2,9 +2,9 @@
 
 import { useState, type ReactNode } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-import { StatusPill } from '@/components/status-pill';
 import type { SignupStatus } from '@/schemas/signups';
 import { useCloseQuestion, type CloseQuestionAction } from './CloseSignupConfirm';
+import type { SignupHeaderText } from './header-text';
 import type { StatusChangeAction } from './StatusActionForm';
 import { MobileMoreMenuSheet } from './MobileMoreMenuSheet';
 import { PhoneBar } from './PhoneBar';
@@ -12,10 +12,14 @@ import { PhoneBar } from './PhoneBar';
 interface MobileSignupHeaderProps {
   title: string;
   status: SignupStatus;
+  /** The status's `StatusPill`, rendered on the server. */
+  pill: ReactNode;
   /** `PhoneStanding`, rendered on the server: the draft line, or the link. */
   standing: ReactNode;
   /** `PhonePreviewItem`, rendered on the server, for the More actions sheet. */
   previewItem: ReactNode;
+  /** The words of its buttons, the bar's and the sheet's, from the server. */
+  text: SignupHeaderText;
   /** From `spotsTakenLine`, for the bar; null for a draft. */
   spotsTaken: string | null;
   closeQuestion: string;
@@ -32,8 +36,10 @@ interface MobileSignupHeaderProps {
 export function MobileSignupHeader({
   title,
   status,
+  pill,
   standing,
   previewItem,
+  text,
   spotsTaken,
   closeQuestion,
   closeQuestionAction,
@@ -54,9 +60,7 @@ export function MobileSignupHeader({
       <header className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="mb-1">
-              <StatusPill status={status} />
-            </div>
+            <div className="mb-1">{pill}</div>
             <h1
               tabIndex={-1}
               data-signup-title
@@ -75,7 +79,7 @@ export function MobileSignupHeader({
                 setMenuFor(status);
                 if (status === 'open') askAgain();
               }}
-              aria-label="More actions"
+              aria-label={text.moreActions}
               aria-haspopup="dialog"
               aria-expanded={menuOpen}
               className="-mr-1.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-raised"
@@ -88,7 +92,7 @@ export function MobileSignupHeader({
         {standing}
       </header>
 
-      <PhoneBar status={status} spotsTaken={spotsTaken} />
+      <PhoneBar status={status} spotsTaken={spotsTaken} text={text.publish} />
 
       <MobileMoreMenuSheet
         open={menuOpen}
@@ -96,6 +100,7 @@ export function MobileSignupHeader({
         status={status}
         title={title}
         previewItem={previewItem}
+        text={text}
         closeQuestion={question}
         closeAction={closeAction}
         reopenAction={reopenAction}

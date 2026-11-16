@@ -47,6 +47,12 @@ const plain = (chunks: string) => chunks;
 /** `text` as a regular expression that matches only itself. */
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/** The one of a computer's and a phone's copies that's on screen. */
+const onScreen = (locator: Locator) => locator.locator('visible=true');
+
+/** A name that starts with `text`, as a tab's does, its count after it. */
+const startsWith = (text: string) => new RegExp(`^${escaped(text)}`);
+
 /** A tab title that starts with `text`, then the site's name. */
 const titled = (text: string) => new RegExp(`^${escaped(text)} · `);
 
@@ -199,6 +205,73 @@ for (const stored of STORED) {
       expect(await languageOf(banner), unshippedHint).toBe(locale);
       // What participants will see stays in the signup's language.
       await expect(page.locator('main')).toHaveAttribute('lang', 'en');
+    });
+
+    test(`sees a draft’s header, tabs and Publish’s check in ${locale}`, async ({ page }) => {
+      const signup = messagesIn(locale, 'organizer.signup');
+      const status = messagesIn(locale, 'organizer.status');
+      await page.goto(`/app/signups/${organizer.draft.id}/build`);
+      const title = page.getByRole('heading', { level: 1 }).locator('visible=true');
+      await expect(title).toHaveText('Draft Picnic');
+      expect(await languageOf(title), unshippedHint).toBe(locale);
+      await expect(onScreen(page.getByText(status('draft'), { exact: true }))).toBeVisible();
+      await expect(onScreen(page.getByText(signup('draftLine')))).toBeVisible();
+      const tabs = page.getByRole('tablist', { name: signup('tabs.label') });
+      for (const tab of ['build', 'responses', 'settings'] as const) {
+        await expect(
+          tabs.getByRole('tab', { name: startsWith(signup(`tabs.${tab}`)) }),
+        ).toBeVisible();
+      }
+
+      // Its one slot, the one a new signup starts with, is empty, so Publish's
+      // check stops it, and publishes nothing.
+      await onScreen(page.getByRole('button', { name: signup('publish.label') })).click();
+      const check = page.getByRole('dialog', { name: signup('check.title') });
+      await expect(check).toContainText(signup('check.allBlank', { count: 1 }));
+      await expect(check.getByRole('button', { name: signup('check.fillIn') })).toBeVisible();
+      await check.getByRole('button', { name: signup('check.notNow') }).click();
+      await expect(check).toBeHidden();
+      await expect(onScreen(page.getByText(status('draft'), { exact: true }))).toBeVisible();
+    });
+
+    // Last, since it closes the open signup the tests above read, and reopens it.
+    test(`closes and reopens a signup in ${locale}`, async ({ page }) => {
+      const signup = messagesIn(locale, 'organizer.signup');
+      const status = messagesIn(locale, 'organizer.status');
+      const phone = (page.viewportSize()?.width ?? 1280) < 768;
+      const more = onScreen(page.getByRole('button', { name: signup('moreActions') }));
+      await page.goto(`/app/signups/${organizer.open.id}/build`);
+      await expect(onScreen(page.getByText(status('open'), { exact: true }))).toBeVisible();
+      // The slot a new signup starts with holds 1, and Cookies 5.
+      const spots = signup('spots.takenOf', { taken: 0, total: 6 });
+      await expect(
+        onScreen(page.getByText(signup('spots.line', { status: 'open', spots }))),
+      ).toBeVisible();
+
+      await more.click();
+      await onScreen(page.getByRole('button', { name: signup('close.action') })).click();
+      const question = signup('close.question', {
+        standing: signup('close.standing.nobody'),
+        kept: 'no',
+      });
+      const asked = page.getByRole('group', { name: question });
+      await expect(asked).toBeVisible();
+      await expect(asked.getByRole('button', { name: signup('close.notYet') })).toBeVisible();
+      await asked.getByRole('button', { name: signup('close.action') }).click();
+
+      await expect(onScreen(page.getByText(status('closed'), { exact: true }))).toBeVisible();
+      await expect(page.getByText(signup('closed.title'))).toBeVisible();
+      await expect(page.getByText(signup('closed.body'))).toBeVisible();
+      await expect(page.getByRole('button', { name: signup('closed.dismiss') })).toBeVisible();
+      await expect(
+        onScreen(page.getByText(signup('spots.line', { status: 'closed', spots }))),
+      ).toBeVisible();
+
+      // Beside Preview on a computer; in the More actions sheet on a phone.
+      if (phone) await more.click();
+      await onScreen(page.getByRole('button', { name: signup('reopen.action') })).click();
+      await expect(onScreen(page.getByText(status('open'), { exact: true }))).toBeVisible();
+      await expect(page.getByText(signup('closed.title'))).toBeHidden();
     });
 
     test(`sees a signup’s Settings tab, its notices and the delete flow in ${locale}`, async ({

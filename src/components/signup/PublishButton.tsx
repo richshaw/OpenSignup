@@ -15,6 +15,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useDelayedFlag } from '@/hooks/useDelayedFlag';
 import type { PublishCheckAnswer } from '@/lib/publish-check';
 import { useBuildBridge } from './BuildBridge';
+import type { PublishText } from './header-text';
 import { useAnnounce } from './HeaderAnnouncer';
 import { BAR_BUTTON, HEADER_BUTTON, PRIMARY } from './header-buttons';
 import { PublishCheckPanel } from './PublishCheckPanel';
@@ -132,13 +133,10 @@ export function PublishState({ children }: { children: ReactNode }) {
  * Why Publish didn't publish, in the place a draft's header keeps for it: a
  * change in Build that didn't save, or what the action refused.
  */
-export function PublishRefusal({ className }: { className?: string }) {
+export function PublishRefusal({ className, text }: { className?: string; text: PublishText }) {
   const { unsaved } = useContext(PublishContext);
   return (
-    <StatusActionRefusal
-      className={className}
-      {...(unsaved ? { message: 'A change didn’t save. Fix it, then publish.' } : {})}
-    />
+    <StatusActionRefusal className={className} {...(unsaved ? { message: text.unsaved } : {})} />
   );
 }
 
@@ -156,7 +154,14 @@ export function PublishRefusal({ className }: { className?: string }) {
  * repeats go through, so a held Tab moves on past it; a held Space presses
  * only as it's let go, so its repeats need nothing.
  */
-export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
+export function PublishButton({
+  variant,
+  text,
+}: {
+  variant: 'desktop' | 'phone';
+  /** Its words, and its check's sheet's ✕, from the server. */
+  text: PublishText;
+}) {
   const { busy, showBusy, check, publish, closeCheck, fix } = useContext(PublishContext);
   const share = useShare();
   const desktop = variant === 'desktop';
@@ -175,9 +180,9 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
     return onHandBack(() => {
       trigger.current?.focus();
       setRing((n) => n + 1);
-      say('Publish and share when you’re ready.');
+      say(text.ready);
     });
-  }, [onScreen, onHandBack, say]);
+  }, [onScreen, onHandBack, say, text.ready]);
   useEffect(() => {
     if (!ring) return;
     const timer = setTimeout(setRing, RING_MS, 0);
@@ -211,11 +216,11 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
       <span className="grid *:flex *:items-center *:justify-center *:gap-2 *:[grid-area:1/1]">
         <span className={showBusy ? 'invisible' : ''} aria-hidden={showBusy || undefined}>
           <Send size={desktop ? 15 : 16} aria-hidden="true" />
-          Publish and share
+          {text.label}
         </span>
         <span className={showBusy ? '' : 'invisible'} aria-hidden={!showBusy || undefined}>
           <Spinner />
-          Checking…
+          {text.checking}
         </span>
       </span>
     </button>
@@ -229,6 +234,7 @@ export function PublishButton({ variant }: { variant: 'desktop' | 'phone' }) {
       onClose={closeCheck}
       onFix={fix}
       onSecondary={closeCheck}
+      closeLabel={text.closeSheet}
     />
   );
 

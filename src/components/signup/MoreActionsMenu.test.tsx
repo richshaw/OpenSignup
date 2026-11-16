@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
+import { signupHeaderText } from './header-text';
 import { MoreActionsMenu } from './MoreActionsMenu';
 import type { StatusChangeAction } from './StatusActionForm';
 
 const QUESTION = 'Nobody has signed up yet. People can’t sign up until you reopen it.';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 
 /** Asking again is refused, so the page's question stays. */
 const keepQuestion: CloseQuestionAction = async () => ({ error: 'Not asked in this test.' });
@@ -16,6 +21,7 @@ function renderMenu(
 ) {
   render(
     <MoreActionsMenu
+      text={TEXT}
       closeQuestion={QUESTION}
       closeQuestionAction={closeQuestionAction}
       closeAction={closeAction}
@@ -112,6 +118,7 @@ describe('MoreActionsMenu', () => {
     render(
       <>
         <MoreActionsMenu
+          text={TEXT}
           closeQuestion={QUESTION}
           closeQuestionAction={keepQuestion}
           closeAction={async () => null}

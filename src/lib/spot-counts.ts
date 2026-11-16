@@ -1,6 +1,11 @@
+import type { Translator } from '@/i18n/translator';
 import type { SignupStatus } from '@/schemas/signups';
 
-/** "1 spot" or "N spots". */
+/**
+ * "1 spot" or "N spots", in English, for the share message (#942 moves it).
+ * The header's counts and Close signup's question are in the organizer's
+ * language, from `organizer.signup`.
+ */
 export function spotCount(n: number): string {
   return n === 1 ? '1 spot' : `${n} spots`;
 }
@@ -52,8 +57,10 @@ export function spotCounts(
 }
 
 /**
- * What happens to the people already signed up once a signup closes. The
- * closed banner says it, and so does Close signup's question, before it.
+ * What happens to the people already signed up once a signup closes, in
+ * English, for the help page on closing a signup. The closed banner says it
+ * (`organizer.signup.closed.body`), and so does Close signup's question,
+ * before it, in the organizer's language.
  */
 export const KEEPS_THEIR_SPOT = 'Everyone already signed up keeps their spot.';
 
@@ -64,18 +71,22 @@ export const KEEPS_THEIR_SPOT = 'Everyone already signed up keeps their spot.';
  * has signed up, it also says they keep their spot, in the closed banner's
  * own words, since that's what organizers stop to ask.
  */
-export function closeSignupQuestion(counts: SpotCounts): string {
-  const question = `${standing(counts)} People can’t sign up until you reopen it.`;
-  return counts.taken > 0 ? `${question} ${KEEPS_THEIR_SPOT}` : question;
+export function closeSignupQuestion(
+  counts: SpotCounts,
+  t: Translator<'organizer.signup.close'>,
+): string {
+  return t('question', { standing: standing(counts, t), kept: counts.taken > 0 ? 'yes' : 'no' });
 }
 
-function standing({ taken, total, open, allSlotsOpen }: SpotCounts): string {
-  if (taken === 0) return 'Nobody has signed up yet.';
-  if (open === null) return `${spotCount(taken)} ${taken === 1 ? 'is' : 'are'} taken.`;
-  if (open === 0) return allSlotsOpen ? 'Every spot is taken.' : 'No spots are open.';
-  const verb = open === 1 ? 'is' : 'are';
-  if (total === null) return `${spotCount(open)} ${verb} still open.`;
-  return `${open} of ${total} spots ${verb} still open.`;
+function standing(
+  { taken, total, open, allSlotsOpen }: SpotCounts,
+  t: Translator<'organizer.signup.close'>,
+): string {
+  if (taken === 0) return t('standing.nobody');
+  if (open === null) return t('standing.taken', { taken });
+  if (open === 0) return allSlotsOpen ? t('standing.allTaken') : t('standing.noneOpen');
+  if (total === null) return t('standing.open', { open });
+  return t('standing.openOf', { open, total });
 }
 
 /**
@@ -85,12 +96,12 @@ function standing({ taken, total, open, allSlotsOpen }: SpotCounts): string {
  * against. Once the signup has stopped taking sign-ups it says so first, as
  * "Closed · 3 of 21 spots taken": the count won't change now.
  */
-export function spotsTakenLine({ taken, total }: SpotCounts, status: SignupStatus): string {
-  const counted =
-    total === null || total === 0
-      ? `${spotCount(taken)} taken`
-      : `${taken} of ${spotCount(total)} taken`;
-  if (status === 'closed') return `Closed · ${counted}`;
-  if (status === 'archived') return `Archived · ${counted}`;
-  return counted;
+export function spotsTakenLine(
+  { taken, total }: SpotCounts,
+  status: SignupStatus,
+  t: Translator<'organizer.signup.spots'>,
+): string {
+  const spots =
+    total === null || total === 0 ? t('taken', { taken }) : t('takenOf', { taken, total });
+  return t('line', { status, spots });
 }

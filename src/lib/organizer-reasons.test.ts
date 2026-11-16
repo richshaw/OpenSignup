@@ -52,6 +52,9 @@ type OrganizerReason = Exclude<
   (typeof PARTICIPANT_REASONS)[number] | (typeof API_ONLY_REASONS)[number]
 >;
 
+/** The header's refusals, in English. */
+const header = getTestTranslator('organizer.signup.refusal');
+
 /** What the server sends, its English `message` and `suggestion` swapped for words no screen may show. */
 const sent = (
   code: ErrorCode,
@@ -123,15 +126,15 @@ const CASES = {
   status_changed: {
     error: sent('conflict', 'status_changed', { field: 'status' }),
     screens: {
-      Publish: (error) => statusRefusal(error, 'publish'),
-      'Close signup': (error) => statusRefusal(error, 'close'),
-      'Reopen signup': (error) => statusRefusal(error, 'reopen'),
+      Publish: (error) => statusRefusal(error, 'publish', header),
+      'Close signup': (error) => statusRefusal(error, 'close', header),
+      'Reopen signup': (error) => statusRefusal(error, 'reopen', header),
     },
     english: 'This signup changed since the page loaded. Reload to see the latest.',
   },
   no_slots: {
     error: sent('conflict', 'no_slots', { field: 'slots' }),
-    screens: { Publish: (error) => statusRefusal(error, 'publish') },
+    screens: { Publish: (error) => statusRefusal(error, 'publish', header) },
     english: 'Add a slot before publishing.',
   },
   draft_invalid: {
@@ -173,7 +176,9 @@ describe('every reason an organizer screen can receive', () => {
   });
 
   it('includes the reopen line for a signup with no slots', () => {
-    expect(statusRefusal(CASES.no_slots.error, 'reopen')).toBe('Add a slot before reopening.');
+    expect(statusRefusal(CASES.no_slots.error, 'reopen', header)).toBe(
+      'Add a slot before reopening.',
+    );
   });
 
   it('leaves the rest to the participant pages, which word each one', () => {

@@ -6,6 +6,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import type { SignupStatus } from '@/schemas/signups';
 import { CloseSignupConfirm } from './CloseSignupConfirm';
 import { SHEET_ITEM } from './header-buttons';
+import type { SignupHeaderText } from './header-text';
 import { useAnnouncedStatusChange } from './HeaderAnnouncer';
 import { ReopenSheetItem } from './ReopenButton';
 import { StatusActionScope, type StatusChangeAction } from './StatusActionForm';
@@ -17,6 +18,8 @@ type MobileMoreMenuSheetProps = {
   title: string;
   /** `PhonePreviewItem`, rendered on the server. */
   previewItem: ReactNode;
+  /** The words of its ✕ and its items, from the server. */
+  text: SignupHeaderText;
   closeQuestion: string;
   closeAction: StatusChangeAction;
   reopenAction: StatusChangeAction;
@@ -35,6 +38,7 @@ export function MobileMoreMenuSheet({
   status,
   title,
   previewItem,
+  text,
   closeQuestion,
   closeAction,
   reopenAction,
@@ -47,10 +51,10 @@ export function MobileMoreMenuSheet({
   const closeSignup = useAnnouncedStatusChange(closeAction, 'closed');
 
   return (
-    <BottomSheet open={open} onClose={onClose} title={title} closeLabel="Close" compact>
+    <BottomSheet open={open} onClose={onClose} title={title} closeLabel={text.closeSheet} compact>
       <StatusActionScope action={closeSignup}>
         {confirming ? (
-          <CloseSignupConfirm phone question={closeQuestion} onNotYet={onClose} />
+          <CloseSignupConfirm phone question={closeQuestion} onNotYet={onClose} text={text.close} />
         ) : (
           <div className="flex flex-col">
             {/* Preview opens a new tab, so the sheet closes behind it. */}
@@ -58,10 +62,12 @@ export function MobileMoreMenuSheet({
             {status === 'open' ? (
               <button type="button" onClick={() => setConfirming(true)} className={SHEET_ITEM}>
                 <XCircle size={16} aria-hidden="true" />
-                <span>Close signup</span>
+                <span>{text.close.action}</span>
               </button>
             ) : null}
-            {status === 'closed' ? <ReopenSheetItem reopenAction={reopenAction} /> : null}
+            {status === 'closed' ? (
+              <ReopenSheetItem reopenAction={reopenAction} text={text.reopen} />
+            ) : null}
           </div>
         )}
       </StatusActionScope>

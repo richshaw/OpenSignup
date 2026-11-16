@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import { signupHeaderText } from './header-text';
 import { PublishButton } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
@@ -22,6 +24,9 @@ vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
 });
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 const MESSAGE = `Bake sale helpers\n8 spots open\nSign up here, no account needed: ${LINK}`;
 
 /** A window this wide; jsdom has no matchMedia of its own. */
@@ -51,7 +56,7 @@ function Header({
       url={LINK}
       message={message}
     >
-      <PublishButton variant="desktop" />
+      <PublishButton variant="desktop" text={TEXT.publish} />
       <div data-testid="desktop">
         <ShareButton variant="desktop" />
       </div>

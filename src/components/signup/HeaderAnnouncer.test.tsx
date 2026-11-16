@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { SignupStatus } from '@/schemas/signups';
 import {
   HeaderAnnouncer,
@@ -9,9 +10,13 @@ import {
   useAnnouncedStatusChange,
 } from './HeaderAnnouncer';
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
+import { signupHeaderText } from './header-text';
 
 const CLOSED = 'Closed. People can’t sign up now.';
 const REOPENED = 'Reopened. People can sign up again.';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 
 /** Runs a status change the way the header's Close signup does, through the hook. */
 function ChangeButton({ action, to }: { action: StatusChangeAction; to: SignupStatus }) {
@@ -34,7 +39,7 @@ function renderHeader(
   to: SignupStatus = 'closed',
 ) {
   const ui = (now: SignupStatus) => (
-    <HeaderAnnouncer status={now}>
+    <HeaderAnnouncer status={now} announcements={TEXT.announcements}>
       <h1 tabIndex={-1} data-signup-title data-testid="phone-title">
         Bake sale helpers
       </h1>
@@ -180,7 +185,7 @@ describe('HeaderAnnouncer', () => {
       );
     }
     render(
-      <HeaderAnnouncer status="draft">
+      <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <Say />
       </HeaderAnnouncer>,
     );
@@ -208,7 +213,7 @@ describe('HeaderAnnouncer, once a message has been read', () => {
 
   function renderSay() {
     render(
-      <HeaderAnnouncer status="draft">
+      <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <Say message="Published." />
         <Say message="Publish and share when you’re ready." />
       </HeaderAnnouncer>,
@@ -268,7 +273,7 @@ describe('HeaderAnnouncer, once a message has been read', () => {
 
   it('leaves no timer behind when it unmounts', () => {
     const { unmount } = render(
-      <HeaderAnnouncer status="draft">
+      <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <Say message="Published." />
       </HeaderAnnouncer>,
     );

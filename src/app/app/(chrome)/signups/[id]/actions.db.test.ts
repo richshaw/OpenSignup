@@ -11,6 +11,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import type { Actor } from '@/lib/policy';
 import { publishCheckCopy, publishCheckTarget, type PublishCheck } from '@/lib/publish-check';
 import { commitToSlot } from '@/services/commitments';
@@ -507,7 +508,7 @@ describe('Publish’s check (db)', () => {
       .map((s) => s.id);
   const answer = (check: PublishCheck) => ({
     check,
-    copy: publishCheckCopy(check),
+    copy: publishCheckCopy(check, getTestTranslator('organizer.signup.check')),
     target: publishCheckTarget(check),
   });
 

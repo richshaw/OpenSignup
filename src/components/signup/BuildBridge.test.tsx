@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { BuildBridge, useBuildBridge, useRegisterBuildTab } from './BuildBridge';
+import { signupHeaderText } from './header-text';
 import { TabsNav } from './TabsNav';
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -10,6 +12,9 @@ const nav = vi.hoisted(() => ({ pathname: '/app/signups/sig_1/responses' }));
 vi.mock('next/navigation', () => ({ useRouter: () => router, usePathname: () => nav.pathname }));
 
 const BUILD = '/app/signups/sig_1/build';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 
 type Bridge = ReturnType<typeof useBuildBridge>;
 type Tab = Parameters<typeof useRegisterBuildTab>[0];
@@ -33,7 +38,7 @@ function renderBridge(tab: Tab | null) {
   const tree = (shown: Tab | null) => (
     <BuildBridge buildHref="/app/signups/sig_1/build">
       <Header onReady={(b) => (bridge = b)} />
-      <TabsNav signupId="sig_1" counts={{ build: 2, responses: 0 }} />
+      <TabsNav signupId="sig_1" counts={{ build: 2, responses: 0 }} labels={TEXT.tabs} />
       {shown ? <BuildTab {...shown} /> : null}
     </BuildBridge>
   );
