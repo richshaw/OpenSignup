@@ -35,7 +35,7 @@ export async function setOrganizerLocaleAction(formData: FormData) {
 }
 
 /**
- * Account Settings' "Switch your 3 open signups to Svenska". Puts the
+ * Account Settings' "Switch them to Svenska". Puts the
  * signed-in organizer's open signups (`setOpenSignupsLocale` says which count)
  * in the language the page offers: theirs for new signups, worked out here as
  * the page does (`newSignupLocale`). It reads nothing from the form, which

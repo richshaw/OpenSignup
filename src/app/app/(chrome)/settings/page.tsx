@@ -104,7 +104,7 @@ interface OpenSignupCounts {
 /**
  * The organizer's open signups (`openSignupsToSwitch` says which count): how
  * many there are, and how many aren't in their language for new signups,
- * which "Switch your 3 open signups to Svenska" offers to change. One
+ * which the button "Switch them to Svenska" offers to change. One
  * statement on each visit once a second language has shipped to participants;
  * until then none, and no statement.
  */
@@ -131,12 +131,15 @@ async function openSignupsInAnotherLanguage(session: OrganizerSession): Promise<
  * plain button, as Sign out is, so the page loads no script of its own.
  *
  * Under it, while some of the organizer's open signups are in another
- * language, a button that switches them to this one (#639), and once it has,
- * how many of their open signups now use it, in the place of "Saved". Both
- * are plain HTML too: nothing
- * appears after the language's own Save, and nothing moves or takes the
- * focus. The button is gone once they're switched, so a second tap finds
- * nothing to press.
+ * language, how many, a button that switches them to this one (#639), and
+ * what switching changes and what it leaves (#933's tophat: the signups' own
+ * words stay as typed, and people already signed up see the new language).
+ * Once it has, how many of their open signups use it now, in the button's
+ * place. All plain HTML too: nothing appears after the language's own Save,
+ * and nothing moves or takes the focus. The button is gone once they're
+ * switched, so a second tap finds nothing to press. The words say "1 of your
+ * signups is open", never "your open signup", which read as the product's
+ * name.
  */
 function OrganizerLanguageForm({
   t,
@@ -212,14 +215,27 @@ function OrganizerLanguageForm({
         </div>
       </form>
       {openSignups.toSwitch > 0 ? (
-        <form action={switchOpenSignupsLocaleAction} className="border-t border-surface-sunk pt-4">
-          <button
-            type="submit"
-            className="rounded-lg border border-surface-sunk bg-white px-4 py-2 text-sm font-medium transition hover:bg-surface-raised"
-          >
-            {t.rich('language.switch', { count: openSignups.toSwitch, name, language })}
-          </button>
-        </form>
+        <div className="space-y-3 border-t border-surface-sunk pt-4">
+          <p id="switch-open-signups-why" className="text-sm">
+            {t.rich('language.toSwitch', { count: openSignups.toSwitch, name, language })}
+          </p>
+          <form action={switchOpenSignupsLocaleAction}>
+            {/* Outlined in the brand's blue, so it reads as a button on the
+                white card; the darker blue for its words keeps 4.5:1 on
+                white and on the hover's tint. "Switch it" names nothing on
+                its own, so it's described by the lines around it. */}
+            <button
+              type="submit"
+              aria-describedby="switch-open-signups-why switch-open-signups-note"
+              className="rounded-lg border border-brand bg-white px-4 py-2 text-sm font-medium text-brand-hover transition hover:bg-brand-soft"
+            >
+              {t.rich('language.switch', { count: openSignups.toSwitch, name, language })}
+            </button>
+          </form>
+          <p id="switch-open-signups-note" className="text-sm text-ink-muted">
+            {t('language.switchNote')}
+          </p>
+        </div>
       ) : switched && openSignups.open > 0 ? (
         // Once none is left in another language, with the count from what's
         // stored: the address says only that the switch ran.

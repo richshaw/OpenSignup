@@ -906,6 +906,15 @@ The owner's tophat of the whole stack, on 15 November 2026, settled these.
    "vidarebefordra inte mejlet" and the reminder and time-change emails "Dela
    inte mejlet med någon", for English's "don't forward it" and "Keep this
    email to yourself". All three now say "dela inte mejlet med någon".
+3. **A language's name inside a sentence is in lower case**, as Swedish
+   writes it: "Byt dem till svenska". The list to choose from keeps its
+   capital ("Svenska"), and English keeps its own ("English") in a Swedish
+   sentence. The code decides it, not the catalog
+   (`languageNameInSentence`), from CLDR, so `{name}` arrives cased.
+4. **No "open signup" before a count.** "Din öppna anmälningslista", like
+   English's "your open signup", read as the product's name, OpenSignup.
+   Account Settings says "1 av dina anmälningslistor är öppen och är inte på
+   svenska än." and offers "Byt den till svenska" ("Byt dem" for more).
 
 ### Open questions
 

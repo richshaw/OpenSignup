@@ -227,24 +227,27 @@ describe('Account Settings: Language', () => {
 });
 
 describe('Account Settings: switching the open signups', () => {
-  const switchButton = () => screen.queryByRole('button', { name: /^Switch your/ });
+  const switchButton = () => screen.queryByRole('button', { name: /^Switch (it|them) to/ });
   /** The organizer has `open` open signups, `count` of them in another language. */
   const toSwitch = (count: number, open = count) =>
     openSignupsToSwitch.mockResolvedValue({
       ok: true,
       value: { open, toSwitch: Array.from({ length: count }, (_, n) => `sig_${n}`) },
     });
+  /** What switching changes and what it leaves, under the button. */
+  const NOTE =
+    "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.";
 
   it('isn’t there, and reads nothing, while one language has shipped to participants', async () => {
     request.saved = 'en';
     toSwitch(3);
     await renderPage({ switched: '1' });
     expect(switchButton()).not.toBeInTheDocument();
-    expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/of your signups/)).not.toBeInTheDocument();
     expect(openSignupsToSwitch).not.toHaveBeenCalled();
   });
 
-  it('offers to switch the open signups in another language to the organizer’s, with how many', async () => {
+  it('says how many open signups aren’t in the organizer’s language, and offers to switch them', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
     toSwitch(3);
@@ -253,21 +256,41 @@ describe('Account Settings: switching the open signups', () => {
     // Asked about the language the choice above shows.
     expect(openSignupsToSwitch).toHaveBeenCalledOnce();
     expect(openSignupsToSwitch.mock.calls[0]?.[2]).toBe('sv');
+    const why = screen.getByText(/of your signups/);
+    expect(why).toHaveTextContent(/^3 of your signups are open and aren't in Svenska yet\.$/);
+    expect(within(why).getByText('Svenska')).toHaveAttribute('lang', 'sv');
     const button = switchButton()!;
-    expect(button).toHaveAccessibleName('Switch your 3 open signups to Svenska');
+    expect(button).toHaveAccessibleName('Switch them to Svenska');
     expect(within(button).getByText('Svenska')).toHaveAttribute('lang', 'sv');
+    // "Switch them" names nothing on its own: the lines around it say what.
+    expect(button).toHaveAccessibleDescription(`${why.textContent} ${NOTE}`);
+    expect(screen.getByText(NOTE)).toBeInTheDocument();
     // Its form sends nothing: the action works out the language itself.
     expect(button.closest('form')!.querySelectorAll('input')).toHaveLength(0);
     // Nothing takes the focus.
     expect(document.body).toHaveFocus();
   });
 
-  it('says “signup” for one', async () => {
+  // "Your open signup" read as the product's name, OpenSignup.
+  it('says “it” for one, and never “open signup”', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
     toSwitch(1);
     await renderPage();
-    expect(switchButton()).toHaveAccessibleName('Switch your 1 open signup to Svenska');
+    expect(screen.getByText(/of your signups/)).toHaveTextContent(
+      "1 of your signups is open and isn't in Svenska yet.",
+    );
+    expect(switchButton()).toHaveAccessibleName('Switch it to Svenska');
+    expect(document.body).not.toHaveTextContent(/open signup/i);
+  });
+
+  it('reads as a button: outlined in the brand’s blue, not the card’s grey', async () => {
+    ship('participant', ['en', 'sv']);
+    request.saved = 'sv';
+    toSwitch(2);
+    await renderPage();
+    expect(switchButton()).toHaveClass('border-brand');
+    expect(switchButton()).not.toHaveClass('border-surface-sunk');
   });
 
   it.each(OTHER_LANGUAGES)(
@@ -278,13 +301,15 @@ describe('Account Settings: switching the open signups', () => {
       const name = languageName(other);
       toSwitch(1234);
       await renderPage();
-      expect(switchButton()).toHaveAccessibleName(`Switch your 1234 open signups to ${name}`);
+      expect(screen.getByText(/of your signups/)).toHaveTextContent(
+        `1234 of your signups are open and aren't in ${name} yet.`,
+      );
       cleanup();
 
       toSwitch(0, 1234);
       await renderPage({ switched: '1' });
       expect(screen.getByRole('status')).toHaveTextContent(
-        `Saved. Your 1234 open signups now use ${name}.`,
+        `Saved. 1234 of your signups are open, and they're all in ${name} now.`,
       );
     },
   );
@@ -299,8 +324,12 @@ describe('Account Settings: switching the open signups', () => {
     const name = languageNameInSentence(other, other);
     toSwitch(3);
     await renderPage();
+    const why = screen.getByText(new RegExp(`^${ask('toSwitch')}`));
+    expect(why).toHaveTextContent(`${ask('toSwitch')}: ${name}`);
+    expect(within(why).getByText(name)).toHaveAttribute('lang', other);
     const button = screen.getByRole('button', { name: `${ask('switch')}: ${name}` });
     expect(within(button).getByText(name)).toHaveAttribute('lang', other);
+    expect(screen.getByText(ask('switchNote'))).toBeInTheDocument();
     cleanup();
 
     toSwitch(0, 4);
@@ -316,6 +345,7 @@ describe('Account Settings: switching the open signups', () => {
     await renderPage({ saved: 'language' });
     expect(openSignupsToSwitch).toHaveBeenCalledOnce();
     expect(switchButton()).not.toBeInTheDocument();
+    expect(screen.queryByText(/of your signups/)).not.toBeInTheDocument();
     // The language's own Save says only "Saved", as before.
     expect(screen.getByRole('status')).toHaveTextContent(/^Saved$/);
   });
@@ -326,7 +356,9 @@ describe('Account Settings: switching the open signups', () => {
     toSwitch(0, 4);
     await renderPage({ switched: '1' });
     const done = screen.getByRole('status');
-    expect(done).toHaveTextContent('Saved. Your 4 open signups now use Svenska.');
+    expect(done).toHaveTextContent(
+      "Saved. 4 of your signups are open, and they're all in Svenska now.",
+    );
     expect(within(done).getByText('Svenska')).toHaveAttribute('lang', 'sv');
     expect(document.body).toHaveFocus();
     cleanup();
@@ -334,22 +366,22 @@ describe('Account Settings: switching the open signups', () => {
     toSwitch(0, 1);
     await renderPage({ switched: '1' });
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Saved. Your 1 open signup now uses Svenska.',
+      "Saved. 1 of your signups is open, and it's in Svenska now.",
     );
     cleanup();
 
     // With signups still in another language, the button shows instead.
     toSwitch(2, 4);
     await renderPage({ switched: '1' });
-    expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
-    expect(switchButton()).toHaveAccessibleName('Switch your 2 open signups to Svenska');
+    expect(screen.queryByText(/ now\./)).not.toBeInTheDocument();
+    expect(switchButton()).toHaveAccessibleName('Switch them to Svenska');
   });
 
   it('says nothing to an organizer with no open signups, whatever the address says', async () => {
     ship('participant', ['en', 'sv']);
     request.saved = 'sv';
     await renderPage({ switched: '1' });
-    expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/of your signups/)).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
@@ -361,7 +393,7 @@ describe('Account Settings: switching the open signups', () => {
     // stored (4 here); a number a link puts in its place shows nothing.
     for (const switched of ['9999', '3', '0']) {
       await renderPage({ switched });
-      expect(screen.queryByText(/now use/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/of your signups/)).not.toBeInTheDocument();
       cleanup();
     }
     for (const switched of ['-1', 'abc', 'true', '1e3', 'Your 9999 signups were deleted', '']) {
