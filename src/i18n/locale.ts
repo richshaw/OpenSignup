@@ -28,13 +28,12 @@ import { instanceDefaultLocale } from './server';
  * they show (its title, its slots, its share message): the language stored
  * on it (`signup.settings.locale`, passed as it is, whatever it holds), else
  * the instance's `DEFAULT_LOCALE`, else English, each only once it has
- * shipped to participants. The signup's page, the pages for changing a spot
- * and unsubscribing, the public signup API, its Settings tab and its emails
- * all read it here, so the choice an organizer sees is the one participants
- * get. The e2e run alone also keeps a stored language that hasn't shipped
- * (`keptForTests`), which its emails follow too: the confirmations its server
- * sends, and the reminders and time-changed emails of a worker started the
- * same way.
+ * shipped to participants. Everything that shows a signup's language reads it
+ * here, its Settings tab included, so the choice an organizer sees is the one
+ * participants get. The e2e run alone also keeps a stored language that
+ * hasn't shipped (`keptForTests`), which its emails follow too: the
+ * confirmations its server sends, and the reminders and time-changed emails
+ * of a worker started the same way.
  */
 export function localeOfSignup(stored: unknown): CatalogLocale {
   return shown('participant', stored);
@@ -43,11 +42,10 @@ export function localeOfSignup(stored: unknown): CatalogLocale {
 /**
  * The language of an organizer's own screens: the language stored on their
  * account, else the instance's `DEFAULT_LOCALE`, else English, each only once
- * it has shipped to organizers. Every organizer page, and anything else that
- * shows an organizer their own text, takes its language from here: the strip
- * and notice on a signup's page, the Preview banner, the header and the pages
- * under it, the consent screen, the CSV export's headers and the sign-in
- * email (`signInEmailLocale` in src/auth/sign-in-email-locale.ts).
+ * it has shipped to organizers. Anything that shows an organizer their own
+ * text takes its language from here (CLAUDE.md's table says what asks which
+ * function), the sign-in email too, through `signInEmailLocale`, which reads
+ * the account at its address.
  *
  * Each page calls it with the session it already has, rather than taking a
  * language from a layout above it: a client-side navigation re-renders the
@@ -63,15 +61,14 @@ export function localeOfOrganizer(session: Pick<OrganizerSession, 'locale'> | nu
 }
 
 /**
- * The language of the pages nobody is signed in on: /login, the
- * check-your-email page and the confirm page an emailed link opens, and the
- * OAuth provider's error and rate-limit pages, since the provider doesn't
- * know who is signed in (the consent screen, which does, is in
- * `localeOfOrganizer`). There's no stored language to read, and nothing is
- * worked out from the request (no header, no cookie): it's the language an
- * account with none stored gets, the instance's `DEFAULT_LOCALE` once that
- * has shipped to organizers, else English. The e2e run's unshipped languages
- * don't change it, since they only keep a language already stored on a row.
+ * The language of the pages nobody is signed in on, the sign-in pages and
+ * the OAuth provider's error pages among them: the provider doesn't know who
+ * is signed in (the consent screen, which does, is in `localeOfOrganizer`).
+ * There's no stored language to read, and nothing is worked out from the
+ * request (no header, no cookie): it's the language an account with none
+ * stored gets, the instance's `DEFAULT_LOCALE` once that has shipped to
+ * organizers, else English. The e2e run's unshipped languages don't change
+ * it, since they only keep a language already stored on a row.
  */
 export function signInLocale(): CatalogLocale {
   return localeOfOrganizer(null);

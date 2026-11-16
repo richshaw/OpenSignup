@@ -79,8 +79,9 @@ an account is created. Ask for the language of what you're rendering:
 | You're rendering, or deciding                                                                    | Ask (`src/i18n/locale.ts` unless named)                                                        |
 | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | A signup's pages, its emails, and its own words wherever they show (title, slots, share message) | `localeOfSignup(signup.settings.locale)`                                                       |
-| An organizer's own screens, their sign-in email, the consent screen, CSV headers                 | `localeOfOrganizer(session)`                                                                   |
-| A page nobody is signed in on: `/login`, the OAuth error pages                                   | `signInLocale()`                                                                               |
+| An organizer's own screens, the consent screen, CSV headers                                      | `localeOfOrganizer(session)`                                                                   |
+| A page nobody is signed in on: `/login` and its check and confirm pages, the OAuth error pages   | `signInLocale()`: the site default, else English                                               |
+| The sign-in email, which has an address but no session                                           | `signInEmailLocale(db, email)` (`src/auth/sign-in-email-locale.ts`)                            |
 | A `/s` page with no signup in hand: not-found, a link it can't read                              | `requestedSignupLocale()` or `signupLocaleForSlug(slug)` (`src/app/s/[slug]/signup-locale.ts`) |
 | What to store: on a new signup, on a new account                                                 | `newSignupLocale(session)`, `newOrganizerLocale(…)` (`src/i18n/organizer-locale.ts`)           |
 
