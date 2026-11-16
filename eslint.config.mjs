@@ -64,6 +64,9 @@ const TRANSLATED = [
   // The sign-in pages: the form and its code box, the provider buttons, and
   // the check-your-email and confirm pages.
   'src/app/login',
+  // The screen that connects an AI assistant, its buttons, and the replies
+  // when the organizer chooses.
+  'src/app/oauth',
 ];
 
 /**

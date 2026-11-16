@@ -11,9 +11,8 @@ import type { CatalogLocale } from '@/i18n/config';
  * `gap` and `padding` are the spacing each page already had; they stay
  * separate props so moving a page onto the frame doesn't change its look.
  * `locale` is the page's language: the frame marks the page with it for
- * screen readers, and the footer is in it. A page that doesn't give one (the
- * OAuth consent screen, until its text moves to the catalogs) is English,
- * as the root layout says.
+ * screen readers, and the footer is in it. A page that doesn't give one is
+ * English, as the root layout says.
  */
 export function CenteredPageFrame({
   children,

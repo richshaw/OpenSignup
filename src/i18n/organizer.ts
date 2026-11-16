@@ -47,7 +47,10 @@ export function getOrganizerAppLocale(
  * request (no header, no cookie): it's the instance's `DEFAULT_LOCALE` once
  * that has shipped to organizers, else English (`defaultFor`), the language
  * an account with none stored gets. The e2e run's unshipped languages don't
- * change it, since they only keep a language already stored on a row.
+ * change it, since they only keep a language already stored on a row. The
+ * OAuth provider's error page and its rate-limit page use it too, since the
+ * provider doesn't know who is signed in; the consent screen, which does, is
+ * in `getOrganizerAppLocale`.
  */
 export function signInLocale(): CatalogLocale {
   return defaultFor('organizer', instanceDefaultLocale());

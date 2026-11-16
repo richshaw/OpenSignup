@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatGrantDate } from '@/app/app/(chrome)/settings/connected-apps/grant-date';
 import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
@@ -5,6 +6,7 @@ import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { getTranslator, type Namespace } from '@/i18n/translator';
 import { accessTokenLifetime } from '@/lib/lifetimes';
 import { loginAsSeededOrganizer } from './helpers/auth';
+import { BASE_URL } from './helpers/fixtures';
 import {
   connectAppFor,
   createOrganizerIn,
@@ -78,6 +80,25 @@ function watchForHydrationErrors(page: Page): string[] {
     }
   });
   return errors;
+}
+
+/**
+ * An AI assistant's request to connect, from the `e2e-client` static client
+ * (OAUTH_STATIC_CLIENTS, as in .env.example), asking for `scope`.
+ */
+function connectionRequest(scope: string): string {
+  const verifier = randomBytes(32).toString('base64url');
+  const q = new URLSearchParams({
+    client_id: 'e2e-client',
+    redirect_uri: `${BASE_URL}/e2e/oauth-callback`,
+    response_type: 'code',
+    scope,
+    code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+    code_challenge_method: 'S256',
+    resource: `${BASE_URL}/api/mcp`,
+    state: 'e2e',
+  });
+  return `/api/oauth/authorize?${q}`;
 }
 
 for (const stored of STORED) {
@@ -166,9 +187,53 @@ for (const stored of STORED) {
         }),
       );
       await expect(app.getByRole('button', { name: apps('disconnect') })).toBeVisible();
+      const scopes = messagesIn(locale, 'auth.scopes');
+      await expect(app.getByText(scopes('signupsRead'), { exact: true })).toBeVisible();
+      await expect(app.getByText(scopes('signupsWrite'), { exact: true })).toBeVisible();
 
       await page.goto('/app/settings/connected-apps?disconnected=1');
       await expect(page.getByRole('status')).toHaveText(apps('disconnected', { lifetime }));
+    });
+
+    test(`is asked to connect an AI assistant in ${locale}`, async ({ page }) => {
+      const consent = messagesIn(locale, 'auth.consent');
+      const scopes = messagesIn(locale, 'auth.scopes');
+      await page.goto(connectionRequest('signups:read signups:write commitments:read'));
+      test.skip(
+        (await page.content()).includes('invalid_client'),
+        'OAUTH_STATIC_CLIENTS has no "e2e-client": set it as in .env.example',
+      );
+      await expect(page).toHaveURL(/\/oauth\/consent\//);
+      const permissions = page.getByRole('heading', { level: 2 });
+      await expect(permissions).toHaveText(consent('permissions'));
+      expect(await languageOf(permissions), unshippedHint).toBe(locale);
+      await expect(page).toHaveTitle(titled(consent('tabTitle')));
+      await expect(page.getByText(consent('request'))).toBeVisible();
+      await expect(
+        page.getByText(consent.markup('setUpBySite', { name: 'E2E test client', strong: plain })),
+      ).toBeVisible();
+      for (const key of ['signupsRead', 'signupsWrite', 'commitmentsRead'] as const) {
+        await expect(page.getByText(scopes(key), { exact: true })).toBeVisible();
+      }
+      // The warning on participants' details, still in its warning colour.
+      await expect(page.getByText(scopes('commitmentsRead'), { exact: true })).toHaveClass(
+        /text-warn/,
+      );
+      await expect(page.getByText(consent('sensitive', { domain: 'e2e-client' }))).toBeVisible();
+      await expect(
+        page.getByText(
+          consent.markup('actsAs', { workspaces: 'one', email: organizer.email, strong: plain }),
+        ),
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: consent('allow'), exact: true })).toBeVisible();
+      await expect(page.getByText(consent.markup('disconnect', { link: plain }))).toBeVisible();
+      await expect(page.locator('a[href="/app/settings/connected-apps"]')).toBeVisible();
+      await expect(page.getByRole('button', { name: consent('switchAccount') })).toBeVisible();
+
+      // Saying no hands the request back, so it leaves nothing behind.
+      await page.getByRole('button', { name: consent('deny') }).click();
+      await page.waitForURL(/\/e2e\/oauth-callback\?/);
+      expect(new URL(page.url()).searchParams.get('error')).toBe('access_denied');
     });
 
     test(`is told in ${locale} when a signup can’t be found`, async ({ page }) => {

@@ -955,6 +955,47 @@ declare const messages: {
       "signIn": "Sign in",
       "code": "Reading this on a different device? Type this code into the window where you started signing in instead. It works for {duration}:",
       "copyUrl": "Or copy this URL:"
+    },
+    "consent": {
+      "tabTitle": "Connect an app",
+      "request": "Connection request",
+      "heading": "Allow <host>{domain}</host> to use your {instance} account?",
+      "fromNamedApp": "<strong>{name}</strong> from <strong>{domain}</strong> wants to connect to your account. Only allow it if you trust {domain}.",
+      "fromApp": "An app from <strong>{domain}</strong> wants to connect to your account. Only allow it if you trust {domain}.",
+      "setUpBySite": "<strong>{name}</strong> was set up by the people who run this site.",
+      "permissions": "It will be able to",
+      "sensitive": "Participants gave these details to you, not to this app. Only approve if you are comfortable with {domain} handling them.",
+      "actsAs": "{workspaces, select, many {It acts as you (<strong>{email}</strong>) in every workspace you belong to and can't do anything you couldn't do yourself.} other {It acts as you (<strong>{email}</strong>) and can't do anything you couldn't do yourself.}}",
+      "allow": "Allow",
+      "allowing": "Connecting…",
+      "deny": "Don't allow",
+      "denying": "Declining…",
+      "disconnect": "You can disconnect it at any time from <link>Connected apps</link>.",
+      "notYou": "Not you?",
+      "switchAccount": "Sign in as someone else",
+      "expired": {
+        "heading": "This connection request has expired",
+        "body": "Connection requests are only valid for a few minutes, and only in the browser that started them. Nothing was connected. Go back to the application and start again.",
+        "dashboard": "Go to your dashboard"
+      },
+      "decision": {
+        "tooManyAttempts": "Too many connection attempts. Wait {wait} and try again.",
+        "failed": "Something went wrong recording your decision. Nothing was connected."
+      }
+    },
+    "scopes": {
+      "signupsRead": "See your signups and their slots",
+      "signupsWrite": "Create and edit signups",
+      "commitmentsRead": "See who has signed up, including their names and email addresses",
+      "offlineAccess": "Stay connected without asking you to sign in again"
+    },
+    "oauthErrors": {
+      "tabTitle": "Connection failed",
+      "heading": "This connection could not be completed",
+      "intro": "The application that sent you here made a request we could not accept.",
+      "noDescription": "The request could not be completed.",
+      "nothingConnected": "Nothing was connected to your account. Close this window and try again from the application, or <home>go to the home page</home>.",
+      "tooManyRequests": "Too many requests. Wait {wait} and try again."
     }
   }
 };
