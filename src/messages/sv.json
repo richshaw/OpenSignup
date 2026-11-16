@@ -327,7 +327,7 @@
     },
     "build": {
       "rail": {
-        "editing": "Ändrar",
+        "editing": "Redigerar",
         "fields": "Fält ({count, number})",
         "saving": "Sparar…"
       },
