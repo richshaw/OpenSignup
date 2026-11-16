@@ -876,7 +876,6 @@ declare const messages: {
         "legend": "Language",
         "help": "Your screens and new signups use this language. To change one signup’s language, use its Settings tab.",
         "save": "Save",
-        "saved": "Saved",
         "toSwitch": "{count, plural, one {{count, number, ::group-off} of your signups is open and isn't in <language>{name}</language> yet.} other {{count, number, ::group-off} of your signups are open and aren't in <language>{name}</language> yet.}}",
         "switch": "{count, plural, one {Switch it to <language>{name}</language>} other {Switch them to <language>{name}</language>}}",
         "switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.",

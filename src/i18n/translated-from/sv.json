@@ -616,7 +616,6 @@
   "organizer.settings.language.legend": "Language",
   "organizer.settings.language.help": "Your screens and new signups use this language. To change one signup’s language, use its Settings tab.",
   "organizer.settings.language.save": "Save",
-  "organizer.settings.language.saved": "Saved",
   "organizer.settings.language.toSwitch": "{count, plural, one {{count, number, ::group-off} of your signups is open and isn't in <language>{name}</language> yet.} other {{count, number, ::group-off} of your signups are open and aren't in <language>{name}</language> yet.}}",
   "organizer.settings.language.switch": "{count, plural, one {Switch it to <language>{name}</language>} other {Switch them to <language>{name}</language>}}",
   "organizer.settings.language.switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.",

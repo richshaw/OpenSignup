@@ -209,7 +209,8 @@ describe('Account Settings: Language', () => {
       expect(within(group).getByText(languageName(locale))).toHaveAttribute('lang', locale);
     }
     expect(screen.getByRole('button', { name: ask('save') })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(ask('saved'));
+    // The Saved every organizer screen says.
+    expect(screen.getByRole('status')).toHaveTextContent(`organizer.saveNotice.saved in ${other}`);
   });
 
   it('shows a refusal in the Settings tab’s words, and only for a code the action sends', async () => {

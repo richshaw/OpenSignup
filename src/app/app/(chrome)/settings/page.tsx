@@ -211,7 +211,11 @@ function OrganizerLanguageForm({
           >
             {t('language.save')}
           </button>
-          {saved ? <SavedNotice role="status">{t('language.saved')}</SavedNotice> : null}
+          {saved ? (
+            <SavedNotice role="status">
+              {getServerTranslator(pageLocale, 'organizer.saveNotice')('saved')}
+            </SavedNotice>
+          ) : null}
         </div>
       </form>
       {openSignups.toSwitch > 0 ? (
