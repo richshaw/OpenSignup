@@ -50,7 +50,10 @@ function refusal(
   locale: CatalogLocale,
 ) {
   return {
-    error: statusRefusal(error, change, getServerTranslator(locale, 'organizer.signup.refusal')),
+    error: statusRefusal(error, change, {
+      signup: getServerTranslator(locale, 'organizer.signup.refusal'),
+      errors: getServerTranslator(locale, 'organizer.errors'),
+    }),
   };
 }
 

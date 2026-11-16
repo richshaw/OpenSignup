@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import { fromZodError, type ErrorCode } from '@/lib/errors';
+import { ERROR_CODES } from '@/lib/testing/error-codes';
 import { SIGNUP_INPUT_REASONS, SignupUpdateInputSchema } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { everyIdOnceError } from '@/services/reorder-ids';
@@ -9,12 +9,11 @@ import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translat
 import { saveErrorMessage } from './save-error-message';
 import type { SaveError } from './useBuildState';
 
+const errors = getTestTranslator('organizer.errors');
+
 /** What the rail says for `error` in English, from the catalog. */
 const said = (error: SaveError) =>
-  saveErrorMessage(error, {
-    build: getTestTranslator('organizer.build'),
-    errors: getTestTranslator('organizer.errors'),
-  });
+  saveErrorMessage(error, { build: getTestTranslator('organizer.build'), errors });
 
 /** A refusal as the rail keeps it: the envelope without its `message` and `suggestion`. */
 function kept({ code, field, received, details }: SaveError & { message?: string }): SaveError {
@@ -104,9 +103,7 @@ describe('saveErrorMessage', () => {
   });
 
   it('gives every other refusal the line for its code, whatever its message said', () => {
-    for (const code of Object.keys(SAVE_ERROR_MESSAGE) as ErrorCode[]) {
-      expect(said({ code })).toBe(SAVE_ERROR_MESSAGE[code]);
-    }
+    for (const code of ERROR_CODES) expect(said({ code })).toBe(errors(`code.${code}`));
     // A deleted slot people hold, which only the AI connector is refused: the
     // tab's Delete always forces.
     expect(

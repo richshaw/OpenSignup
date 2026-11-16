@@ -1,4 +1,3 @@
-import { SAVE_ERROR_MESSAGE } from '@/components/ui/save-errors';
 import type { Translator } from '@/i18n/translator';
 import type { ServiceError } from '@/lib/errors';
 
@@ -9,33 +8,33 @@ import type { ServiceError } from '@/lib/errors';
  * closed", "your role cannot modify this workspace"), and in the organizer's
  * language. `status_changed` means another tab or person changed the status
  * since the page loaded, and `no_slots` that a signup to publish or reopen
- * has none. A viewer's refusal is still the English line every save shows
- * for its code (join seam: it should read `organizer.errors.code.forbidden`).
+ * has none. A viewer gets the line every organizer screen gives for
+ * `forbidden`.
  */
 export function statusRefusal(
   error: ServiceError,
   change: 'publish' | 'close' | 'reopen',
-  t: Translator<'organizer.signup.refusal'>,
+  t: { signup: Translator<'organizer.signup.refusal'>; errors: Translator<'organizer.errors'> },
 ): string {
   switch (error.code) {
     case 'forbidden':
-      return SAVE_ERROR_MESSAGE.forbidden;
+      return t.errors('code.forbidden');
     case 'not_found':
-      return t('gone');
+      return t.signup('gone');
     case 'conflict':
-      if (error.details?.reason === 'status_changed') return t('changed');
+      if (error.details?.reason === 'status_changed') return t.signup('changed');
       if (error.details?.reason === 'no_slots') {
-        if (change === 'publish') return t('addSlotToPublish');
-        if (change === 'reopen') return t('addSlotToReopen');
+        if (change === 'publish') return t.signup('addSlotToPublish');
+        if (change === 'reopen') return t.signup('addSlotToReopen');
       }
       break;
   }
   switch (change) {
     case 'publish':
-      return t('publishFailed');
+      return t.signup('publishFailed');
     case 'close':
-      return t('closeFailed');
+      return t.signup('closeFailed');
     case 'reopen':
-      return t('reopenFailed');
+      return t.signup('reopenFailed');
   }
 }
