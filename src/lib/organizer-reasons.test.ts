@@ -22,11 +22,11 @@ import { refusalText } from './organizer-errors';
  * (but for a `refusal`, whose message is the AI's own explanation). The
  * English is as each screen read before there were reasons.
  *
- * The New signup form's words come from the catalog (`organizer.errors`), in
- * the organizer's language. The Build tab's, Magic Compose's and the
- * header's are still written in their components, and move into the catalog
- * with the rest of those screens' text, when these cases switch to the
- * catalog too.
+ * The New signup form's and the Build tab's words come from the catalog
+ * (`organizer.errors`, `organizer.build`), in the organizer's language.
+ * Magic Compose's and the header's are still written in their components,
+ * and move into the catalog with the rest of those screens' text, when these
+ * cases switch to the catalog too.
  */
 const PARTICIPANT_REASONS = [
   'email_required',
@@ -38,7 +38,17 @@ const PARTICIPANT_REASONS = [
   'quantity_too_large',
   'quantity_not_whole',
 ] as const satisfies readonly ErrorReason[];
-type OrganizerReason = Exclude<ErrorReason, (typeof PARTICIPANT_REASONS)[number]>;
+/**
+ * Reasons only API callers get, which no screen words: `slot_has_signups`
+ * refuses deleting a slot people hold unless the caller forces it, and the
+ * Build tab's Delete always forces (`DELETE /api/slots/[id]`), so only the AI
+ * connector's `delete_slot` meets it.
+ */
+const API_ONLY_REASONS = ['slot_has_signups'] as const satisfies readonly ErrorReason[];
+type OrganizerReason = Exclude<
+  ErrorReason,
+  (typeof PARTICIPANT_REASONS)[number] | (typeof API_ONLY_REASONS)[number]
+>;
 
 /** What the server sends, its English `message` and `suggestion` swapped for words no screen may show. */
 const sent = (
@@ -54,6 +64,8 @@ const sent = (
 });
 
 const t = getTestTranslator('organizer.errors');
+const buildTab = (error: ReturnType<typeof sent>) =>
+  saveErrorMessage(error, { build: getTestTranslator('organizer.build'), errors: t });
 const answered: FollowUp = { what: { picked: ['Bake something'], added: [] } };
 const draftText = (status: number, error: ReturnType<typeof sent>, followUp?: FollowUp) => {
   const said = explainDraftFailure(status, error, followUp ? { followUp } : {});
@@ -72,29 +84,24 @@ const CASES = {
     error: sent('invalid_input', 'title_too_short', { field: 'title' }),
     screens: {
       'New signup': (error) => refusalText(t, error),
-      'Build tab': saveErrorMessage,
+      'Build tab': buildTab,
     },
     english: 'Title must be at least 2 characters.',
   },
   date_too_early: {
     error: sent('invalid_input', 'date_too_early', { field: 'date', received: '1899-12-31' }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: '"date" must be a date in 1900 or later',
   },
   slot_ids_mismatch: {
     error: sent('invalid_input', 'slot_ids_mismatch', { field: 'slotIds' }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: "The slots changed in another window, so your move wasn't saved. Drag it again.",
   },
   field_ids_mismatch: {
     error: sent('invalid_input', 'field_ids_mismatch', { field: 'fieldIds' }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: "The fields changed in another window, so your move wasn't saved. Drag it again.",
-  },
-  slot_has_signups: {
-    error: sent('conflict', 'slot_has_signups', { field: 'slotId', details: { filled: 2 } }),
-    screens: { 'Build tab': saveErrorMessage },
-    english: '2 people have signed up for this slot',
   },
   capacity_below_taken: {
     error: sent('conflict', 'capacity_below_taken', {
@@ -102,12 +109,12 @@ const CASES = {
       received: 1,
       details: { taken: 2 },
     }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: 'capacity (1) is less than active quantity (2)',
   },
   invalidates_slot_values: {
     error: sent('conflict', 'invalidates_slot_values', { details: { count: 1 } }),
-    screens: { 'Build tab': saveErrorMessage },
+    screens: { 'Build tab': buildTab },
     english: 'change would invalidate existing slot values',
   },
   status_changed: {
@@ -153,6 +160,13 @@ describe('every reason an organizer screen can receive', () => {
       expect(said).not.toBe(SAVE_ERROR_MESSAGE[error.code]);
       if (reason !== 'refusal') expect(said).not.toContain('Server');
     });
+  });
+
+  it('leaves slot_has_signups to API callers: the Build tab would give it its code’s line', () => {
+    for (const reason of API_ONLY_REASONS) {
+      const error = sent('conflict', reason, { field: 'slotId', details: { filled: 2 } });
+      expect(buildTab(error)).toBe(SAVE_ERROR_MESSAGE.conflict);
+    }
   });
 
   it('includes the reopen line for a signup with no slots', () => {

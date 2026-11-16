@@ -5,8 +5,16 @@ import { SIGNUP_INPUT_REASONS, SignupUpdateInputSchema } from '@/schemas/signups
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { everyIdOnceError } from '@/services/reorder-ids';
 import { validateSlotValues } from '@/services/slot-fields';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { saveErrorMessage } from './save-error-message';
 import type { SaveError } from './useBuildState';
+
+/** What the rail says for `error` in English, from the catalog. */
+const said = (error: SaveError) =>
+  saveErrorMessage(error, {
+    build: getTestTranslator('organizer.build'),
+    errors: getTestTranslator('organizer.errors'),
+  });
 
 /** A refusal as the rail keeps it: the envelope without its `message` and `suggestion`. */
 function kept({ code, field, received, details }: SaveError & { message?: string }): SaveError {
@@ -41,12 +49,12 @@ describe('saveErrorMessage', () => {
     const fields = everyIdOnceError(['a'], ['a', 'b'], 'field');
     if (!slots || !fields) throw new Error('a short list passed');
 
-    expect(saveErrorMessage(kept(titleTooShort))).toBe(titleTooShort.message);
-    expect(saveErrorMessage(kept(early.error))).toBe(early.error.message);
-    expect(saveErrorMessage(kept(slots))).toBe(
+    expect(said(kept(titleTooShort))).toBe(titleTooShort.message);
+    expect(said(kept(early.error))).toBe(early.error.message);
+    expect(said(kept(slots))).toBe(
       "The slots changed in another window, so your move wasn't saved. Drag it again.",
     );
-    expect(saveErrorMessage(kept(fields))).toBe(
+    expect(said(kept(fields))).toBe(
       "The fields changed in another window, so your move wasn't saved. Drag it again.",
     );
   });
@@ -54,14 +62,6 @@ describe('saveErrorMessage', () => {
   // The rest are refused inside a transaction; these are their messages, as
   // organizer-reasons.db.test.ts pins them.
   it.each([
-    [
-      { code: 'conflict', field: 'slotId', details: { reason: 'slot_has_signups', filled: 1 } },
-      '1 person has signed up for this slot',
-    ],
-    [
-      { code: 'conflict', field: 'slotId', details: { reason: 'slot_has_signups', filled: 3 } },
-      '3 people have signed up for this slot',
-    ],
     [
       {
         code: 'conflict',
@@ -76,18 +76,15 @@ describe('saveErrorMessage', () => {
       'change would invalidate existing slot values',
     ],
   ] as [SaveError, string][])('words %o as the rail read before', (error, english) => {
-    expect(saveErrorMessage(error)).toBe(english);
+    expect(said(error)).toBe(english);
   });
 
   it('gives a reason whose words lack their value the line for its code', () => {
-    expect(saveErrorMessage({ code: 'invalid_input', details: { reason: 'date_too_early' } })).toBe(
+    expect(said({ code: 'invalid_input', details: { reason: 'date_too_early' } })).toBe(
       'Some values weren’t accepted.',
     );
-    expect(saveErrorMessage({ code: 'conflict', details: { reason: 'slot_has_signups' } })).toBe(
-      'Reload to see the latest changes.',
-    );
     expect(
-      saveErrorMessage({
+      said({
         code: 'conflict',
         received: 1,
         details: { reason: 'capacity_below_taken' },
@@ -97,11 +94,59 @@ describe('saveErrorMessage', () => {
 
   it('gives every other refusal the line for its code, whatever its message said', () => {
     for (const code of Object.keys(SAVE_ERROR_MESSAGE) as ErrorCode[]) {
-      expect(saveErrorMessage({ code })).toBe(SAVE_ERROR_MESSAGE[code]);
+      expect(said({ code })).toBe(SAVE_ERROR_MESSAGE[code]);
     }
-    // A participant's reason, or one the tab doesn't know.
+    // A deleted slot people hold, which only the AI connector is refused: the
+    // tab's Delete always forces.
     expect(
-      saveErrorMessage({ code: 'invalid_input', details: { reason: 'quantity_too_large' } }),
-    ).toBe('Some values weren’t accepted.');
+      said({
+        code: 'conflict',
+        field: 'slotId',
+        details: { reason: 'slot_has_signups', filled: 2 },
+      }),
+    ).toBe('Reload to see the latest changes.');
+    // A participant's reason, or one the tab doesn't know.
+    expect(said({ code: 'invalid_input', details: { reason: 'quantity_too_large' } })).toBe(
+      'Some values weren’t accepted.',
+    );
+  });
+
+  it('gives a code the catalog doesn’t know the line for internal', () => {
+    expect(said({ code: 'teapot' as ErrorCode })).toBe('Save failed.');
+  });
+
+  it('takes every line from the catalog, in the translators’ language', () => {
+    const swedish = {
+      build: getStandInTranslator('sv', 'organizer.build'),
+      errors: getStandInTranslator('sv', 'organizer.errors'),
+    };
+    const cases: [SaveError, string][] = [
+      [
+        { code: 'invalid_input', field: 'title', details: { reason: 'title_too_short' } },
+        'organizer.errors.titleTooShort in sv',
+      ],
+      [
+        { code: 'invalid_input', field: 'date', details: { reason: 'date_too_early' } },
+        'organizer.build.refusal.dateTooEarly in sv',
+      ],
+      [
+        { code: 'invalid_input', details: { reason: 'slot_ids_mismatch' } },
+        'organizer.build.refusal.slotsMoved in sv',
+      ],
+      [
+        { code: 'invalid_input', details: { reason: 'field_ids_mismatch' } },
+        'organizer.build.refusal.fieldsMoved in sv',
+      ],
+      [
+        { code: 'conflict', received: 1, details: { reason: 'capacity_below_taken', taken: 2 } },
+        'organizer.build.refusal.capacityBelowTaken in sv',
+      ],
+      [
+        { code: 'conflict', details: { reason: 'invalidates_slot_values' } },
+        'organizer.build.refusal.invalidatesSlotValues in sv',
+      ],
+      [{ code: 'forbidden' }, 'organizer.errors.code.forbidden in sv'],
+    ];
+    for (const [error, words] of cases) expect(saveErrorMessage(error, swedish)).toBe(words);
   });
 });

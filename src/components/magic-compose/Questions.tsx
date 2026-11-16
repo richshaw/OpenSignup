@@ -42,6 +42,9 @@ import { HereDot, StepLine } from './StepLine';
 import { YOU_WROTE_BAND, YouWrote } from './YouWrote';
 import { TimeSelect } from '@/components/build-shared/TimeSelect';
 
+/** The time boxes' choice for no time, until Magic Compose's text moves to the catalog. */
+const NO_TIME = 'No time';
+
 const WHEN_CHOICES: Array<{ kind: WhenAnswer['kind']; label: string }> = [
   { kind: 'one_day', label: 'One day' },
   { kind: 'several', label: 'Several days' },
@@ -466,6 +469,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
               onChange={(from) =>
                 set(from && answers.to && answers.to <= from ? { from, to: '' } : { from })
               }
+              noTimeLabel={NO_TIME}
               className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
           </div>
@@ -480,6 +484,7 @@ function When({ answers, update, locale }: Part & { locale: string }) {
               {...(answers.from
                 ? { after: answers.from, note: (t: string) => timeLength(answers.from, t, locale) }
                 : {})}
+              noTimeLabel={NO_TIME}
               className={`${BOX} ${BOX_FOCUS} min-w-0 flex-1 px-3 sm:flex-none`}
             />
           </div>

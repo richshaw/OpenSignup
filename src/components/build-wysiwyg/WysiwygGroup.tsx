@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Editable } from './Editable';
 import { EnumPicker } from './EnumPicker';
 import { WysiwygSlot } from './WysiwygSlot';
@@ -72,12 +73,13 @@ export function WysiwygGroup({
   renameFailed = false,
   reorder,
 }: WysiwygGroupProps) {
+  const t = useTranslations('organizer.build');
   const showHeader = groupField !== null;
   const display = groupField
-    ? prettyHeader(group.rawValue, groupField.config.fieldType, 'en', groupField.name)
+    ? prettyHeader(t, group.rawValue, groupField.config.fieldType, 'en', groupField.name)
     : '';
   const placeholder = groupField
-    ? emptyHeaderCopy(groupField.config.fieldType, groupField.name)
+    ? emptyHeaderCopy(t, groupField.config.fieldType, groupField.name)
     : '';
 
   return (
@@ -94,7 +96,7 @@ export function WysiwygGroup({
           />
           {renameFailed && (
             <p role="alert" className="ml-1.5 mt-1 text-[11px] text-danger">
-              That change didn&rsquo;t save, so this heading is back to what it was. Try again.
+              {t('group.renameFailed')}
             </p>
           )}
         </div>
@@ -134,7 +136,7 @@ export function WysiwygGroup({
           }
         >
           <Plus size={12} />
-          Add a slot
+          {t('group.addSlot')}
         </button>
       </div>
     </div>
@@ -163,7 +165,8 @@ function GroupHeader({
   onRenameGroup,
   onAddEnumOption,
 }: GroupHeaderProps) {
-  const ariaLabel = `Group header \u2014 ${display}`;
+  const t = useTranslations('organizer.build.group');
+  const ariaLabel = t('header', { heading: display });
   const rename = (next: string) => onRenameGroup(group.key, next);
 
   if (groupField.config.fieldType === 'enum') {

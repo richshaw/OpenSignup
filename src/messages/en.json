@@ -374,6 +374,113 @@
     },
     "saveNotice": {
       "saved": "Saved"
+    },
+    "build": {
+      "rail": {
+        "editing": "Editing",
+        "fields": "Fields ({count, number, ::group-off})",
+        "saving": "Saving…"
+      },
+      "sheet": {
+        "titlePlaceholder": "Untitled signup",
+        "titleLabel": "Signup title",
+        "descriptionPlaceholder": "Add a short description for volunteers",
+        "descriptionLabel": "Signup description",
+        "addDate": "Add date"
+      },
+      "group": {
+        "header": "Group header — {heading}",
+        "renameFailed": "That change didn’t save, so this heading is back to what it was. Try again.",
+        "addSlot": "Add a slot"
+      },
+      "empty": {
+        "date": "Set a date",
+        "time": "Set a time",
+        "named": "Set {label}",
+        "other": "Set a value"
+      },
+      "slot": {
+        "untitled": "Slot",
+        "row": "Edit {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}, {count}",
+        "edit": "Edit {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "duplicate": "Duplicate {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "delete": "Delete {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "editing": "Editing {kind, select, time {slot at {name}} named {slot — {name}} other {slot}}",
+        "taken": "{taken, number, ::group-off} taken",
+        "takenOf": "{taken, number, ::group-off} of {capacity, number, ::group-off} taken"
+      },
+      "editor": {
+        "title": "Editing slot",
+        "duplicate": "Duplicate",
+        "delete": "Delete",
+        "done": "Done",
+        "signedUp": "{taken, plural, one {{taken, number, ::group-off} person is} other {{taken, number, ::group-off} people are}} signed up for this slot. {reminders, select, on {If you change its date or time, we’ll email them to let them know.} other {Reminders are off, so we won’t email them if you change it.}}",
+        "value": "{field} value",
+        "spots": "Spots",
+        "noLimit": "No limit",
+        "spotsHelp": "How many spots this slot has. Leave blank for no limit.",
+        "noTime": "No time"
+      },
+      "placeholder": {
+        "text": "e.g. Bring napkins",
+        "date": "YYYY-MM-DD",
+        "number": "e.g. 12"
+      },
+      "fieldType": {
+        "text": "Short text",
+        "date": "Date",
+        "time": "Time",
+        "number": "Number",
+        "enum": "List"
+      },
+      "list": {
+        "choose": "Choose…",
+        "empty": "No items yet.",
+        "newItem": "Type a new item",
+        "newItemLabel": "New option name",
+        "count": "{length, number, ::group-off}/{max, number, ::group-off}{atMax, select, yes { · max} other {}}",
+        "add": "Add",
+        "maxLength": "Up to {max, number, ::group-off} characters",
+        "full": "A list holds up to {max, number, ::group-off} items.",
+        "addToList": "Add to list"
+      },
+      "fields": {
+        "label": "Fields",
+        "title": "Fields · {count, number, ::group-off}",
+        "editTitle": "Edit field",
+        "newTitle": "New field",
+        "close": "Close",
+        "groupBy": "Group slots by",
+        "noGroup": "Don’t group",
+        "reorder": "Drag to reorder",
+        "add": "Add field",
+        "empty": "No fields yet — add one to get started.",
+        "reminder": "Reminders sent {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} this date",
+        "typeCount": "{type} · {count, number, ::group-off}",
+        "delete": "Delete {field}"
+      },
+      "fieldForm": {
+        "backLabel": "Back to fields list",
+        "back": "Back",
+        "name": "Name",
+        "namePlaceholder": "e.g. Teacher, Subject, Item",
+        "nameLabel": "Field name",
+        "type": "Type",
+        "reminder": "Send a reminder email before this date",
+        "reminderHelp": "Sent {hours, plural, =24 {the day before} one {# hour before} other {# hours before}}. One date field per signup drives reminders, and participants can opt out of any reminder they get.",
+        "reminderTaken": "<field>{label}</field> is already the reminder field for this signup. Turn it off there to use this one instead.",
+        "remove": "Remove field",
+        "cancel": "Cancel",
+        "save": "Save",
+        "add": "Add field"
+      },
+      "refusal": {
+        "dateTooEarly": "\"{field}\" must be a date in {year, number, ::group-off} or later",
+        "slotsMoved": "The slots changed in another window, so your move wasn't saved. Drag it again.",
+        "fieldsMoved": "The fields changed in another window, so your move wasn't saved. Drag it again.",
+        "capacityBelowTaken": "capacity ({capacity, number, ::group-off}) is less than active quantity ({taken, number, ::group-off})",
+        "invalidatesSlotValues": "change would invalidate existing slot values"
+      }
     }
   }
 }

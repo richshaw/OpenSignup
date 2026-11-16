@@ -12,6 +12,8 @@ type TimeSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | '
   after?: string;
   /** Text after each listed time, in brackets, like its length from `after`. */
   note?: (time: string) => string;
+  /** The choice for no time, in the reader's language. */
+  noTimeLabel: string;
 };
 
 /**
@@ -21,10 +23,17 @@ type TimeSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | '
  * Phones keep their own picker. Times read on the 12-hour clock, as on the
  * public page; the value stays "HH:MM".
  */
-export function TimeSelect({ value, onChange, after, note, ...rest }: TimeSelectProps) {
+export function TimeSelect({
+  value,
+  onChange,
+  after,
+  note,
+  noTimeLabel,
+  ...rest
+}: TimeSelectProps) {
   return (
     <select {...rest} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">No time</option>
+      <option value="">{noTimeLabel}</option>
       {timeOptions(value, after).map((t) => (
         <option key={t} value={t}>
           {formatSlotTime(t, 'en') ?? t}

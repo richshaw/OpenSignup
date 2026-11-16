@@ -2,11 +2,12 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { InlineNote } from '@/components/ui/inline-note';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
 import { FIELD_TYPES, configFor, type FieldType } from '@/schemas/slot-field-basics';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
-import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import type { BuildField } from '../build-shared/useBuildState';
 
 export type InlineFieldFormMode = { mode: 'edit'; field: BuildField } | { mode: 'create' };
@@ -44,6 +45,7 @@ export function InlineFieldForm({
   onCancel,
   onDelete,
 }: InlineFieldFormProps) {
+  const t = useTranslations('organizer.build');
   const isEdit = formMode.mode === 'edit';
   const initialName = isEdit ? formMode.field.name : '';
   const initialType: FieldType = isEdit ? formMode.field.config.fieldType : 'text';
@@ -86,16 +88,16 @@ export function InlineFieldForm({
         <button
           type="button"
           onClick={onCancel}
-          aria-label="Back to fields list"
+          aria-label={t('fieldForm.backLabel')}
           className="inline-flex h-6 items-center gap-1 rounded-md border-none bg-transparent px-1 text-[11px] font-medium text-ink-muted hover:bg-surface-raised"
         >
           <ArrowLeft size={11} />
-          Back
+          {t('fieldForm.back')}
         </button>
       </div>
 
       <label className="mb-2.5 block">
-        <span className="text-[11px] font-medium text-ink-muted">Name</span>
+        <span className="text-[11px] font-medium text-ink-muted">{t('fieldForm.name')}</span>
         <input
           ref={nameRef}
           value={name}
@@ -110,23 +112,23 @@ export function InlineFieldForm({
               onCancel();
             }
           }}
-          placeholder="e.g. Teacher, Subject, Item"
-          aria-label="Field name"
+          placeholder={t('fieldForm.namePlaceholder')}
+          aria-label={t('fieldForm.nameLabel')}
           className="mt-0.5 w-full rounded-md border border-surface-sunk bg-white px-2 py-1 text-xs text-ink outline-none focus:border-brand"
         />
       </label>
 
       <div className="mb-2.5">
-        <span className="text-[11px] font-medium text-ink-muted">Type</span>
+        <span className="text-[11px] font-medium text-ink-muted">{t('fieldForm.type')}</span>
         <div className="mt-0.5 grid grid-cols-3 gap-1.5">
-          {FIELD_TYPES.map((t) => {
-            const TypeIcon = FIELD_TYPE_META[t].icon;
-            const active = type === t;
+          {FIELD_TYPES.map((option) => {
+            const TypeIcon = FIELD_TYPE_META[option].icon;
+            const active = type === option;
             return (
               <button
-                key={t}
+                key={option}
                 type="button"
-                onClick={() => setType(t)}
+                onClick={() => setType(option)}
                 aria-pressed={active}
                 className={
                   'inline-flex items-center gap-1.5 rounded-md border px-1.5 py-1 text-[11px] font-medium transition-colors duration-180 ' +
@@ -136,7 +138,7 @@ export function InlineFieldForm({
                 }
               >
                 <TypeIcon size={10} />
-                {FIELD_TYPE_META[t].label}
+                {t(`fieldType.${option}`)}
               </button>
             );
           })}
@@ -166,20 +168,21 @@ export function InlineFieldForm({
             />
             <span className="flex flex-col gap-0.5">
               <span id={reminderTitleId} className="text-[11px] font-medium text-ink">
-                Send a reminder email before this date
+                {t('fieldForm.reminder')}
               </span>
               {!reminderBlocked && (
                 <span id={reminderHelpId} className="text-[11px] leading-[1.35] text-ink-muted">
-                  Sent {REMINDER_LEAD_WORDS}. One date field per signup drives reminders, and
-                  participants can opt out of any reminder they get.
+                  {t('fieldForm.reminderHelp', { hours: REMINDER_LEAD_HOURS })}
                 </span>
               )}
             </span>
           </label>
           {reminderBlocked && (
             <InlineNote id={reminderNoteId} className="mt-2">
-              <strong className="font-medium text-ink">{reminderFieldLabel}</strong> is already the
-              reminder field for this signup. Turn it off there to use this one instead.
+              {t.rich('fieldForm.reminderTaken', {
+                label: reminderFieldLabel ?? '',
+                field: (chunks) => <strong className="font-medium text-ink">{chunks}</strong>,
+              })}
             </InlineNote>
           )}
         </div>
@@ -193,7 +196,7 @@ export function InlineFieldForm({
               onClick={onDelete}
               className="cursor-pointer border-none bg-transparent text-[11px] font-medium text-danger hover:underline"
             >
-              Remove field
+              {t('fieldForm.remove')}
             </button>
           )}
         </div>
@@ -203,14 +206,14 @@ export function InlineFieldForm({
             onClick={onCancel}
             className="rounded-md border border-surface-sunk bg-white px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-surface-raised"
           >
-            Cancel
+            {t('fieldForm.cancel')}
           </button>
           <button
             type="button"
             onClick={save}
             className="rounded-md border border-brand bg-brand px-3 py-1 text-[11px] font-medium text-white hover:bg-brand-hover"
           >
-            {isEdit ? 'Save' : 'Add field'}
+            {isEdit ? t('fieldForm.save') : t('fieldForm.add')}
           </button>
         </div>
       </div>

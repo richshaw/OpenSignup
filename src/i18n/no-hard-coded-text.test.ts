@@ -24,6 +24,19 @@ const TRANSLATED_FILES = [
   'src/components/ui/save-notice.tsx',
   'src/app/app/(chrome)/signups/[id]/settings/page.tsx',
   'src/app/app/(chrome)/signups/[id]/settings/delete-signup-form.tsx',
+  'src/app/app/(chrome)/signups/[id]/build/page.tsx',
+  'src/components/build-wysiwyg/BuildWysiwyg.tsx',
+  'src/components/build-wysiwyg/Editable.tsx',
+  'src/components/build-wysiwyg/EditingRail.tsx',
+  'src/components/build-wysiwyg/EnumPicker.tsx',
+  'src/components/build-wysiwyg/FieldsPopover.tsx',
+  'src/components/build-wysiwyg/InlineFieldForm.tsx',
+  'src/components/build-wysiwyg/PickerOption.tsx',
+  'src/components/build-wysiwyg/SlotEditor.tsx',
+  'src/components/build-wysiwyg/WysiwygGroup.tsx',
+  'src/components/build-wysiwyg/WysiwygSlot.tsx',
+  'src/components/build-shared/SaveStatus.tsx',
+  'src/components/build-shared/TimeSelect.tsx',
   'src/app/s/[slug]/page.tsx',
   'src/app/s/[slug]/signup-view.tsx',
   'src/app/s/[slug]/state-message.tsx',
@@ -242,6 +255,18 @@ describe('where the rules apply', () => {
     'src/app/s/[slug]/rate-limit-message.ts',
     'src/app/s/[slug]/participant-error.ts',
   ])('are on for the copy helper %s', async (file) => {
+    const rules = (await eslint.calculateConfigForFile(file))?.rules ?? {};
+    for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
+  });
+
+  // On too: the Build tab's helpers, which word its slots, headings and
+  // refusals for its components.
+  it.each([
+    'src/components/build-wysiwyg/prettyHeader.ts',
+    'src/components/build-wysiwyg/slotRow.ts',
+    'src/components/build-shared/save-error-message.ts',
+    'src/components/build-shared/fieldTypes.ts',
+  ])('are on for the Build tab’s helper %s', async (file) => {
     const rules = (await eslint.calculateConfigForFile(file))?.rules ?? {};
     for (const rule of RULES) expect(rules[rule]?.[0], rule).toBe(2);
   });

@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { saveErrorMessage } from './save-error-message';
 import { buildReducer, useBuildState } from './useBuildState';
 import type { BuildState, BuildField, BuildRow, BuildSlot } from './useBuildState';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
+
+/** The Build tab's rail words a refusal with these, here in English. */
+const english = {
+  build: getTestTranslator('organizer.build'),
+  errors: getTestTranslator('organizer.errors'),
+};
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -541,7 +548,7 @@ describe('useBuildState moveField', () => {
       field: 'fieldIds',
       details: { reason: 'field_ids_mismatch', unknown: ['c'] },
     });
-    expect(status.kind === 'error' && saveErrorMessage(status)).toBe(
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
       "The fields changed in another window, so your move wasn't saved. Drag it again.",
     );
   });
@@ -755,7 +762,7 @@ describe('useBuildState moveRow', () => {
       field: 'slotIds',
       details: { reason: 'slot_ids_mismatch', missing: ['r3'] },
     });
-    expect(status.kind === 'error' && saveErrorMessage(status)).toBe(
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
       "The slots changed in another window, so your move wasn't saved. Drag it again.",
     );
   });
@@ -921,7 +928,7 @@ describe('useBuildState moveRow into another group', () => {
       field: 'slotIds',
       details: { reason: 'slot_ids_mismatch', missing: ['d'] },
     });
-    expect(status.kind === 'error' && saveErrorMessage(status)).toBe(
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
       "The slots changed in another window, so your move wasn't saved. Drag it again.",
     );
   });
@@ -1276,7 +1283,7 @@ describe('useBuildState updateSignupMeta', () => {
       field: 'title',
       details: { reason: 'title_too_short' },
     });
-    expect(status.kind === 'error' && saveErrorMessage(status)).toBe(
+    expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
       'Title must be at least 2 characters.',
     );
   });
