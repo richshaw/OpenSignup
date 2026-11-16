@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { DRAFT_ONLY_YOU } from '@/components/signup/draft-copy';
 import { getDb } from '@/db/client';
-import { type CatalogLocale, openGraphLocale, signupLocale } from '@/i18n/config';
+import { openGraphLocale, signupLocale } from '@/i18n/config';
 import { instanceDefaultLocale } from '@/i18n/server';
 import { ServiceException } from '@/lib/errors';
 import { commitmentEditUrl } from '@/lib/links';
@@ -15,25 +15,14 @@ import { INSTANCE_NAME } from '@/lib/site-config';
 import { recordPublicView, trackAfterResponse } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { findDraftForOrganizer } from '@/services/signups';
-import { loadPublicSignup, loadSignupRowBySlug } from '@/services/signups.cached';
+import { loadPublicSignup } from '@/services/signups.cached';
 import { organizerBarSignupId } from './organizer-bar';
 import { OrganizerStrip } from './organizer-strip';
+import { signupLocaleForSlug } from './signup-locale';
 import SignupView, { toSignupViewProps } from './signup-view';
 import { SignupStateMessage } from './state-message';
 
 type PageParams = { params: Promise<{ slug: string }> };
-
-/**
- * The language of the signup at `slug`, for a page that can't show the signup
- * itself: a draft or an archived one. Read through the same cached row as
- * `loadPublicSignup`, so it costs no statement, and only the language leaves
- * here: that row holds the signup's title, description and settings, which a
- * visitor must never see.
- */
-async function hiddenSignupLocale(slug: string): Promise<CatalogLocale> {
-  const row = await loadSignupRowBySlug(slug);
-  return signupLocale(row?.settings.locale, instanceDefaultLocale());
-}
 
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug } = await params;
@@ -108,7 +97,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
       }
       return (
         <SignupStateMessage
-          locale={await hiddenSignupLocale(slug)}
+          locale={await signupLocaleForSlug(slug)}
           title={DRAFT_TITLE}
           body="The organizer hasn’t published it yet. This link will work once they do, so check back later."
         />
@@ -117,7 +106,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
     if (received === 'archived') {
       return (
         <SignupStateMessage
-          locale={await hiddenSignupLocale(slug)}
+          locale={await signupLocaleForSlug(slug)}
           title="This signup is no longer available"
           body="The organizer has archived this signup. If you need to reach them, ask for a new link."
         />
