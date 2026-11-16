@@ -2,8 +2,11 @@
  * Each sendable email template with made-up props: what
  * scripts/render-email-templates.ts checks renders, and what `pnpm email:dev`
  * shows. Add a case here whenever a new template gains a `send*` function.
+ * The participant emails are here in English and in Swedish, so both render
+ * under the worker's toolchain and both can be looked at.
  */
 import { createElement, type ReactElement } from 'react';
+import type { CatalogLocale } from '@/i18n/config';
 import { CommitmentConfirmationEmail } from '@/email/templates/commitment-confirmation';
 import { MagicLinkEmail } from '@/email/templates/magic-link';
 import { ReminderEmail } from '@/email/templates/reminder';
@@ -19,7 +22,19 @@ export interface EmailSample {
    * e.g. after gaining a prop its sample does not supply.
    */
   expect: readonly string[];
+  /** The language its `<html lang>` must declare. */
+  lang: CatalogLocale;
 }
+
+/** The Swedish samples' signup, slot and participant. */
+const swedish = {
+  locale: 'sv',
+  participantName: 'Dana',
+  signupTitle: 'Lördagsfika',
+  manageUrl: 'https://example.test/s/fika/c/com_2?token=abc',
+  notes: 'Tar med vindruvor',
+} as const;
+const swedishUnsubscribeUrl = 'https://example.test/s/fika/unsubscribe?p=par_2&token=abc';
 
 export const emailSamples: readonly EmailSample[] = [
   {
@@ -32,6 +47,7 @@ export const emailSamples: readonly EmailSample[] = [
       codeExpiresInMinutes: 15,
     }),
     expect: ['https://example.test/login/confirm?token=abc', '123456'],
+    lang: 'en',
   },
   {
     name: 'commitment-confirmation',
@@ -50,7 +66,14 @@ export const emailSamples: readonly EmailSample[] = [
       quantity: 2,
       promisesReminder: true,
     }),
-    expect: ['https://example.test/s/snacks/c/com_1?token=abc'],
+    expect: [
+      'https://example.test/s/snacks/c/com_1?token=abc',
+      'Thanks Dana, you signed up for',
+      'Spots:',
+      'Your notes:',
+      'also send you a reminder the day before.',
+    ],
+    lang: 'en',
   },
   {
     name: 'reminder',
@@ -67,7 +90,8 @@ export const emailSamples: readonly EmailSample[] = [
       slotSummary: 'Sat, Sep 5 · Fruit',
       notes: 'Bringing grapes',
     }),
-    expect: ['Sat, Sep 5'],
+    expect: ['Sat, Sep 5', 'this is a reminder that you signed up for', 'Stop reminders for'],
+    lang: 'en',
   },
   {
     name: 'slot-changed',
@@ -84,6 +108,81 @@ export const emailSamples: readonly EmailSample[] = [
       slotSummary: 'Sun, Sep 6 · Fruit',
       notes: null,
     }),
-    expect: ['Sun, Sep 6'],
+    expect: ['Sun, Sep 6', 'moved your slot to a new date or time', 'Stop reminders and updates'],
+    lang: 'en',
+  },
+  {
+    name: 'commitment-confirmation-sv',
+    element: createElement(CommitmentConfirmationEmail, {
+      ...swedish,
+      slotDetails: [
+        { label: 'Datum', value: 'lör 5 sep' },
+        { label: 'Tid', value: '09:00' },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: 'lör 5 sep · 09:00 · Frukt',
+      quantity: 2,
+      promisesReminder: true,
+    }),
+    expect: [
+      'Tack Dana, du har anmält dig till',
+      'Platser:',
+      'Din kommentar:',
+      'Visa eller ändra din plats',
+      'Vi skickar också en påminnelse dagen innan.',
+    ],
+    lang: 'sv',
+  },
+  {
+    name: 'reminder-sv',
+    element: createElement(ReminderEmail, {
+      ...swedish,
+      unsubscribeUrl: swedishUnsubscribeUrl,
+      slotDetails: [
+        { label: 'Datum', value: 'lör 5 sep' },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: 'lör 5 sep · Frukt',
+    }),
+    expect: [
+      'lör 5 sep',
+      'Hej Dana, det här är en påminnelse om att du har anmält dig till',
+      'Stäng av påminnelser om Lördagsfika',
+    ],
+    lang: 'sv',
+  },
+  {
+    name: 'reminder-changed-sv',
+    element: createElement(ReminderEmail, {
+      ...swedish,
+      unsubscribeUrl: swedishUnsubscribeUrl,
+      slotDetails: [
+        { label: 'Datum', value: 'sön 6 sep' },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: 'sön 6 sep · Frukt',
+      changed: true,
+    }),
+    expect: ['sön 6 sep', 'arrangören har ändrat ditt pass i', 'Här är de nya uppgifterna.'],
+    lang: 'sv',
+  },
+  {
+    name: 'slot-changed-sv',
+    element: createElement(SlotChangedEmail, {
+      ...swedish,
+      unsubscribeUrl: swedishUnsubscribeUrl,
+      slotDetails: [
+        { label: 'Datum', value: 'sön 6 sep' },
+        { label: 'Fika', value: 'Frukt' },
+      ],
+      slotSummary: 'sön 6 sep · Frukt',
+      notes: null,
+    }),
+    expect: [
+      'sön 6 sep',
+      'har flyttat ditt pass till ett nytt datum eller en ny tid',
+      'Stäng av påminnelser och uppdateringar om Lördagsfika',
+    ],
+    lang: 'sv',
   },
 ];

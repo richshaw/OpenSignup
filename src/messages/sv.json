@@ -226,6 +226,36 @@
       "reminder": "Påminnelse: {title}",
       "timeChanged": "Ny tid: {title}",
       "withSlot": "{subject} · {slot}"
+    },
+    "common": {
+      "manage": "Visa eller ändra din plats",
+      "notes": "<b>Din kommentar:</b> {notes}",
+      "stillConfirmed": "Du får fortfarande en bekräftelse om du anmäler dig till något nytt."
+    },
+    "slotDetails": {
+      "line": "<b>{label}:</b> {value}",
+      "spots": "Platser"
+    },
+    "confirmation": {
+      "heading": "Du är anmäld",
+      "intro": "Tack {name}, du har anmält dig till <b>{title}</b>.",
+      "keep": "Spara det här mejlet. Med knappen ovan kan du ändra eller avboka senare, utan att behöva något lösenord. Alla som har länken kan ändra din plats, så vidarebefordra inte mejlet.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
+    },
+    "reminder": {
+      "heading": "Snart dags",
+      "intro": "Hej {name}, det här är en påminnelse om att du har anmält dig till <b>{title}</b>.",
+      "changed": {
+        "heading": "Ditt pass har ändrats",
+        "intro": "Hej {name}, arrangören har ändrat ditt pass i <b>{title}</b> sedan vi mejlade dig senast. Här är de nya uppgifterna."
+      },
+      "keep": "Behöver du ändra eller avboka? Tryck på knappen ovan. Den öppnar din plats direkt, utan lösenord. Behåll mejlet för dig själv: alla som har länken kan ändra din plats.",
+      "stop": "Stäng av påminnelser om {title}"
+    },
+    "slotChanged": {
+      "heading": "Ditt pass har ändrats",
+      "intro": "Hej {name}, arrangören av <b>{title}</b> har flyttat ditt pass till ett nytt datum eller en ny tid. Här är de nya uppgifterna.",
+      "keep": "Passar inte den nya tiden? Tryck på knappen ovan för att ändra eller avboka. Den öppnar din plats direkt, utan lösenord. Behåll mejlet för dig själv: alla som har länken kan ändra din plats.",
+      "stop": "Stäng av påminnelser och uppdateringar om {title}"
     }
   }
 }

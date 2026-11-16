@@ -3,8 +3,8 @@ import { confirmationSubject } from '../subjects';
 import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import type { SlotDetail } from '@/lib/slot-label';
-import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
-import { EmailButton, EmailHeading, EmailIntro, EmailLayout, NotesText } from './layout';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
+import { EmailHeading, EmailIntro, EmailLayout, ManageButton, NotesText, strong } from './layout';
 import { SlotDetailsText } from './slot-details';
 
 export interface CommitmentConfirmationEmailProps {
@@ -39,25 +39,30 @@ export function CommitmentConfirmationEmail({
   quantity,
   promisesReminder,
 }: CommitmentConfirmationEmailProps) {
+  const t = getServerTranslator(locale, 'email.confirmation');
   return (
     <EmailLayout
+      locale={locale}
       preview={confirmationSubject(
         getServerTranslator(locale, 'email.subject'),
         signupTitle,
         slotSummary,
       )}
     >
-      <EmailHeading>You&apos;re signed up</EmailHeading>
+      <EmailHeading>{t('heading')}</EmailHeading>
       <EmailIntro>
-        Thanks {participantName}, you signed up for <strong>{signupTitle}</strong>.
+        {t.rich('intro', { name: participantName, title: signupTitle, b: strong })}
       </EmailIntro>
-      <SlotDetailsText details={slotDetails} spots={quantity} />
-      <NotesText notes={notes} />
-      <EmailButton href={manageUrl}>View or change your slot</EmailButton>
+      <SlotDetailsText locale={locale} details={slotDetails} spots={quantity} />
+      <NotesText locale={locale} notes={notes} />
+      <ManageButton locale={locale} href={manageUrl} />
       <Text className="mt-6 text-xs text-[#8a93a4]">
-        Keep this email. The button above is how you change or cancel later, with no password to
-        remember. Anyone with that link can change your slot, so don&apos;t forward it.
-        {promisesReminder ? <> We&apos;ll also send you a reminder {REMINDER_LEAD_WORDS}.</> : null}
+        {t('keep', {
+          reminder: promisesReminder ? 'yes' : 'no',
+          // When the reminder goes out, as the message words it: "the day
+          // before" for 24 hours.
+          hours: REMINDER_LEAD_HOURS,
+        })}
       </Text>
     </EmailLayout>
   );

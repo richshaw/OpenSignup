@@ -7,11 +7,12 @@
  * import the raw JSON and format it with use-intl's full formatter, so a test
  * that goes through `getTranslator` sees the worker's text. These give a test
  * the web process's: ../precompiled.test.ts compares the two for every
- * message, and a test of text sent from both processes, like an email subject,
+ * message, and a test of text sent from both processes, like an email,
  * can check its own.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { cloneElement, isValidElement } from 'react';
 import catalogLoader from 'next-intl/extractor/catalogLoader';
 import { _createCache, _createIntlFormatters } from 'use-intl/core';
 import formatPrecompiled from 'use-intl/format-message/format-only';
@@ -60,7 +61,9 @@ export function precompiledCatalog(locale: string): Promise<Catalog> {
  * A translator for `namespace` in `locale` that formats the way the web
  * process does: the precompiled catalogs, with English laid under the
  * language's own as `getTranslator` lays it, through use-intl's precompiled
- * formatter. Plain `t(key, values)` only, and a key with no message throws.
+ * formatter. `t(key, values)`, `t.rich` and `t.markup`, each as use-intl
+ * builds it around the formatter; a key with no message throws, and so does
+ * `t` or `t.markup` on a message that doesn't come out as text.
  */
 export async function getPrecompiledTranslator<N extends Namespace>(
   locale: CatalogLocale,
@@ -70,7 +73,7 @@ export async function getPrecompiledTranslator<N extends Namespace>(
   const messages = namespaceMessages(namespace, english, own);
   const cache = _createCache();
   const formatters = _createIntlFormatters(cache);
-  const t = (key: string, values?: Record<string, unknown>) => {
+  const rich = (key: string, values?: Record<string, unknown>): unknown => {
     const full = `${namespace}.${key}`;
     let message: unknown = messages;
     for (const part of full.split('.')) {
@@ -82,14 +85,37 @@ export async function getPrecompiledTranslator<N extends Namespace>(
     if (typeof message !== 'string' && !Array.isArray(message)) {
       throw new Error(`no message at ${full}`);
     }
-    const text = formatPrecompiled(full, message as never, values as never, {
+    return formatPrecompiled(full, message as never, values && (withKeyedTags(values) as never), {
       cache,
       formatters,
       locale,
       timeZone: TIME_ZONE,
     });
-    if (typeof text !== 'string') throw new Error(`${full} did not format to text`);
-    return text;
   };
-  return t as unknown as Translator<N>;
+  const text = (key: string, values?: Record<string, unknown>) => {
+    const result = rich(key, values);
+    if (typeof result !== 'string') throw new Error(`${namespace}.${key} did not format to text`);
+    return result;
+  };
+  return Object.assign(text, { rich, markup: text }) as unknown as Translator<N>;
+}
+
+/**
+ * `values` with each tag's function wrapped so the element it returns gets a
+ * key of the tag's name and a count, as use-intl's translator does before it
+ * formats (its `prepareTranslationValues`), so a rich message's parts render
+ * as a list without React's missing-key warning.
+ */
+function withKeyedTags(values: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => {
+      if (typeof value !== 'function') return [name, value];
+      let index = 0;
+      const tag = (chunks: unknown) => {
+        const result: unknown = value(chunks);
+        return isValidElement(result) ? cloneElement(result, { key: `${name}${index++}` }) : result;
+      };
+      return [name, tag];
+    }),
+  );
 }

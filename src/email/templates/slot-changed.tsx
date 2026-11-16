@@ -2,11 +2,12 @@ import { Text } from '@react-email/components';
 import { slotChangedSubject } from '../subjects';
 import { getServerTranslator } from '@/i18n/server';
 import {
-  EmailButton,
   EmailHeading,
   EmailIntro,
   EmailLayout,
+  ManageButton,
   NotesText,
+  strong,
   UnsubscribeFooter,
 } from './layout';
 import type { ReminderEmailProps } from './reminder';
@@ -26,29 +27,26 @@ export function SlotChangedEmail({
   notes,
   unsubscribeUrl,
 }: SlotChangedEmailProps) {
+  const t = getServerTranslator(locale, 'email.slotChanged');
   return (
     <EmailLayout
+      locale={locale}
       preview={slotChangedSubject(
         getServerTranslator(locale, 'email.subject'),
         signupTitle,
         slotSummary,
       )}
     >
-      <EmailHeading>Your slot has changed</EmailHeading>
+      <EmailHeading>{t('heading')}</EmailHeading>
       <EmailIntro>
-        Hi {participantName}, the organizer of <strong>{signupTitle}</strong> moved your slot to a
-        new date or time. Here are the new details.
+        {t.rich('intro', { name: participantName, title: signupTitle, b: strong })}
       </EmailIntro>
-      <SlotDetailsText details={slotDetails} />
-      <NotesText notes={notes} />
-      <EmailButton href={manageUrl}>View or change your slot</EmailButton>
-      <Text className="mt-6 text-xs text-[#8a93a4]">
-        Can&apos;t make the new time? Tap the button above to change or cancel. It opens your spot
-        directly, no password needed. Keep this email to yourself: anyone with the link can change
-        your slot.
-      </Text>
-      <UnsubscribeFooter href={unsubscribeUrl}>
-        Stop reminders and updates for {signupTitle}
+      <SlotDetailsText locale={locale} details={slotDetails} />
+      <NotesText locale={locale} notes={notes} />
+      <ManageButton locale={locale} href={manageUrl} />
+      <Text className="mt-6 text-xs text-[#8a93a4]">{t('keep')}</Text>
+      <UnsubscribeFooter locale={locale} href={unsubscribeUrl}>
+        {t('stop', { title: signupTitle })}
       </UnsubscribeFooter>
     </EmailLayout>
   );

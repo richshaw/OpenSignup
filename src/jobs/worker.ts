@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 config({ path: '.env' });
 
+import { warnIfUnshippedLocalesShown } from '@/i18n/unshipped-warning';
 import { log } from '@/lib/log';
 import { getBoss, type ReminderSendPayload, type SlotChangeSendPayload } from './queue';
 import { QUEUES, REMINDER_DISPATCH_CRON } from './queue-names';
@@ -10,6 +11,9 @@ import { dispatchSlotChanges, sendSlotChangeJob } from './slot-changes';
 import { runHousekeeping } from './housekeeping';
 
 async function main() {
+  // The reminder and time-changed emails follow E2E_UNSHIPPED_LOCALES as the
+  // web server's pages and confirmations do, so say so here as it does.
+  warnIfUnshippedLocalesShown();
   const boss = await getBoss();
 
   await boss.work<ReminderSendPayload>(QUEUES.reminderSend, async (jobs) => {
