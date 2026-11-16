@@ -1,7 +1,7 @@
 import { getDb } from '@/db/client';
 import { extractClientIp } from '@/auth/request-context';
 import { fail, handle } from '@/lib/api-response';
-import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { consumeRateLimit, ipSubject, RateLimits } from '@/lib/rate-limit';
 import { unsubscribePath, type UnsubscribeStatus } from '@/lib/links';
 import { log } from '@/lib/log';
 import { readFormData } from '@/lib/request-body';
@@ -107,8 +107,11 @@ export async function POST(request: Request) {
       );
 
     try {
-      const clientIp = extractClientIp(request.headers);
-      await consumeRateLimit(getDb(), RateLimits.reminderOptOutPerIp, clientIp ?? 'unknown');
+      await consumeRateLimit(
+        getDb(),
+        RateLimits.reminderOptOutPerIp,
+        ipSubject(extractClientIp(request.headers)),
+      );
 
       const result = turningOn
         ? await optInToReminders(getDb(), participantId, token)
