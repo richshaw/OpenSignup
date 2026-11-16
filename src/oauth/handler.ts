@@ -4,7 +4,7 @@ import { signInLocale } from '@/i18n/organizer';
 import { getServerTranslator } from '@/i18n/server';
 import { waitInMinutes } from '@/lib/format-duration';
 import { log } from '@/lib/log';
-import { RateLimits, chargeRateLimit, type RateLimitPolicy } from '@/lib/rate-limit';
+import { RateLimits, chargeRateLimit, ipSubject, type RateLimitPolicy } from '@/lib/rate-limit';
 import { OAUTH_ROUTES, oauthIssuer } from './config';
 import { getProvider } from './instance';
 import { invokeNodeHandler } from './node-shim';
@@ -28,10 +28,8 @@ export async function handleOAuthRequest(
   // the authorization endpoint depends on.
   const providerPath = opts.path;
 
-  // Null and unknown IPs share one bucket rather than skipping the limit,
-  // so a deployment missing x-forwarded-for degrades to a shared cap.
   const policy = policyFor(path);
-  const retryAfter = await chargeRateLimit(getDb(), policy, ip ?? 'unknown');
+  const retryAfter = await chargeRateLimit(getDb(), policy, ipSubject(ip));
   if (retryAfter !== null) {
     log.warn({ path, ip, bucket: policy.bucket }, 'oauth: rate-limited');
     return rateLimited(request, retryAfter);
