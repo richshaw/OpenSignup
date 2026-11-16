@@ -28,6 +28,15 @@ describe('SHIPPED', () => {
       for (const locale of locales) expect(CATALOG_LOCALES).toContain(locale);
     }
   });
+
+  it('ships each language to participants and organizers together', () => {
+    expect(
+      [...SHIPPED.organizer].sort(),
+      'The owner decided a language launches for participants and organizers together: ' +
+        'one launch adds it to SHIPPED.participant and SHIPPED.organizer. The account ' +
+        'Settings picker offers the participant list, and the screens follow the organizer list.',
+    ).toEqual([...SHIPPED.participant].sort());
+  });
 });
 
 describe('isShipped', () => {

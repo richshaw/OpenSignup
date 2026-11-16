@@ -191,8 +191,9 @@ record drops the old one.
 
 Follow "Adding a language" in `docs/translating.md`: the catalog, its test
 signups and screenshot spec, and its glossary come before step 1. Its launch
-(adding it to `SHIPPED.participant`) is a pull request of its own, for the
-owner to approve.
+(adding it to `SHIPPED.participant` and `SHIPPED.organizer` together: a
+language launches for participants and organizers at once) is a pull request
+of its own, for the owner to approve.
 
 ## Report
 

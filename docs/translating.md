@@ -439,11 +439,16 @@ Two lists in `src/i18n/config.ts` decide it:
 Today `CATALOG_LOCALES` is `en` and `sv`, and `SHIPPED` holds only `en`, for
 every audience.
 
-Adding a language to `SHIPPED.participant` is its launch. From then on the
-catalog check requires every message in `participant`, `email` and `common`,
-so a language ships only when it's complete. It ships only after it has also
-passed the review in context, which no test can check: the pull request that
-adds it says so.
+A language launches for participants and organizers together: its launch
+adds it to `SHIPPED.participant` and `SHIPPED.organizer` in one change, and
+`src/i18n/config.test.ts` fails while the two lists differ. The account
+Settings picker offers the participant list, while the organizer app follows
+the organizer list, so a language in one list only would save on an account
+and leave its screens in English. From the launch on, the catalog check
+requires every message in `participant`, `email`, `organizer`, `auth` and
+`common`, so a language ships only when it's complete. It ships only after it
+has also passed the review in context, which no test can check: the pull
+request that adds it says so.
 
 `E2E_UNSHIPPED_LOCALES` is for tests only. `playwright.config.ts` sets it for
 the server it starts, so the seeded Swedish signups show in Swedish before
@@ -548,8 +553,10 @@ run every row of this table against it.
    row buttons and the sheet's labels fit their boxes, on the English and the
    Swedish signup. Add the new language's signup to it.
 6. **Launch** in a pull request of its own, which the owner approves: add the
-   code to `SHIPPED.participant`, take it out of `E2E_UNSHIPPED_LOCALES`, and
-   say what changes in `CHANGELOG.md` and the README.
+   code to `SHIPPED.participant` and `SHIPPED.organizer` together, take it out
+   of `E2E_UNSHIPPED_LOCALES`, and say what changes in `CHANGELOG.md` and the
+   README. Tests that check the language stays unshipped (English pages, no
+   picker, a refused save) fail then; update them in the same pull request.
 
 Node's official builds include every language's date and number data. A
 Node built with English-only ICU would print the new language's dates in

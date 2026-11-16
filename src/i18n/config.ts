@@ -31,8 +31,10 @@ export type Audience = keyof typeof AUDIENCE_NAMESPACES;
 
 /**
  * Per audience, the languages whose text for that audience is complete and has
- * been reviewed. Only these may be chosen or offered, so adding one here is
- * that language's launch.
+ * been reviewed. Only these may be chosen or offered. A language launches for
+ * participants and organizers together, so its launch adds it to both lists
+ * in one change (a test fails while they differ). `site` waits for the pages
+ * outside the app (phase 3).
  */
 export const SHIPPED = {
   participant: ['en'],
