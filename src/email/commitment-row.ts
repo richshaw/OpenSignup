@@ -10,9 +10,12 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
+import { signupLocale, type CatalogLocale } from '@/i18n/config';
+import { instanceDefaultLocale } from '@/i18n/server';
 import { joinCommitmentTables } from '@/jobs/notify-rules';
 import { slotDetails, type SlotDetail } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
+import type { StoredSignupSettings } from '@/schemas/signups';
 import { listFieldsForSignup } from '@/services/slot-fields';
 
 /**
@@ -62,20 +65,31 @@ export async function alreadyRecorded(
 }
 
 /**
+ * The language a participant's emails about this signup are in: the signup's,
+ * by the rule its pages follow (`signupLocale`), from the row
+ * `loadCommitmentRow` already read. So the email is in the language of the
+ * page its participant signed up on.
+ */
+export function emailLocale(signup: { settings: StoredSignupSettings }): CatalogLocale {
+  return signupLocale(signup.settings.locale, instanceDefaultLocale());
+}
+
+/**
  * Every field the organizer defined, rendered the way the participant page
- * renders it, so the email agrees with the page: as `Label: value` lines, and
- * on one line for the subject and preview. `slots.ref` is a slug and never
- * appears here.
+ * renders it in `locale`, so the email agrees with the page: as `Label: value`
+ * lines, and on one line for the subject and preview. `slots.ref` is a slug and
+ * never appears here.
  */
 export async function slotText(
   db: Db,
   signupId: string,
   values: unknown,
+  locale: CatalogLocale,
 ): Promise<{ slotDetails: SlotDetail[]; slotSummary: string }> {
   const fields = await listFieldsForSignup(db, signupId);
   const slotValues = (values as Record<string, unknown>) ?? {};
   return {
-    slotDetails: slotDetails(fields, slotValues, 'en'),
-    slotSummary: summarizeSlotValues(fields, slotValues, 'en'),
+    slotDetails: slotDetails(fields, slotValues, locale),
+    slotSummary: summarizeSlotValues(fields, slotValues, locale),
   };
 }

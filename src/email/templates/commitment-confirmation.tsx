@@ -1,11 +1,15 @@
 import { Text } from '@react-email/components';
 import { confirmationSubject } from '../subjects';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 import type { SlotDetail } from '@/lib/slot-label';
 import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import { EmailButton, EmailHeading, EmailIntro, EmailLayout, NotesText } from './layout';
 import { SlotDetailsText } from './slot-details';
 
 export interface CommitmentConfirmationEmailProps {
+  /** The email's language: its signup's (`emailLocale`). */
+  locale: CatalogLocale;
   participantName: string;
   signupTitle: string;
   /** The participant's own token-bearing link to view, change, or cancel. */
@@ -25,6 +29,7 @@ export interface CommitmentConfirmationEmailProps {
 }
 
 export function CommitmentConfirmationEmail({
+  locale,
   participantName,
   signupTitle,
   manageUrl,
@@ -35,7 +40,13 @@ export function CommitmentConfirmationEmail({
   promisesReminder,
 }: CommitmentConfirmationEmailProps) {
   return (
-    <EmailLayout preview={confirmationSubject(signupTitle, slotSummary)}>
+    <EmailLayout
+      preview={confirmationSubject(
+        getServerTranslator(locale, 'email.subject'),
+        signupTitle,
+        slotSummary,
+      )}
+    >
       <EmailHeading>You&apos;re signed up</EmailHeading>
       <EmailIntro>
         Thanks {participantName}, you signed up for <strong>{signupTitle}</strong>.

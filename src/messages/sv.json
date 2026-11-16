@@ -219,5 +219,13 @@
       },
       "back": "Tillbaka till anmälningslistan"
     }
+  },
+  "email": {
+    "subject": {
+      "signedUp": "Du är anmäld: {title}",
+      "reminder": "Påminnelse: {title}",
+      "timeChanged": "Ny tid: {title}",
+      "withSlot": "{subject} · {slot}"
+    }
   }
 }

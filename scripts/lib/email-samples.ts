@@ -36,6 +36,7 @@ export const emailSamples: readonly EmailSample[] = [
   {
     name: 'commitment-confirmation',
     element: createElement(CommitmentConfirmationEmail, {
+      locale: 'en',
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
@@ -54,6 +55,7 @@ export const emailSamples: readonly EmailSample[] = [
   {
     name: 'reminder',
     element: createElement(ReminderEmail, {
+      locale: 'en',
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',
@@ -70,6 +72,7 @@ export const emailSamples: readonly EmailSample[] = [
   {
     name: 'slot-changed',
     element: createElement(SlotChangedEmail, {
+      locale: 'en',
       participantName: 'Dana',
       signupTitle: 'Saturday Snack Rotation',
       manageUrl: 'https://example.test/s/snacks/c/com_1?token=abc',

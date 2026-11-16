@@ -1,5 +1,7 @@
 import { Text } from '@react-email/components';
 import { reminderSubject } from '../subjects';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 import type { SlotDetail } from '@/lib/slot-label';
 import {
   EmailButton,
@@ -12,6 +14,8 @@ import {
 import { SlotDetailsText } from './slot-details';
 
 export interface ReminderEmailProps {
+  /** The email's language: its signup's (`emailLocale`). */
+  locale: CatalogLocale;
   participantName: string;
   signupTitle: string;
   /**
@@ -36,6 +40,7 @@ export interface ReminderEmailProps {
 }
 
 export function ReminderEmail({
+  locale,
   participantName,
   signupTitle,
   manageUrl,
@@ -46,7 +51,14 @@ export function ReminderEmail({
   changed = false,
 }: ReminderEmailProps) {
   return (
-    <EmailLayout preview={reminderSubject(signupTitle, slotSummary, changed)}>
+    <EmailLayout
+      preview={reminderSubject(
+        getServerTranslator(locale, 'email.subject'),
+        signupTitle,
+        slotSummary,
+        changed,
+      )}
+    >
       <EmailHeading>{changed ? 'Your slot has changed' : 'Coming up'}</EmailHeading>
       {changed ? (
         <EmailIntro>

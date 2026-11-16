@@ -1,12 +1,11 @@
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import catalogLoader from 'next-intl/extractor/catalogLoader';
 import { describe, expect, it } from 'vitest';
 import { _createCache, _createIntlFormatters, createTranslator } from 'use-intl/core';
 // The formatter next-intl's plugin puts in place of use-intl's full one in
 // the Next build when messages are precompiled.
 import formatPrecompiled from 'use-intl/format-message/format-only';
 import { CATALOG_LOCALES } from './config';
+import { type Catalog, precompile, precompiledCatalog } from './testing/precompiled';
 import { TIME_ZONE } from './time-zone';
 import { getTranslator, type Namespace, withEnglishUnder } from './translator';
 
@@ -27,38 +26,9 @@ import { getTranslator, type Namespace, withEnglishUnder } from './translator';
  * translator.
  */
 
-type Catalog = Parameters<typeof withEnglishUnder>[0];
 type Values = Record<string, string | number | Date | ((chunks: unknown) => string)>;
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
-
-/**
- * What `import messages from '@/messages/<locale>.json'` gives the web
- * process: the catalog run through the plugin's loader with the options
- * next.config.mjs gives it.
- */
-function precompile(resourcePath: string, source: string): Promise<Catalog> {
-  return new Promise((resolve, reject) => {
-    const context = {
-      getOptions: () => ({ messages: { format: 'json', precompile: true } }),
-      async: () => (error: Error | null, result?: string) => {
-        if (error) return reject(error);
-        // The loader emits a module: `export default JSON.parse("…");`.
-        const json = /^export default JSON\.parse\((".*")\);$/s.exec(result ?? '')?.[1];
-        if (!json) return reject(new Error(`unexpected loader output: ${result}`));
-        resolve(JSON.parse(JSON.parse(json)));
-      },
-      resourcePath,
-      rootContext: ROOT,
-    };
-    catalogLoader.call(context as never, source);
-  });
-}
-
-function precompiledCatalog(locale: string): Promise<Catalog> {
-  const file = path.join(ROOT, 'src/messages', `${locale}.json`);
-  return precompile(file, readFileSync(file, 'utf8'));
-}
 
 /** Every message in `catalog`, by its full key. */
 function* messagesOf(catalog: Catalog, prefix = ''): Generator<[string, unknown]> {

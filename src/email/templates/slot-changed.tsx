@@ -1,5 +1,6 @@
 import { Text } from '@react-email/components';
 import { slotChangedSubject } from '../subjects';
+import { getServerTranslator } from '@/i18n/server';
 import {
   EmailButton,
   EmailHeading,
@@ -16,6 +17,7 @@ export type SlotChangedEmailProps = Omit<ReminderEmailProps, 'changed'>;
 
 /** Sent when the organizer moves a slot to a new date or time. */
 export function SlotChangedEmail({
+  locale,
   participantName,
   signupTitle,
   manageUrl,
@@ -25,7 +27,13 @@ export function SlotChangedEmail({
   unsubscribeUrl,
 }: SlotChangedEmailProps) {
   return (
-    <EmailLayout preview={slotChangedSubject(signupTitle, slotSummary)}>
+    <EmailLayout
+      preview={slotChangedSubject(
+        getServerTranslator(locale, 'email.subject'),
+        signupTitle,
+        slotSummary,
+      )}
+    >
       <EmailHeading>Your slot has changed</EmailHeading>
       <EmailIntro>
         Hi {participantName}, the organizer of <strong>{signupTitle}</strong> moved your slot to a
