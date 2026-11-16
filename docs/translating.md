@@ -920,10 +920,11 @@ follow-ups to it settled these.
 5. **"Obegränsat" stays in Magic Compose's how-many box**
    (`organizer.compose.questions.howMany.noLimit`), and the box is wider: 96
    pixels on a phone and 100 on a computer, where it was 72 and 76, the room
-   taken from the item's name beside it. The word needs about 88 pixels at
-   the box's 16-pixel text. The owner chose this over a shorter word: "Inget
-   tak" fitted, but reads as "no ceiling". The Build tab's Spots box was
-   widened for the same word (#999).
+   taken from the item's name beside it (on a narrow phone the box goes under
+   the name instead). The word needs about 88 pixels at the box's 16-pixel
+   text. The owner chose this over a shorter word: "Inget tak" fitted, but
+   reads as "no ceiling". The Build tab's Spots box was widened for the same
+   word (#999).
 
 ### Open questions
 
