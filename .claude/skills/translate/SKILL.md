@@ -120,7 +120,10 @@ pnpm lint && pnpm format:check && pnpm typecheck && pnpm knip && pnpm test
 
 The first line runs the catalog check, the two formatters' comparison and the
 email tests; the second is what CI runs. A catalog check line reads
-`<language> <key>: <what's wrong>`: fix the message it names. For a language
+`<language> <key>: <what's wrong>`: fix the message it names. A message
+"the same as English" is translated, unless it rightly reads as the English
+does: then list it, with why, in `sameAsEnglish` in
+`src/i18n/testing/language-rules.ts`. For a language
 in `SHIPPED`, that includes every stale or unrecorded message: translate it
 and mark it. For one that hasn't shipped, the catalog test only warns about
 those, and the warning doesn't show in an agent's test output (vitest hides a

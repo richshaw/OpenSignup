@@ -10,6 +10,7 @@ import {
   loadCatalogs,
   type TranslatedFrom,
 } from './testing/catalog-check';
+import { LANGUAGE_RULES } from './testing/language-rules';
 import { loadTranslatedFrom, TRANSLATED_FROM_DIR } from './testing/translated-from';
 import { findUsedKeys } from './testing/used-keys';
 
@@ -40,9 +41,15 @@ describe('the message catalogs', () => {
   });
 
   it('pass the catalog check', () => {
-    expect(checkCatalogs({ catalogs, shipped: SHIPPED, used: found.used, translatedFrom })).toEqual(
-      [],
-    );
+    expect(
+      checkCatalogs({
+        catalogs,
+        shipped: SHIPPED,
+        used: found.used,
+        translatedFrom,
+        rules: LANGUAGE_RULES,
+      }),
+    ).toEqual([]);
   });
 
   it("report what a language that hasn't shipped needs translated again", () => {
