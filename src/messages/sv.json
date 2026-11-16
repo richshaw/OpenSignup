@@ -872,7 +872,7 @@
       },
       "language": {
         "legend": "Språk",
-        "help": "Dina sidor och nya anmälningslistor använder det här språket. Vill du byta språk för en enskild anmälningslista gör du det under listans flik Inställningar.",
+        "help": "Appen och dina nya anmälningslistor använder det här språket. Vill du byta språk för en enskild anmälningslista gör du det under dess flik Inställningar.",
         "save": "Spara",
         "saved": "Sparat",
         "switch": "Byt till <language>{name}</language> för {count, plural, one {din öppna anmälningslista} other {dina {count, number} öppna anmälningslistor}}",

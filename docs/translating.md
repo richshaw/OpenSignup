@@ -636,7 +636,7 @@ undo it by accident.
 
 | English                                                      | Swedish                       | Notes                                                                                                                                            |
 | ------------------------------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| signup (the list people sign up on)                          | anmälningslista               | "Den här anmälningslistan är inte klar ännu". No short form ("listan")                                                                           |
+| signup (the list people sign up on)                          | anmälningslista               | "Den här anmälningslistan är inte klar ännu". No short form ("listan") but the organizer labels "Ny lista" and "Skapa lista", for fit            |
 | sign up (the button)                                         | Anmäl dig                     | "Anmäl dig till {slot}"                                                                                                                          |
 | signed up                                                    | anmäld, anmälda               | "Du är anmäld", "2 anmälda"                                                                                                                      |
 | your spot, your sign-up (the one you made)                   | din anmälan, dina anmälningar | "Visa eller ändra din anmälan", "Din anmälan är avbokad". Never _din plats_                                                                      |
@@ -893,6 +893,16 @@ The notes behind these are in the reviews and tophats of #914, #916, #918,
 #920, #921, #926 and #929, and the table in #639's first pull request lists
 each with what was done.
 
+### Settled after the owner's walkthrough
+
+The owner's tophat of the whole stack, on 15 November 2026, settled these.
+
+1. **Short forms of _anmälningslista_ only where the whole word doesn't
+   fit.** Organizer text keeps two, the button and crumb "Ny lista" and New
+   signup's "Skapa lista" (Organizer terms says why). Everywhere else it's
+   the whole word, so account Settings' language help says "under dess flik
+   Inställningar", not "under listans flik".
+
 ### Open questions
 
 A matter of taste a review raises and the translator doesn't take goes here,
@@ -912,18 +922,12 @@ so the next pass sees it.
    on an outing. Either takes the card to three lines at 320 and 1280
    pixels, where English has two; dropping "inför evenemang" keeps two, but
    loses the events.
-4. **The organizer's short forms of _anmälningslista_.** Settled item 10
-   holds for participants. Organizer text shortens the word in three places:
-   the button and crumb "Ny lista" and New signup's "Skapa lista", where the
-   whole word doesn't fit, and account Settings' language help, "under
-   listans flik Inställningar" (`organizer.settings.language.help`), where
-   it would.
-5. **"Too many sign-in requests."** `auth.form.errors.rateLimited` reads "För
+4. **"Too many sign-in requests."** `auth.form.errors.rateLimited` reads "För
    många inloggningslänkar har begärts.", with the verb of "Begär en ny
    länk". #980's review offered the noun, "För många begäranden om
    inloggning.", which keeps the English's shape but is stiffer. Both say
    requests, not attempts.
-6. **"Länk kopierad" or "Länken är kopierad".** The sign-up sheet's button
+5. **"Länk kopierad" or "Länken är kopierad".** The sign-up sheet's button
    says "Länk kopierad" once the link is copied
    (`participant.dialog.linkCopied`), while what's announced on the same
    sheet (`participant.dialog.copied`) and the share panel's chip and
