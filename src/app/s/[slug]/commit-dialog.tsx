@@ -345,7 +345,7 @@ export default function CommitDialog({
     const start = new Date(slotAt);
     const ics = buildIcs({
       uid: `${success.commitmentId}@opensignup.org`,
-      title: `${signupTitle} — ${slotTitle}`,
+      title: t('calendarTitle', { title: signupTitle, slot: slotTitle }),
       description: t('calendarDescription', { url: success.editUrl }),
       url: success.editUrl,
       start,

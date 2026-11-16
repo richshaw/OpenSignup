@@ -81,6 +81,7 @@
       "savedEmailed": "Din anmälan till <b>{slot}</b> är sparad, och vi har mejlat länken till <email>{address}</email>. Spara den som bokmärke, så kan du ändra eller avboka senare:",
       "savedNotEmailed": "Din anmälan till <b>{slot}</b> är sparad. <b>Spara länken nu: vi mejlar den inte, och bara den här webbläsaren kommer ihåg den.</b>{calendar, select, yes { Lägger du till anmälan i kalendern, sparas länken där också.} other {}}",
       "addToCalendar": "Lägg till i kalendern",
+      "calendarTitle": "{title} – {slot}",
       "calendarDescription": "Ändra eller avboka: {url}",
       "saveYourLink": "Spara din länk",
       "shareText": "Min anmälan till {slot} – med den här länken går den att ändra eller avboka, så dela inte länken med någon.",

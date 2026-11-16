@@ -115,13 +115,15 @@ describe('<CommitDialog /> sheet', () => {
 
   /**
    * Presses the button that downloads the calendar file and returns the name
-   * it is saved under and its DESCRIPTION, unfolded (RFC 5545 §3.1). jsdom's
-   * Blob has no text(), and it doesn't implement navigation, which a download
-   * link's click is.
+   * it is saved under, its SUMMARY and its DESCRIPTION, unfolded (RFC 5545
+   * §3.1). jsdom's Blob has no text(), and it doesn't implement navigation,
+   * which a download link's click is.
    */
-  async function savedCalendarFile(
-    button: string,
-  ): Promise<{ name: string | undefined; description: string | undefined }> {
+  async function savedCalendarFile(button: string): Promise<{
+    name: string | undefined;
+    summary: string | undefined;
+    description: string | undefined;
+  }> {
     const blobs: Blob[] = [];
     const names: string[] = [];
     const { createObjectURL, revokeObjectURL } = URL;
@@ -144,12 +146,14 @@ describe('<CommitDialog /> sheet', () => {
         reader.onerror = () => reject(reader.error);
         reader.readAsText(blobs[0]!);
       });
-      const description = ics
-        .replace(/\r\n /g, '')
-        .split('\r\n')
-        .find((line) => line.startsWith('DESCRIPTION:'))
-        ?.slice('DESCRIPTION:'.length);
-      return { name: names[0], description };
+      const lines = ics.replace(/\r\n /g, '').split('\r\n');
+      const property = (name: string) =>
+        lines.find((line) => line.startsWith(`${name}:`))?.slice(name.length + 1);
+      return {
+        name: names[0],
+        summary: property('SUMMARY'),
+        description: property('DESCRIPTION'),
+      };
     } finally {
       URL.createObjectURL = createObjectURL;
       URL.revokeObjectURL = revokeObjectURL;
@@ -763,6 +767,11 @@ describe('<CommitDialog /> sheet', () => {
       expect(await calendarDescription('Add to calendar')).toBe(`Edit or cancel: ${editUrl}`);
     });
 
+    it('calls the calendar event by the signup and the slot', async () => {
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
+      expect((await savedCalendarFile('Add to calendar')).summary).toBe('Snack duty — Cookies');
+    });
+
     it('names the calendar file after the signup and the slot, in the slot’s own letters', async () => {
       await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z', slotTitle: 'Räksmörgås' });
       expect((await savedCalendarFile('Add to calendar')).name).toBe('example-Räksmörgås.ics');
@@ -1257,9 +1266,9 @@ describe('<CommitDialog /> sheet', () => {
         json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
       });
       await screen.findByRole('dialog', { name: say('dialog.youreIn') }, settle);
-      expect(await calendarDescription(say('dialog.addToCalendar'))).toBe(
-        say('dialog.calendarDescription'),
-      );
+      const calendar = await savedCalendarFile(say('dialog.addToCalendar'));
+      expect(calendar.summary).toBe(say('dialog.calendarTitle'));
+      expect(calendar.description).toBe(say('dialog.calendarDescription'));
       expect(await shared(say('dialog.saveYourLink'))).toEqual({
         title: 'Snack duty',
         text: say('dialog.shareText'),
@@ -1361,9 +1370,10 @@ describe('<CommitDialog /> sheet', () => {
 
     it('are Swedish on a Swedish signup', async () => {
       const dialog = await signUpIn('sv');
-      expect(await calendarDescription(dialog('addToCalendar'))).toBe(
-        `Ändra eller avboka: ${editUrl}`,
-      );
+      const calendar = await savedCalendarFile(dialog('addToCalendar'));
+      // The en dash Swedish puts between two parts, where English has an em dash.
+      expect(calendar.summary).toBe('Snack duty – Cookies');
+      expect(calendar.description).toBe(`Ändra eller avboka: ${editUrl}`);
       expect((await shared(dialog('saveYourLink')))?.text).toBe(
         `Min anmälan till ${slotName} – med den här länken går den att ändra eller avboka, så dela inte länken med någon.`,
       );
