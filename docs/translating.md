@@ -580,10 +580,10 @@ for it. Every language with a catalog but English is a test language
   their own in each state, and `tests/e2e/translated-organizer.spec.ts` walks
   them through making, building and publishing a signup and opening Responses
   and account Settings: each screen must say it's in the language (on
-  `<html lang>` and the app's wrapper) and show no English its catalog has a
-  message for. The same spec checks the signup's tabs and header buttons fit
-  their boxes down to 320 pixels, and the accessibility spec checks Your
-  signups and the Build tab in it;
+  `<html lang>` and the app's wrapper) and show no English, by the same check
+  as the participant pages. The same spec checks the signup's tabs and header
+  buttons fit their boxes down to 320 pixels, and the accessibility spec
+  checks Your signups and the Build tab in it;
 - the other organizer specs (`organizer-language*.spec.ts` and the Build
   tab's) store it on an account of their own and check the organizer app's
   messages in it;
@@ -604,11 +604,13 @@ a word with English:
 - `inSentence` in `src/i18n/config.test.ts`, how each language writes each
   language's name inside a sentence. `pnpm typecheck` asks for the new
   language's row and column, with the catalog.
-- `SHARED_WITH_ENGLISH` in `tests/e2e/translated-signup.spec.ts`, the words
-  of the English the spec looks for on a translated page (`ENGLISH_WORDS`)
-  that the language writes as its own too, as Dutch writes "link". A
-  language without an entry shares none, so a page that shows one of those
-  words fails, and the failure names the catalog's messages that write it.
+- `SHARED_WITH_ENGLISH` in `tests/e2e/helpers/no-english.ts`, the words of
+  the English that `translated-signup.spec.ts` and
+  `translated-organizer.spec.ts` look for on a translated page
+  (`ENGLISH_WORDS`) that the language writes as its own too, as Dutch writes
+  "link". A language without an entry shares none, so a page that shows one
+  of those words fails, and the failure names the catalog's messages that
+  write it.
   Translate each, or add the word if the language really says it: never to
   quiet a message left in English, which is what the check is there to catch.
 

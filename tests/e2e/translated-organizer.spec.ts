@@ -1,12 +1,13 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { isShipped } from '@/i18n/config';
 import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import type { Namespace } from '@/i18n/translator';
 import { loginAsSeededOrganizer } from './helpers/auth';
-import { expectNoEnglishLeft, signupWords } from './helpers/english-left';
 import { loadSeed } from './helpers/fixtures';
 import { expectOneLine } from './helpers/label-fit';
 import { escaped, messagesIn } from './helpers/languages';
-import { languageOf } from './helpers/organizer-language';
+import { noEnglishCheck } from './helpers/no-english';
+import { languageOf, storeSignupLanguage } from './helpers/organizer-language';
 import { translationShot } from './helpers/translation-shots';
 import { UNSHIPPED_LOCALES } from './helpers/unshipped-locales';
 
@@ -46,25 +47,27 @@ async function signupFromApi(page: Page, id: string): Promise<SignupFromApi> {
  * comes from that language's catalog, as far as it has a message, and the
  * page says it's in that language. organizer-language.spec.ts checks each
  * organizer screen's messages one by one, on an organizer the spec makes;
- * this walks through what an organizer does, start to finish, and checks
- * every word each screen shows (`expectNoEnglishLeft`), so a screen, or a
- * part of one, that forgets the organizer's language fails here. The labels
- * of the signup's tabs and header buttons, which longer words could push out
- * of their boxes, are measured at a phone's width.
+ * this walks through what an organizer does, start to finish, and runs the
+ * no-English check the participant pages run (`noEnglishCheck`) over each
+ * screen's header, page and open dialog, so a screen, or a part of one, that
+ * forgets the organizer's language fails here. The labels of the signup's
+ * tabs and header buttons, which longer words could push out of their boxes,
+ * are measured at a phone's width.
  *
  * A language that hasn't shipped can't be stored on an account from the app,
  * so the seed writes it into the row, and the server shows it only with it
  * in `E2E_UNSHIPPED_LOCALES`, as playwright.config.ts starts it. A new
- * signup doesn't start in it until it ships (`newSignupLocale`), so the one
- * the smoke makes is in the instance's language until then: its own words
- * (its title, its fields' names, its slot) are left out of the check, marked
- * with their language or not.
+ * signup starts in it only once it ships (`newSignupLocale`), so until then
+ * the smoke writes it into the new signup's row (`storeSignupLanguage`), as
+ * organizer-language-story.spec.ts does. Its fields keep the names they were
+ * made with, "What" and "Date", which the check doesn't look for.
  */
 for (const locale of TEST_LOCALES) {
   const language = englishName(locale);
   const { organizer } = seed.languages[locale];
   const say = <N extends Namespace>(namespace: N) => messagesIn(locale, namespace);
   const unshippedHint = `the organizer app isn’t in ${locale}: start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`;
+  const expectNoEnglish = noEnglishCheck(locale, 'organizer');
 
   /**
    * Saves what's on the page for a translation's review when
@@ -76,13 +79,18 @@ for (const locale of TEST_LOCALES) {
 
   /**
    * Checks the page is marked as in `locale`, on `<html>` and on the
-   * wrapper round the organizer app's header and pages, and that its own
-   * text has no English left. `ignore` is the organizer's signups' own words.
+   * wrapper round the organizer app's header and pages, and that neither the
+   * wrapper nor `dialog`, which sits outside it, has English left.
    */
-  async function expectPageIn(page: Page, ignore: readonly string[]): Promise<void> {
+  async function expectPageIn(page: Page, dialog?: Locator): Promise<void> {
     await expect(page.locator('html'), unshippedHint).toHaveAttribute('lang', locale);
-    await expect(page.locator('div[lang]:has(> header)')).toHaveAttribute('lang', locale);
-    await expectNoEnglishLeft(page, locale, { ignore });
+    const wrapper = page.locator('div[lang]:has(> header)');
+    await expect(wrapper).toHaveAttribute('lang', locale);
+    await expectNoEnglish(wrapper);
+    if (dialog) {
+      expect(await languageOf(dialog)).toBe(locale);
+      await expectNoEnglish(dialog);
+    }
   }
 
   test.describe(`the organizer app in ${language}`, () => {
@@ -103,8 +111,7 @@ for (const locale of TEST_LOCALES) {
       // Your signups, with one of theirs in each state.
       await page.goto('/app');
       await expect(heading, unshippedHint).toHaveText(dashboard('title'));
-      let ignore = await signupWords(page);
-      await expectPageIn(page, ignore);
+      await expectPageIn(page);
       await shot(page, 'dashboard');
 
       // New signup: Magic Compose first where the instance has an AI set up
@@ -114,27 +121,31 @@ for (const locale of TEST_LOCALES) {
         new RegExp(`^(${escaped(compose('heading'))}|${escaped(newSignup('title'))})$`),
       );
       if ((await heading.textContent()) === compose('heading')) {
-        await expectPageIn(page, ignore);
+        await expectPageIn(page);
         await shot(page, 'compose');
         await page.getByRole('link', { name: compose('skip') }).click();
         await expect(heading).toHaveText(newSignup('title'));
       }
-      await expectPageIn(page, ignore);
+      await expectPageIn(page);
       await shot(page, 'new-signup');
       await page.getByLabel(newSignup('titleLabel')).fill(TITLE);
       await page.getByRole('button', { name: newSignup('create') }).click();
 
-      // Its Build tab, with the empty slot a new signup starts with.
+      // Its Build tab, with the empty slot a new signup starts with, in the
+      // organizer's language as a new signup is once that language ships.
       await page.waitForURL(/\/app\/signups\/sig_\w+\/build$/);
       const signupId = /\/app\/signups\/(sig_\w+)\/build$/.exec(page.url())?.[1] ?? '';
+      if (!isShipped('participant', locale)) {
+        await storeSignupLanguage(signupId, locale);
+        await page.reload();
+      }
       const tabs = page.getByRole('tablist', { name: signup('tabs.label') });
       await expect(
         tabs.getByRole('tab', { name: startsWith(signup('tabs.build')) }),
       ).toHaveAttribute('aria-selected', 'true');
       const made = await signupFromApi(page, signupId);
       const what = made.fields.find((field) => field.ref === 'what')?.label ?? '';
-      ignore = await signupWords(page);
-      await expectPageIn(page, ignore);
+      await expectPageIn(page);
       await shot(page, 'build-new');
 
       // Its fields, which open only once the page has hydrated.
@@ -142,8 +153,7 @@ for (const locale of TEST_LOCALES) {
       await onScreen(page.getByRole('button', { name: fieldsName })).click();
       const fields = page.getByRole('dialog', { name: fieldsName });
       await expect(fields).toBeVisible();
-      expect(await languageOf(fields)).toBe(locale);
-      await expectPageIn(page, ignore);
+      await expectPageIn(page, fields);
       await shot(page, 'build-fields', { sheet: true });
       await page.keyboard.press('Escape');
       await expect(fields).toBeHidden();
@@ -157,8 +167,7 @@ for (const locale of TEST_LOCALES) {
         .getByRole('textbox', { name: build('editor.value', { field: what }) })
         .fill(SLOT);
       await editor.getByRole('spinbutton', { name: build('editor.spots') }).fill('3');
-      ignore = [...ignore, SLOT];
-      await expectPageIn(page, ignore);
+      await expectPageIn(page);
       await shot(page, 'build-slot');
       await editor.getByRole('button', { name: build('editor.done') }).click();
       await expect(row).toContainText(SLOT);
@@ -167,11 +176,10 @@ for (const locale of TEST_LOCALES) {
       await onScreen(page.getByRole('button', { name: signup('publish.label') })).click();
       const panel = page.getByRole('dialog', { name: share('heading.firstTime') });
       await expect(panel).toBeVisible();
-      expect(await languageOf(panel)).toBe(locale);
       await expect(
         onScreen(page.getByText(say('organizer.status')('open'), { exact: true })),
       ).toBeVisible();
-      await expectPageIn(page, ignore);
+      await expectPageIn(page, panel);
       await shot(page, 'share', { sheet: true });
       await panel.getByRole('button', { name: share('close') }).click();
       await expect(panel).toBeHidden();
@@ -192,14 +200,14 @@ for (const locale of TEST_LOCALES) {
         onScreen(page.getByText(responses('summary.signUps', { count: 1 }))),
       ).toBeVisible();
       await expect(onScreen(page.getByText('Alex', { exact: true }))).toBeVisible();
-      await expectPageIn(page, ignore);
+      await expectPageIn(page);
       await shot(page, 'responses');
 
       // Account Settings, from the header.
       await page.getByRole('banner').locator('a[href="/app/settings"]').click();
       await page.waitForURL(/\/app\/settings$/);
       await expect(heading).toHaveText(say('organizer.settings')('title'));
-      await expectPageIn(page, ignore);
+      await expectPageIn(page);
       await shot(page, 'account-settings');
     });
 

@@ -747,8 +747,8 @@ async function makeOrganizerIn(db: Db, locale: TestLocale): Promise<OrganizerSee
     db,
     email,
     workspaceSlug,
-    // Names, not English words, which `expectNoEnglishLeft` would take for
-    // English left on a page that shows them.
+    // Names, not words the no-English check looks for
+    // (tests/e2e/helpers/no-english.ts).
     { organizer: 'Kim', workspace: 'Kim' },
     locale,
   );

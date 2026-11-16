@@ -1,14 +1,13 @@
-import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { englishName, TEST_LOCALES, type TestLocale } from '@/i18n/testing/locales';
+import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import type { Namespace } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import { participantErrorCopy } from '@/app/s/[slug]/participant-error';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { loadSeed } from './helpers/fixtures';
 import { escaped, gotoIn, messagesIn, remember, signUpButton } from './helpers/languages';
+import { noEnglishCheck } from './helpers/no-english';
 import { expectSignupLayoutIn } from './helpers/signup-layout';
 import { translationShot } from './helpers/translation-shots';
 
@@ -23,82 +22,6 @@ const badToken = (path: string) => path.replace(/token=[^&]+/, 'token=invalid-to
 /** Who signs up in these tests. */
 const PERSON = 'Kim Exempel';
 
-/** The English these pages showed, none of which a translated page may keep. */
-const ENGLISH_WORDS = [
-  'Your',
-  'You',
-  'Save',
-  'Saving',
-  'Cancel',
-  'Keep',
-  'Yes',
-  'Back',
-  'Reminders',
-  'Stop',
-  'Turn',
-  'signup',
-  'spots?',
-  'slot',
-  'link',
-  'Sorry',
-] as const;
-
-/**
- * The words in `ENGLISH_WORDS` a language writes as its own too (Dutch says
- * "link" and "Sorry"), which its pages may show. A language without an entry
- * shares none. Add a word on purpose, once you know the language says it:
- * never to quiet a message left in English, which is what the check is for.
- */
-const SHARED_WITH_ENGLISH: {
-  readonly [L in TestLocale]?: readonly (typeof ENGLISH_WORDS)[number][];
-} = {
-  sv: [],
-};
-
-/** `ENGLISH_WORDS` as a pattern, less the words `SHARED_WITH_ENGLISH` gives the language. */
-function englishLeftIn(locale: TestLocale): RegExp {
-  const shared: readonly string[] = SHARED_WITH_ENGLISH[locale] ?? [];
-  const english = ENGLISH_WORDS.filter((word) => !shared.includes(word));
-  // With no word left, the pattern would match any text and fail every page.
-  if (english.length === 0) {
-    throw new Error(
-      `SHARED_WITH_ENGLISH gives ${locale} every word in ENGLISH_WORDS: add English words it doesn't use`,
-    );
-  }
-  return new RegExp(`\\b(${english.join('|')})\\b`);
-}
-
-/**
- * Where the language's own catalog writes a word the pattern looks for, the
- * likeliest reason a page fails the check, as the start of its failure.
- * Undefined when it writes none. ICU's syntax doesn't count (argument names,
- * `plural` and the like, branch names and tags), so `{slot}` isn't "slot".
- */
-function englishInCatalog(locale: TestLocale, english: RegExp): string | undefined {
-  const catalog = JSON.parse(
-    readFileSync(path.join(process.cwd(), 'src', 'messages', `${locale}.json`), 'utf8'),
-  ) as Record<string, unknown>;
-  const found: string[] = [];
-  const look = (value: unknown, key: string): void => {
-    if (typeof value !== 'string') {
-      for (const [name, inner] of Object.entries(value as object)) look(inner, `${key}.${name}`);
-      return;
-    }
-    const text = value
-      .replace(/<\/?[\w-]+>/g, ' ')
-      .replace(/\{\s*[\w-]+\s*(,\s*\w+\s*(,[^{}]*)?)?/g, ' ')
-      .replace(/(=\d+|\b\w+)\s*\{/g, ' ');
-    const words = [...new Set(text.match(new RegExp(english.source, 'g')))];
-    if (words.length > 0) found.push(`${key} (${words.map((word) => `"${word}"`).join(', ')})`);
-  };
-  for (const namespace of ['participant', 'email', 'common'] as const) {
-    look(catalog[namespace] ?? {}, namespace);
-  }
-  if (found.length === 0) return undefined;
-  const named = found.length > 5 ? [...found.slice(0, 5), `${found.length - 5} more`] : found;
-  return `English on the page. ${locale}.json writes it in ${named.join(', ')}: translate each message, or add a word ${englishName(locale)} says too to SHARED_WITH_ENGLISH in this spec`;
-}
-
 /**
  * The seeded signups in each test language (tests/e2e/helpers/seed.ts): their
  * participants' text comes from the language's catalog, and what only their
@@ -106,8 +29,9 @@ function englishInCatalog(locale: TestLocale, english: RegExp): string | undefin
  * the seeded organizer, who has none stored. Every expected text comes from
  * the catalog, formatted as
  * the reminder worker formats it (`messagesIn`), so a new language's catalog
- * is all these tests need, unless the language says one of `ENGLISH_WORDS`
- * too (`SHARED_WITH_ENGLISH`).
+ * is all these tests need, unless the language says one of the English words
+ * the no-English check looks for too (`SHARED_WITH_ENGLISH` in
+ * tests/e2e/helpers/no-english.ts).
  */
 for (const locale of TEST_LOCALES) {
   const language = englishName(locale);
@@ -130,15 +54,7 @@ for (const locale of TEST_LOCALES) {
   const say = <N extends Namespace>(namespace: N) => messagesIn(locale, namespace);
   const goto = (page: Page, path: string) => gotoIn(page, locale, path);
   const signUp = signUpButton(locale);
-  const english = englishLeftIn(locale);
-  const leftInCatalog = englishInCatalog(locale, english);
-  // Both ways: textContent runs one element's text into the next ("…listanYour
-  // spot…"), so `\b` misses a word at an element's edge, and innerText leaves
-  // out what nobody sees.
-  const expectNoEnglish = async (main: Locator) => {
-    await expect(main, leftInCatalog).not.toHaveText(english);
-    await expect(main, leftInCatalog).not.toHaveText(english, { useInnerText: true });
-  };
+  const expectNoEnglish = noEnglishCheck(locale, 'participant');
 
   /**
    * Saves what's on the page for a translation's review when

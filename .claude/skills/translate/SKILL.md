@@ -133,9 +133,8 @@ For labels in fixed boxes, also run the layout specs on the built app (below):
 `tests/e2e/slot-row-layout.spec.ts` and `tests/e2e/translated-organizer.spec.ts`,
 which measure every language with a catalog. The other e2e specs pick the
 language up too; run `tests/e2e/translated-signup.spec.ts` once the
-participant namespaces are done, since it fails on English left on a page.
-`translated-organizer.spec.ts` fails on English left on an organizer screen
-only where the catalog has a message, so it can run part-way through.
+participant namespaces are done, and `translated-organizer.spec.ts` once the
+organizer ones are, since both fail on English left on a page.
 
 ## 3. Have a different model review it in context
 
