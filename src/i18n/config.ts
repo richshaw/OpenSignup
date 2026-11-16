@@ -111,15 +111,46 @@ export function openGraphLocale(locale: CatalogLocale): string {
   return region ? `${language}_${region}` : language;
 }
 
+/** CLDR's name for `locale` in `inLocale`, as `Intl.DisplayNames` gives it, case and all. */
+function cldrLanguageName(locale: CatalogLocale, inLocale: CatalogLocale): string {
+  return new Intl.DisplayNames([inLocale], { type: 'language' }).of(locale) ?? locale;
+}
+
+/** `name` with its first letter raised, by `locale`'s rules. */
+function capitalized(name: string, locale: CatalogLocale): string {
+  return name.replace(/^\p{Ll}/u, (first) => first.toLocaleUpperCase(locale));
+}
+
 /**
  * A language's name in that language, as a list to choose from shows it
  * (English, Svenska), so people can find theirs whatever language the rest of
  * the screen is in. Given `inLocale`, its name in that language instead, as
  * the Magic Compose prompt names one in English ("Swedish"). CLDR writes some
  * names in lower case (svenska, français), so the first letter is raised, by
- * the naming language's own rules.
+ * the naming language's own rules. Inside a sentence, use
+ * `languageNameInSentence`.
  */
 export function languageName(locale: CatalogLocale, inLocale: CatalogLocale = locale): string {
-  const name = new Intl.DisplayNames([inLocale], { type: 'language' }).of(locale) ?? locale;
-  return name.replace(/^\p{Ll}/u, (first) => first.toLocaleUpperCase(inLocale));
+  return capitalized(cldrLanguageName(locale, inLocale), inLocale);
+}
+
+/**
+ * A language's name in that language, as it reads inside a sentence in
+ * `sentenceLocale`: "Switch them to Svenska", "Byt dem till svenska". The name
+ * stays in its own language, as in a list; its first letter follows the
+ * sentence's. A language that writes its own name in lower case (svenska,
+ * français, suomi) writes language names in lower case in running text, so
+ * the name keeps CLDR's case ("svenska", and "English", which English
+ * capitalizes). One that capitalizes its own (English, Deutsch) raises the
+ * first letter, as a list does. So the rule comes from CLDR, with no table,
+ * and a new language needs no code.
+ */
+export function languageNameInSentence(
+  locale: CatalogLocale,
+  sentenceLocale: CatalogLocale,
+): string {
+  const name = cldrLanguageName(locale, locale);
+  return /^\p{Lu}/u.test(cldrLanguageName(sentenceLocale, sentenceLocale))
+    ? capitalized(name, locale)
+    : name;
 }

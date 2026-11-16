@@ -3,7 +3,14 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES, type CatalogLocale, languageName } from '@/i18n/config';
+import type { ReactNode } from 'react';
+import {
+  CATALOG_LOCALES,
+  type CatalogLocale,
+  languageName,
+  languageNameInSentence,
+} from '@/i18n/config';
+import type { Namespace } from '@/i18n/translator';
 import { ship } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
@@ -16,11 +23,32 @@ const request = vi.hoisted(() => ({
   saved: null as string | null,
 }));
 // The page's text: English from the catalog; any other language answers with
-// the key it was asked for and the language (`getTestServerTranslator`).
-vi.mock('@/i18n/server', async () => ({
-  instanceDefaultLocale: () => request.instanceDefault,
-  getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
-}));
+// the key it was asked for and the language (`getTestServerTranslator`), and
+// a sentence that names a language adds the name it was given, through the
+// sentence's own <language> tag ("… in sv: svenska"), so a test sees which
+// form of the name each sentence gets.
+vi.mock('@/i18n/server', async () => {
+  const { getTestServerTranslator } = await import('@/i18n/testing/translator');
+  return {
+    instanceDefaultLocale: () => request.instanceDefault,
+    getServerTranslator: <N extends Namespace>(locale: string, namespace: N) => {
+      const t = getTestServerTranslator(locale, namespace);
+      if (locale === 'en') return t;
+      const say = t as unknown as (key: string) => string;
+      const rich = (key: string, values?: { name?: unknown; language?: unknown }) => {
+        const { name, language } = values ?? {};
+        return typeof name === 'string' && typeof language === 'function' ? (
+          <>
+            {say(key)}: {(language as (chunks: ReactNode) => ReactNode)(name)}
+          </>
+        ) : (
+          say(key)
+        );
+      };
+      return Object.assign(say, t, { rich });
+    },
+  };
+});
 vi.mock('@/auth/session', () => ({
   getOrganizerSession: async () => ({ email: 'pat@example.com', locale: request.saved }),
   requireOrganizerSession: async () => ({ email: 'pat@example.com', locale: request.saved }),
@@ -266,14 +294,20 @@ describe('Account Settings: switching the open signups', () => {
     ship('organizer', ['en', other]);
     request.saved = other;
     const ask = (key: string) => `organizer.settings.language.${key} in ${other}`;
+    // The language's name as that language writes it in a sentence (Swedish:
+    // "svenska"), not as the list above writes it.
+    const name = languageNameInSentence(other, other);
     toSwitch(3);
     await renderPage();
-    expect(screen.getByRole('button', { name: ask('switch') })).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: `${ask('switch')}: ${name}` });
+    expect(within(button).getByText(name)).toHaveAttribute('lang', other);
     cleanup();
 
     toSwitch(0, 4);
     await renderPage({ switched: '1' });
-    expect(screen.getByRole('status')).toHaveTextContent(ask('switched'));
+    const done = screen.getByRole('status');
+    expect(done).toHaveTextContent(`${ask('switched')}: ${name}`);
+    expect(within(done).getByText(name)).toHaveAttribute('lang', other);
   });
 
   it('isn’t there when every open signup is in the organizer’s language, or there are none', async () => {

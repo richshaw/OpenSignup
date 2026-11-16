@@ -10,7 +10,7 @@ import {
 import { FormError } from '@/components/ui/form-error';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { getDb } from '@/db/client';
-import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
+import { type CatalogLocale, SHIPPED, languageName, languageNameInSentence } from '@/i18n/config';
 import { localeOfOrganizer, newSignupLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
@@ -168,11 +168,11 @@ function OrganizerLanguageForm({
   const current = mine.locale;
   // Only a code the action sends shows, in the words the Settings tab uses,
   // so a link can't put its own words on the page.
-  const refusal = refusalFromQuery(
-    getServerTranslator(localeOfOrganizer(session), 'organizer.errors'),
-    error,
-  );
-  const name = languageName(current);
+  const pageLocale = localeOfOrganizer(session);
+  const refusal = refusalFromQuery(getServerTranslator(pageLocale, 'organizer.errors'), error);
+  // Named in itself, as in the list above, but cased as the page's language
+  // writes a language's name in a sentence: "to Svenska", "till svenska".
+  const name = languageNameInSentence(current, pageLocale);
   const language = (chunks: ReactNode) => <span lang={current}>{chunks}</span>;
 
   return (
