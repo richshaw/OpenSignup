@@ -7,11 +7,12 @@ import type { CatalogLocale } from '@/i18n/config';
  * `./c/[id]/not-found.tsx`), or cancelled or moved (`./c/[id]/page.tsx`). The
  * card is the shared `StateCard`; `action` is a link under the body.
  *
- * `locale` is the language the message is for, when the page knows it: the
- * signup's own, or the instance's for participants when there is no live
- * signup to ask. It marks the message with `lang`. Left out, the message reads
- * in the page's language, as on the edit and unsubscribe pages, whose reads
- * don't give the signup's language yet.
+ * `locale` is the language the message is in, when the page knows it: the
+ * signup's own, the instance's for participants when there is no live signup
+ * to ask, or English for a draft's note to its own organizer. It marks the
+ * message with `lang`. Left out, the message reads in the page's language, as
+ * on the edit and unsubscribe pages, whose reads don't give the signup's
+ * language yet.
  */
 export function SignupStateMessage({
   locale,

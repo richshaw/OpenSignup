@@ -1,3 +1,7 @@
+// Type-only: the 'use client' commit dialog imports this module, and a value
+// import of the translator would put every catalog in its bundle. The page's
+// server components make the translators and pass them in.
+import type { Translator } from '@/i18n/translator';
 import type { SignupViewField, SignupViewSlot } from './signup-view-types';
 // Single implementation, shared with the emails so a slot reads the same in
 // both places. See src/lib/slot-label.ts.
@@ -5,8 +9,22 @@ import { renderFieldValue } from '@/lib/slot-label';
 
 export { pickPrimaryField, renderFieldValue } from '@/lib/slot-label';
 
-export function formatGroupLabel(field: SignupViewField, raw: unknown, locale: string): string {
-  return renderFieldValue(field, raw, locale) ?? `(no ${field.label.toLowerCase()})`;
+/**
+ * A group's heading: the group field's value, or "(no date)" for the slots
+ * that have none. The field's label goes into that message whole, so a
+ * language can word it to suit the noun ("({label} saknas)") rather than
+ * agree an article with it.
+ */
+export function formatGroupLabel(
+  field: SignupViewField,
+  raw: unknown,
+  locale: string,
+  t: Translator<'participant.slot'>,
+): string {
+  return (
+    renderFieldValue(field, raw, locale) ??
+    t('noValue', { label: field.label.toLocaleLowerCase(locale) })
+  );
 }
 
 export function buildMetaSegments({
@@ -58,10 +76,14 @@ export interface CapacityLabel {
   sr: string | null;
 }
 
-export function capacityLabel(committed: number, capacity: number | null): CapacityLabel {
+export function capacityLabel(
+  committed: number,
+  capacity: number | null,
+  t: Translator<'participant.slot'>,
+): CapacityLabel {
   if (capacity === null) {
     return committed > 0
-      ? { text: String(committed), sr: `${committed} signed up` }
+      ? { text: String(committed), sr: t('signedUp', { count: committed }) }
       : { text: '', sr: null };
   }
   // `capacity` is typed `number | null`, so 0 is representable even though
@@ -73,7 +95,7 @@ export function capacityLabel(committed: number, capacity: number | null): Capac
   // sign-ups, and that slot is full too.
   const left = capacity - committed;
   if (left <= 0) return { text: '', sr: null };
-  return { text: `${left} left`, sr: `${left} of ${capacity} spots left` };
+  return { text: t('left', { left }), sr: t('leftOf', { left, capacity }) };
 }
 
 /**

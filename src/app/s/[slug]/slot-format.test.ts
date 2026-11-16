@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import type { Translator } from '@/i18n/translator';
 import {
   buildMetaSegments,
   capacityLabel,
@@ -15,6 +17,15 @@ const text = (ref: string, label: string): SignupViewField => ({
   label,
   fieldType: 'text',
 });
+
+const t = getTestTranslator('participant.slot');
+
+/**
+ * A translator that answers with the key it was asked for and the values it
+ * was given, so a test can see a string came from the catalog.
+ */
+const standIn = ((key: string, values?: Record<string, unknown>) =>
+  `${key} ${JSON.stringify(values)}`) as unknown as Translator<'participant.slot'>;
 
 const fields: SignupViewField[] = [
   text('game', 'Game'),
@@ -116,51 +127,70 @@ describe('buildMetaSegments', () => {
 describe('formatGroupLabel', () => {
   it('formats the value via renderFieldValue (date stays a date)', () => {
     const date: SignupViewField = { ref: 'd', label: 'Date', fieldType: 'date' };
-    expect(formatGroupLabel(date, '2026-04-25', 'en')).toMatch(
+    expect(formatGroupLabel(date, '2026-04-25', 'en', t)).toMatch(
       /^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}$/,
     );
   });
 
   it('passes text values through', () => {
-    expect(formatGroupLabel(text('g', 'Game'), 'GAME 1', 'en')).toBe('GAME 1');
+    expect(formatGroupLabel(text('g', 'Game'), 'GAME 1', 'en', t)).toBe('GAME 1');
   });
 
   it('falls back to "(no <label>)" for empty/null/undefined', () => {
     const game = text('g', 'Game');
-    expect(formatGroupLabel(game, undefined, 'en')).toBe('(no game)');
-    expect(formatGroupLabel(game, null, 'en')).toBe('(no game)');
-    expect(formatGroupLabel(game, '', 'en')).toBe('(no game)');
+    expect(formatGroupLabel(game, undefined, 'en', t)).toBe('(no game)');
+    expect(formatGroupLabel(game, null, 'en', t)).toBe('(no game)');
+    expect(formatGroupLabel(game, '', 'en', t)).toBe('(no game)');
+  });
+
+  it('takes "(no <label>)" from the catalog, with the label whole in it', () => {
+    expect(formatGroupLabel(text('g', 'Game Day'), undefined, 'en', standIn)).toBe(
+      'noValue {"label":"game day"}',
+    );
   });
 });
 
 describe('capacityLabel', () => {
   it('shows nothing for a capacity-1 slot, where the action column says it all', () => {
-    expect(capacityLabel(0, 1)).toEqual({ text: '', sr: null });
-    expect(capacityLabel(1, 1)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(0, 1, t)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(1, 1, t)).toEqual({ text: '', sr: null });
   });
 
   it('counts the spots left, as the sign-up sheet does', () => {
-    expect(capacityLabel(0, 2)).toEqual({ text: '2 left', sr: '2 of 2 spots left' });
-    expect(capacityLabel(1, 2)).toEqual({ text: '1 left', sr: '1 of 2 spots left' });
-    expect(capacityLabel(10, 12)).toEqual({ text: '2 left', sr: '2 of 12 spots left' });
+    expect(capacityLabel(0, 2, t)).toEqual({ text: '2 left', sr: '2 of 2 spots left' });
+    expect(capacityLabel(1, 2, t)).toEqual({ text: '1 left', sr: '1 of 2 spots left' });
+    expect(capacityLabel(10, 12, t)).toEqual({ text: '2 left', sr: '2 of 12 spots left' });
   });
 
   it('shows nothing for a full slot, where the action column says "Full"', () => {
-    expect(capacityLabel(4, 4)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(4, 4, t)).toEqual({ text: '', sr: null });
     // The organizer can lower a slot's capacity under its sign-ups.
-    expect(capacityLabel(5, 3)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(5, 3, t)).toEqual({ text: '', sr: null });
   });
 
   it('shows nothing for a non-positive capacity rather than a meaningless "0/0"', () => {
     // CapacitySchema is `.positive()`, so no validated write produces this;
     // the type still admits it, and the function should be total.
-    expect(capacityLabel(0, 0)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(0, 0, t)).toEqual({ text: '', sr: null });
+  });
+
+  it('writes a count of a thousand or more without grouping, as before', () => {
+    expect(capacityLabel(0, 1500, t)).toEqual({ text: '1500 left', sr: '1500 of 1500 spots left' });
+    expect(capacityLabel(1234, null, t)).toEqual({ text: '1234', sr: '1234 signed up' });
+  });
+
+  it('takes its words from the catalog', () => {
+    expect(capacityLabel(1, 3, standIn)).toEqual({
+      text: 'left {"left":2}',
+      sr: 'leftOf {"left":2,"capacity":3}',
+    });
+    expect(capacityLabel(3, null, standIn)).toEqual({ text: '3', sr: 'signedUp {"count":3}' });
   });
 
   it('hides a bare count on an unlimited slot until someone has signed up', () => {
     // A lone "0" has no denominator to anchor it and reads as noise.
-    expect(capacityLabel(0, null)).toEqual({ text: '', sr: null });
-    expect(capacityLabel(3, null)).toEqual({ text: '3', sr: '3 signed up' });
+    expect(capacityLabel(0, null, t)).toEqual({ text: '', sr: null });
+    expect(capacityLabel(3, null, t)).toEqual({ text: '3', sr: '3 signed up' });
   });
 });
 

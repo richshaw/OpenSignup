@@ -8,10 +8,12 @@ import { loadSeed } from './helpers/fixtures';
  * web process formats them with use-intl's precompiled formatter
  * (`precompile` in next.config.mjs). Vitest and the reminder worker read the
  * raw JSON and use the full formatter, so only a real build shows what pages
- * print. The footer's `{instance} · AGPL-3.0` is the message checked here.
- * Broken, it prints `common.footer.license` (a compiled message mangled on its
- * way to the translator) or `{instance} · AGPL-3.0` (a message that skipped the
- * loader, which this formatter leaves unfilled).
+ * print. The footer's `{instance} · AGPL-3.0` is checked on every kind of
+ * page, and a slot row's count on the public signup page. Broken, a message
+ * prints its key path, like `common.footer.license` (a compiled message
+ * mangled on its way to the translator), or its own text, like
+ * `{instance} · AGPL-3.0` (a message that skipped the loader, which this
+ * formatter leaves unfilled).
  *
  * Run against a production build (`pnpm build`, then the config's
  * `pnpm start`). `pnpm dev` precompiles as well, so it passes there too.
@@ -37,4 +39,18 @@ test.describe('a translated message with an argument', () => {
       expect(line?.replace(/^[0-9a-f]{7} · /, '')).toBe(`${instance} · AGPL-3.0`);
     });
   }
+});
+
+test.describe('a participant message with arguments', () => {
+  test('counts a slot’s spots on the public signup page', async ({ page }) => {
+    await page.goto(`/s/${seed.optionalEmailSlug}`);
+    // Twenty spots, so other specs signing up never fill it.
+    const row = page.locator('li').filter({ hasText: seed.optionalEmailSlotLabel });
+    await expect(row.locator('[aria-hidden="true"]').filter({ hasText: /left/ })).toHaveText(
+      /^\d+ left$/,
+    );
+    await expect(row.locator('.sr-only').filter({ hasText: /left/ })).toHaveText(
+      /^\d+ of 20 spots left$/,
+    );
+  });
 });

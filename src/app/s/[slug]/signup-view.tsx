@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import type { Translator } from '@/i18n/translator';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { shownSignupStatus } from '@/lib/signup-closing';
@@ -113,6 +115,7 @@ function groupSlots(
   slots: SignupViewSlot[],
   groupField: SignupViewField | null,
   locale: string,
+  tSlot: Translator<'participant.slot'>,
 ): SlotGroup[] {
   if (!groupField) return [{ key: '__all__', label: '', slots }];
   // A Map keeps its keys in the order they were first set, so the groups come
@@ -121,7 +124,7 @@ function groupSlots(
   for (const slot of slots) {
     const raw = slot.values[groupField.ref];
     const key = isBlankSlotValue(raw) ? '__unset__' : String(raw);
-    const label = formatGroupLabel(groupField, raw, locale);
+    const label = formatGroupLabel(groupField, raw, locale, tSlot);
     const existing = map.get(key);
     if (existing) {
       existing.slots.push(slot);
@@ -141,15 +144,21 @@ function nameGroupFor(
   slot: SignupViewSlot,
   groupField: SignupViewField | null,
   locale: string,
+  tSlot: Translator<'participant.slot'>,
 ): string | null {
   if (!groupField) return null;
   const raw = slot.values[groupField.ref];
-  return isBlankSlotValue(raw) ? null : formatGroupLabel(groupField, raw, locale);
+  return isBlankSlotValue(raw) ? null : formatGroupLabel(groupField, raw, locale, tSlot);
 }
 
-function titleFor(slot: SignupViewSlot, primary: SignupViewField | null, locale: string): string {
+function titleFor(
+  slot: SignupViewSlot,
+  primary: SignupViewField | null,
+  locale: string,
+  t: Translator<'participant.signupView'>,
+): string {
   const value = primary ? renderFieldValue(primary, slot.values[primary.ref], locale) : null;
-  return value || 'Untitled slot';
+  return value || t('untitledSlot');
 }
 
 export function SignupViewBody({
@@ -163,34 +172,32 @@ export function SignupViewBody({
   ownCommitments,
   showStateBanner = true,
 }: SignupViewProps) {
+  const t = getServerTranslator(locale, 'participant.signupView');
+  const tSlot = getServerTranslator(locale, 'participant.slot');
   const isPreview = mode === 'preview';
+  // The Preview banner and the disabled button's tip are the organizer's, not
+  // the participants': English until the organizer app has other languages,
+  // and marked so where the element allows, since a preview of a Swedish
+  // signup is otherwise Swedish.
+  const tPreview = isPreview ? getServerTranslator('en', 'organizer.preview') : null;
   const effectiveStatus = isPreview && signup.status === 'draft' ? 'open' : signup.status;
   const groupField = groupByRef ? (fields.find((f) => f.ref === groupByRef) ?? null) : null;
   const groupRef = groupField?.ref ?? null;
   const primary = pickPrimaryField(fields, groupRef);
   const primaryRef = primary?.ref;
-  const groups = groupSlots(slots, groupField, locale);
+  const groups = groupSlots(slots, groupField, locale, tSlot);
   const ownBySlot = new Map((ownCommitments ?? []).map((c) => [c.slotId, c]));
   const firstOwn = ownCommitments?.[0] ?? null;
   const ownCount = ownCommitments?.length ?? 0;
   const firstOwnSlot = firstOwn ? (slots.find((s) => s.id === firstOwn.slotId) ?? null) : null;
   const firstOwnName = firstOwnSlot
     ? slotDisplayName(
-        nameGroupFor(firstOwnSlot, groupField, locale),
-        titleFor(firstOwnSlot, primary, locale),
+        nameGroupFor(firstOwnSlot, groupField, locale, tSlot),
+        titleFor(firstOwnSlot, primary, locale, t),
         buildMetaSegments({ fields, slot: firstOwnSlot, primaryRef, groupRef, locale }),
       )
     : '';
   const Title = mode === 'showcase' ? 'h2' : 'h1';
-
-  const previewCopy =
-    signup.status === 'draft'
-      ? 'This is what people will see once you publish. No signups will be saved.'
-      : signup.status === 'closed'
-        ? 'This signup is closed. The page below shows what visitors see.'
-        : signup.status === 'archived'
-          ? 'This signup is archived and is not visible to participants.'
-          : 'This signup is live. The page below shows what visitors see.';
 
   // Closing only stops new sign-ups: everyone keeps their place and can still
   // change or cancel it, so a returning participant sees this bar under the
@@ -198,31 +205,39 @@ export function SignupViewBody({
   const signedUpBar = firstOwn ? (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-surface-sunk bg-success/5 px-4 py-3 text-sm">
       <span>
-        <span className="font-medium">You&apos;re signed up</span> for{' '}
-        <span className="font-medium text-ink">
-          {ownCount === 1 ? firstOwnName : `${ownCount} slots`}
-        </span>
-        .
+        {t.rich('signedUp', {
+          count: ownCount,
+          name: firstOwnName,
+          b: (chunks) => <span className="font-medium">{chunks}</span>,
+          slot: (chunks) => <span className="font-medium text-ink">{chunks}</span>,
+        })}
       </span>
       <Link href={firstOwn.editUrl} className="shrink-0 font-medium text-brand hover:underline">
-        {ownCount === 1 ? 'Edit or cancel' : 'Manage'}
+        {ownCount === 1 ? t('editOrCancel') : t('manage')}
       </Link>
     </div>
   ) : null;
 
   return (
     <>
-      {!showStateBanner ? null : isPreview ? (
-        <Banner kind="preview" title="Preview" body={previewCopy} />
+      {!showStateBanner ? null : tPreview ? (
+        // A wrapper for its language, rather than a prop on the shared
+        // Banner, so the organizer pages' banners stay byte for byte as they
+        // were. It lays out as the banner alone would.
+        <div lang="en">
+          <Banner
+            kind="preview"
+            title={tPreview('title')}
+            body={tPreview('body', { status: signup.status })}
+          />
+        </div>
       ) : effectiveStatus === 'closed' ? (
         <>
           <Banner
             kind="closed"
-            title="Closed"
+            title={t('closedBanner.title')}
             body={
-              firstOwn
-                ? `No one new can sign up, but your ${ownCount === 1 ? 'spot is' : 'spots are'} still yours.`
-                : 'This signup is no longer collecting responses.'
+              firstOwn ? t('closedBanner.keepsYours', { count: ownCount }) : t('closedBanner.body')
             }
           />
           {signedUpBar}
@@ -262,7 +277,7 @@ export function SignupViewBody({
                   slot.capacity === null ? null : Math.max(0, slot.capacity - slot.committed);
                 const full = spotsLeft === 0;
                 const closed = slot.status !== 'open' || effectiveStatus !== 'open' || full;
-                const title = titleFor(slot, primary, locale);
+                const title = titleFor(slot, primary, locale, t);
                 const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef, locale });
                 const own = ownBySlot.get(slot.id) ?? null;
                 const isOwn = own !== null;
@@ -270,9 +285,9 @@ export function SignupViewBody({
                 // would offer spots nobody can take.
                 const count = closed
                   ? { text: '', sr: null }
-                  : capacityLabel(slot.committed, slot.capacity);
+                  : capacityLabel(slot.committed, slot.capacity, tSlot);
                 const actionName = slotAccessibleName(group.label || null, title, meta);
-                const nameGroup = nameGroupFor(slot, groupField, locale);
+                const nameGroup = nameGroupFor(slot, groupField, locale, tSlot);
                 return (
                   <li
                     key={slot.id}
@@ -310,28 +325,31 @@ export function SignupViewBody({
                         {own ? (
                           <Link
                             href={own.editUrl}
-                            aria-label={`Edit your spot for ${actionName}`}
+                            aria-label={t('editFor', { slot: actionName })}
                             className={`${ACTION_SIZING} border border-surface-sunk bg-white font-medium transition hover:bg-surface-raised`}
                           >
-                            Edit
+                            {t('edit')}
                           </Link>
                         ) : closed ? (
                           <span className={`${ACTION_SIZING} font-medium text-ink-soft`}>
-                            {full ? 'Full' : 'Closed'}
+                            {full ? t('full') : t('closed')}
                           </span>
-                        ) : isPreview ? (
+                        ) : tPreview ? (
+                          // The tip is the organizer's, in English, but a
+                          // title can't carry a language of its own: the
+                          // button's name and text are the participants'.
                           <button
                             type="button"
                             disabled
-                            title="Preview: publish to enable signups"
-                            aria-label={`Sign up for ${actionName}`}
+                            title={tPreview('signUpDisabled')}
+                            aria-label={t('signUpFor', { slot: actionName })}
                             className={`${ACTION_SIZING} cursor-not-allowed bg-brand font-medium text-white opacity-60`}
                           >
-                            Sign up
+                            {t('signUp')}
                           </button>
                         ) : mode === 'showcase' ? (
                           <span className={`${ACTION_SIZING} bg-brand font-medium text-white`}>
-                            Sign up
+                            {t('signUp')}
                           </span>
                         ) : (
                           <CommitDialog

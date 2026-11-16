@@ -21,6 +21,10 @@ const TRANSLATED_FILES = [
   'src/components/site-footer.tsx',
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
+  'src/app/s/[slug]/page.tsx',
+  'src/app/s/[slug]/signup-view.tsx',
+  'src/app/s/[slug]/state-message.tsx',
+  'src/app/s/[slug]/organizer-strip.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -103,10 +107,12 @@ const TEXT_PROPS = [
   'body',
   'eyebrow',
   'description',
+  'detail',
   'closeLabel',
   'dismissLabel',
   'ariaLabel',
   'loadingLabel',
+  'slotTitle',
 ];
 
 /** Hard-coded text, as JSX children. */
@@ -143,6 +149,8 @@ const ALLOWED = [
   ['a prop without letters', '<span title={`${name} · ${label}`} />'],
   // It names the element that labels this one, so it's an id, not text.
   ['a prop that points at a label', '<input aria-labelledby="name-label" />'],
+  ['translated text in an object', "<Example action={{ label: t('help'), href: '/help' }} />"],
+  ['strings nobody reads in an object', "<Example style={{ display: 'flex' }} />"],
   [
     'a string that only picks a branch',
     "<button aria-label={label === 'x' ? t('help') : t('label')} />",
@@ -168,6 +176,13 @@ describe('hard-coded text in translated files', () => {
     for (const problem of problems) expect(problem).toMatch(/^opensignup\/no-literal-text-props: /);
   });
 
+  it('fails a text key in an object passed as a prop, naming both', async () => {
+    expect(await lint("<Example action={{ label: 'Open', href: '/help' }} />")).toEqual([
+      "opensignup/no-literal-text-props: action.label is text people read or hear, so it comes from the message catalog: pass t('…'), not a string.",
+    ]);
+    expect(await lint("<Example action={{ 'label': open ? 'Open' : 'Shut' }} />")).toHaveLength(2);
+  });
+
   it.each(TEXT_PROPS)('fails %s with a string', async (prop) => {
     expect(await lint(`<Example ${prop}="Your name" name="" open />`)).toEqual([
       `opensignup/no-literal-text-props: ${prop} is text people read or hear, so it comes from the message catalog: pass t('…'), not a string.`,
@@ -187,6 +202,18 @@ describe('where the rules apply', () => {
 
   it.each(TRANSLATED_FILES)('are on for %s', async (file) => {
     expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toHaveLength(2);
+  });
+
+  // Listed file by file, so the parts of the folder whose text hasn't moved
+  // yet stay out.
+  it.each([
+    'src/app/s/[slug]/commit-dialog.tsx',
+    'src/app/s/[slug]/participant-fields.tsx',
+    'src/app/s/[slug]/not-found.tsx',
+    'src/app/s/[slug]/c/[id]/page.tsx',
+    'src/app/s/[slug]/unsubscribe/page.tsx',
+  ])('are off for %s, which is still to move', async (file) => {
+    expect(await lint('<p>Sign up</p><button aria-label="Close" />', file)).toEqual([]);
   });
 
   // A test's English fixtures are what it checks. A file listed on its own
