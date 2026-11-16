@@ -10,13 +10,8 @@ import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import { ACTION_SIZING } from './slot-format';
-import { toSignupViewSlots } from './public-signup';
-import {
-  SignupViewBody,
-  toSignupViewSignup,
-  type SignupViewField,
-  type SignupViewSlot,
-} from './signup-view';
+import { toSignupViewSignup, toSignupViewSlots } from './public-signup';
+import { SignupViewBody, type SignupViewField, type SignupViewSlot } from './signup-view';
 
 // Only the 'live' tests mount the real CommitDialog, which calls useRouter().
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
