@@ -2,18 +2,28 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { Spinner } from '@/components/ui/spinner';
+import type { CodeFormText, LoginFormText } from './login-text';
 import { SessionWatcher } from './session-watcher';
 
-type LoginErrorReason = 'invalid_email' | 'send_failed' | 'rate_limited';
+export type LoginErrorReason = 'invalid_email' | 'send_failed' | 'rate_limited';
 export type LoginActionResult =
   | { ok: true; email: string }
   | { ok: false; reason: LoginErrorReason };
-export type CodeActionResult = { ok: true; url: string } | { ok: false; message: string };
+
+/**
+ * Why a code didn't sign in: no address to check it against (the form lost
+ * it, so a new link is needed), too many tries, a code past its time, a code
+ * that isn't right (`codeRefusal`), or, said by the form itself, a request
+ * that didn't come back.
+ */
+export type CodeErrorReason = 'no_email' | 'rate_limited' | 'expired' | 'wrong' | 'failed';
+export type CodeActionResult = { ok: true; url: string } | { ok: false; reason: CodeErrorReason };
 
 type Props = {
   action: (formData: FormData) => Promise<LoginActionResult>;
   redeem: (formData: FormData) => Promise<CodeActionResult>;
   callbackUrl: string;
+  text: LoginFormText;
 };
 
 /** What the last request came to: nothing yet, a link sent, or why not. */
@@ -27,7 +37,7 @@ type FormState = 'idle' | 'loading' | 'success' | 'error';
 
 const MIN_LOADING_MS = 500;
 
-export function LoginForm({ action, redeem, callbackUrl }: Props) {
+export function LoginForm({ action, redeem, callbackUrl, text }: Props) {
   const [view, setView] = useState<View>({ kind: 'idle' });
   const [pending, startTransition] = useTransition();
   // Controlled, because React resets an uncontrolled field once a form action
@@ -87,7 +97,7 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
     <>
       <form action={handleSubmit} className="space-y-4" noValidate>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium">Email</span>
+          <span className="mb-1 block text-sm font-medium">{text.email}</span>
           <input
             ref={inputRef}
             type="email"
@@ -104,7 +114,7 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
             inputMode="email"
             disabled={inert}
             className="w-full rounded-lg border border-surface-sunk bg-white px-4 py-3 text-base shadow-sm transition focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand disabled:bg-white disabled:opacity-100"
-            placeholder="you@example.com"
+            placeholder={text.emailPlaceholder}
           />
         </label>
         <button
@@ -114,13 +124,13 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
           data-state={state}
           className={`relative w-full rounded-lg px-5 py-3 font-medium text-white transition-colors duration-180 ease-emphasized ${buttonBg} ${buttonHover} ${buttonLoading} ${buttonLocked}`}
         >
-          <ButtonLabel state={state} />
+          <ButtonLabel state={state} text={text} />
         </button>
-        <HelperText state={state} view={view} onReset={reset} />
+        <HelperText state={state} view={view} onReset={reset} text={text} />
       </form>
       {state === 'success' && view.kind === 'success' ? (
         <>
-          <CodeForm email={view.email} redeem={redeem} />
+          <CodeForm email={view.email} redeem={redeem} text={text.code} />
           <SessionWatcher callbackUrl={callbackUrl} />
         </>
       ) : null}
@@ -137,9 +147,11 @@ export function LoginForm({ action, redeem, callbackUrl }: Props) {
 function CodeForm({
   email,
   redeem,
+  text,
 }: {
   email: string;
   redeem: (formData: FormData) => Promise<CodeActionResult>;
+  text: CodeFormText;
 }) {
   const [message, setMessage] = useState<string | null>(null);
   // Controlled for the same reason as the email box: left to React's reset, a
@@ -153,14 +165,14 @@ function CodeForm({
       try {
         result = await redeem(formData);
       } catch {
-        result = { ok: false, message: 'Something went wrong. Try again.' };
+        result = { ok: false, reason: 'failed' };
       }
       if (result.ok) {
         // A full navigation, so the sign-in cookie set on the way lands here.
         window.location.assign(result.url);
         return;
       }
-      setMessage(result.message);
+      setMessage(text.errors[result.reason]);
     });
   };
   return (
@@ -170,10 +182,8 @@ function CodeForm({
     >
       <input type="hidden" name="email" value={email} />
       <label className="block">
-        <span className="mb-1 block text-sm font-medium">Opened the email on another device?</span>
-        <span className="mb-2 block text-sm text-ink-muted">
-          Type the six-digit code from the email to sign in here instead.
-        </span>
+        <span className="mb-1 block text-sm font-medium">{text.label}</span>
+        <span className="mb-2 block text-sm text-ink-muted">{text.hint}</span>
         <input
           name="code"
           value={code}
@@ -199,18 +209,18 @@ function CodeForm({
         aria-busy={pending}
         className="w-full rounded-lg border border-surface-sunk bg-white px-5 py-2.5 font-medium text-ink transition-colors hover:bg-surface-raised disabled:opacity-60"
       >
-        {pending ? 'Checking…' : 'Sign in with code'}
+        {pending ? text.checking : text.submit}
       </button>
     </form>
   );
 }
 
-function ButtonLabel({ state }: { state: FormState }) {
+function ButtonLabel({ state, text }: { state: FormState; text: LoginFormText }) {
   if (state === 'loading') {
     return (
       <span className="inline-flex items-center justify-center gap-2">
         <Spinner />
-        <span>Sending…</span>
+        <span>{text.sending}</span>
       </span>
     );
   }
@@ -218,11 +228,11 @@ function ButtonLabel({ state }: { state: FormState }) {
     return (
       <span className="inline-flex items-center justify-center gap-2">
         <CheckIcon />
-        <span>Sent — check your email</span>
+        <span>{text.sent}</span>
       </span>
     );
   }
-  return <span>Send magic link</span>;
+  return <span>{text.send}</span>;
 }
 
 function CheckIcon() {
@@ -253,18 +263,10 @@ type HelperProps = {
   state: FormState;
   view: View;
   onReset: () => void;
+  text: LoginFormText;
 };
 
-const ERROR_MESSAGES: Record<LoginErrorReason, string> = {
-  invalid_email: 'That doesn’t look like a valid email address.',
-  send_failed: 'Couldn’t send. Please try again.',
-  // Both limits count in fixed windows of an hour (src/lib/rate-limit.ts),
-  // and the one per IP can trip before any link went to this address.
-  rate_limited:
-    'Too many sign-in requests. Wait up to an hour. If we already emailed you a link, you can use that.',
-};
-
-function HelperText({ state, view, onReset }: HelperProps) {
+function HelperText({ state, view, onReset, text }: HelperProps) {
   return (
     <p
       role={state === 'error' ? 'alert' : undefined}
@@ -275,20 +277,21 @@ function HelperText({ state, view, onReset }: HelperProps) {
     >
       {state === 'success' && view.kind === 'success' && (
         <>
-          Link sent to <strong className="font-medium text-ink">{view.email}</strong>. Check your
-          inbox.{' '}
+          {text.sentTo.before}
+          <strong className="font-medium text-ink">{view.email}</strong>
+          {text.sentTo.after}{' '}
           <button
             type="button"
             onClick={onReset}
             className="text-brand underline-offset-2 hover:underline"
           >
-            Send again
+            {text.sendAgain}
           </button>
         </>
       )}
       {state === 'error' && view.kind === 'error' && (
         <>
-          {ERROR_MESSAGES[view.reason]}
+          {text.errors[view.reason]}
           {/* No quick retry once rate-limited: each request is charged to
               the IP first, and on a shared IP that allowance is everyone's. */}
           {view.reason !== 'rate_limited' && (
@@ -299,7 +302,7 @@ function HelperText({ state, view, onReset }: HelperProps) {
                 onClick={onReset}
                 className="underline-offset-2 hover:underline"
               >
-                Try again
+                {text.tryAgain}
               </button>
             </>
           )}

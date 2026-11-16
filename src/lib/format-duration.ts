@@ -7,7 +7,7 @@ type Unit = 'minute' | 'hour' | 'day';
  * English keeps "1000 days" as it always has.
  *
  * `locale` defaults to English rather than being required, because some
- * callers are sign-in and OAuth code (the login check page, the OAuth handler,
+ * callers are sign-in and OAuth code (the sign-in email, the OAuth handler,
  * the consent route) that gets the reader's language when its own text does.
  */
 

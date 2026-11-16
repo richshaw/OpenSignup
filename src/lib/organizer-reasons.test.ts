@@ -47,9 +47,14 @@ const PARTICIPANT_REASONS = [
  * connector's `delete_slot` meets it.
  */
 const API_ONLY_REASONS = ['slot_has_signups'] as const satisfies readonly ErrorReason[];
+/**
+ * Reasons the sign-in pages word (`auth.login.code`), before anyone is signed
+ * in, in the site's language: the login-code box's refusals (#948).
+ */
+type SignInReason = Extract<ErrorReason, 'code_malformed' | 'code_invalid' | 'code_expired'>;
 type OrganizerReason = Exclude<
   ErrorReason,
-  (typeof PARTICIPANT_REASONS)[number] | (typeof API_ONLY_REASONS)[number]
+  (typeof PARTICIPANT_REASONS)[number] | (typeof API_ONLY_REASONS)[number] | SignInReason
 >;
 
 /** The header's refusals, in English. */

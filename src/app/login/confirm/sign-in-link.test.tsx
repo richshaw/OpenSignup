@@ -3,12 +3,17 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { SignInLink } from './sign-in-link';
 
 const href = 'http://localhost:3000/api/auth/callback/nodemailer?token=not-a-real-token';
 
+// The confirm page's words for it, from the catalog's English.
+const t = getTestTranslator('auth.confirm');
+const text = { signIn: t('signIn'), signingIn: t('signingIn') };
+
 function renderLink() {
-  render(<SignInLink href={href} />);
+  render(<SignInLink href={href} text={text} />);
   return screen.getByRole('link');
 }
 

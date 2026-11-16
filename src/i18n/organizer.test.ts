@@ -6,7 +6,8 @@ import { ship } from './testing/ship';
 const env = vi.hoisted(() => ({ DEFAULT_LOCALE: undefined as string | undefined }));
 vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 
-const { getOrganizerAppLocale, getOrganizerLocale, newSignupLocale } = await import('./organizer');
+const { getOrganizerAppLocale, getOrganizerLocale, newSignupLocale, signInLocale } =
+  await import('./organizer');
 
 /** Every language with a catalog besides English, each tried in turn. */
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
@@ -42,6 +43,37 @@ describe.each(OTHER_LANGUAGES)('getOrganizerAppLocale, with %s', (other) => {
     expect(newSignupLocale({ locale: other })).toBeNull();
     env.DEFAULT_LOCALE = other;
     expect(getOrganizerAppLocale({ locale: null })).toBe('en');
+  });
+});
+
+describe.each(OTHER_LANGUAGES)('signInLocale, with %s', (other) => {
+  it('is English while only English has shipped to organizers, whatever the instance sets', () => {
+    expect(signInLocale()).toBe('en');
+    env.DEFAULT_LOCALE = other;
+    expect(signInLocale()).toBe('en');
+  });
+
+  it('is the instance’s DEFAULT_LOCALE once that has shipped to organizers, else English', () => {
+    ship('organizer', ['en', other]);
+    expect(signInLocale()).toBe('en');
+    env.DEFAULT_LOCALE = other;
+    expect(signInLocale()).toBe(other);
+    env.DEFAULT_LOCALE = 'en';
+    expect(signInLocale()).toBe('en');
+  });
+
+  it('asks the organizers’ list, not the participants’', () => {
+    ship('participant', ['en', other]);
+    env.DEFAULT_LOCALE = other;
+    expect(signInLocale()).toBe('en');
+  });
+
+  // The e2e run's list only keeps a language stored on a row, and nobody
+  // signing in has one yet.
+  it('is not changed by the e2e run’s unshipped languages', () => {
+    vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
+    env.DEFAULT_LOCALE = other;
+    expect(signInLocale()).toBe('en');
   });
 });
 

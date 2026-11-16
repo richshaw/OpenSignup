@@ -61,6 +61,9 @@ const TRANSLATED = [
   // The share panel, its QR code and the public link's chip.
   'src/components/share',
   'src/components/PublicLinkChip.tsx',
+  // The sign-in pages: the form and its code box, the provider buttons, and
+  // the check-your-email and confirm pages.
+  'src/app/login',
 ];
 
 /**

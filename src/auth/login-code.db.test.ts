@@ -48,6 +48,59 @@ describe('login codes', () => {
     if (!expired.ok) expect(expired.error.code).toBe('already_consumed');
   });
 
+  // The sign-in page words each refusal from its reason (src/app/login/code-refusal.ts),
+  // and the English message stays for anyone reading the error itself.
+  it('names each refusal’s case in details.reason, with its English message', async () => {
+    const reasonOf = async (email: string, code: string) => {
+      const result = await redeemLoginCode(db, { email, code });
+      return result.ok
+        ? null
+        : {
+            code: result.error.code,
+            reason: result.error.details?.reason,
+            message: result.error.message,
+          };
+    };
+    expect(await reasonOf(EMAIL, '12345')).toEqual({
+      code: 'invalid_input',
+      reason: 'code_malformed',
+      message: 'enter the six-digit code from the email',
+    });
+
+    const { code } = await issueLoginCode(db, {
+      email: EMAIL,
+      callbackUrl: URL_,
+      expiresAt: later(),
+    });
+    const wrong = String((Number(code) + 1) % 1_000_000).padStart(6, '0');
+    const invalid = {
+      code: 'invalid_input',
+      reason: 'code_invalid',
+      message: 'that code is not valid',
+    };
+    expect(await reasonOf(EMAIL, wrong)).toEqual(invalid);
+    expect(await reasonOf('other@example.com', code)).toEqual(invalid);
+
+    await db
+      .update(magicLinks)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(magicLinks.email, EMAIL));
+    expect(await reasonOf(EMAIL, code)).toEqual({
+      code: 'already_consumed',
+      reason: 'code_expired',
+      message: 'that code has expired — request a new link',
+    });
+
+    // Used once: the same code again is no longer live.
+    const { code: next } = await issueLoginCode(db, {
+      email: EMAIL,
+      callbackUrl: URL_,
+      expiresAt: later(),
+    });
+    expect((await redeemLoginCode(db, { email: EMAIL, code: next })).ok).toBe(true);
+    expect(await reasonOf(EMAIL, next)).toEqual(invalid);
+  });
+
   it('a newer code retires the previous one for the same email', async () => {
     const { code: first } = await issueLoginCode(db, {
       email: EMAIL,

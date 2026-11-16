@@ -99,6 +99,13 @@ const TRANSLATED_FILES = [
   'src/components/share/ShareUnavailable.tsx',
   'src/components/share/share-heading.tsx',
   'src/components/PublicLinkChip.tsx',
+  'src/app/login/page.tsx',
+  'src/app/login/login-form.tsx',
+  'src/app/login/oauth-buttons.tsx',
+  'src/app/login/session-watcher.tsx',
+  'src/app/login/check/page.tsx',
+  'src/app/login/confirm/page.tsx',
+  'src/app/login/confirm/sign-in-link.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */

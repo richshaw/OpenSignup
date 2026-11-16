@@ -1,5 +1,6 @@
 /**
- * An organizer's language, for server code that has their session. It reads
+ * An organizer's language, for server code that has their session, and the
+ * language of the pages before sign-in, for one who isn't signed in yet. It reads
  * the instance's `DEFAULT_LOCALE` through server.ts, so it's server-only, but
  * it needs nothing from Next: the language comes from what's stored on the
  * organizer's account, never from the request, so a page, a server action and
@@ -7,7 +8,13 @@
  * reminder worker imports, keeps nothing about organizers.
  */
 import type { OrganizerSession } from '@/auth/organizer-session';
-import { type Audience, type CatalogLocale, SHIPPED, organizerAppLocale } from './config';
+import {
+  type Audience,
+  type CatalogLocale,
+  SHIPPED,
+  defaultFor,
+  organizerAppLocale,
+} from './config';
 import { chooseOrganizerLocale } from './organizer-locale';
 import { instanceDefaultLocale } from './server';
 
@@ -30,6 +37,19 @@ export function getOrganizerAppLocale(
   session: Pick<OrganizerSession, 'locale'> | null,
 ): CatalogLocale {
   return organizerAppLocale(session?.locale ?? null, instanceDefaultLocale());
+}
+
+/**
+ * The language of the pages before sign-in: /login, the check-your-email
+ * page and the confirm page an emailed link opens. Nobody is signed in there,
+ * so there's no stored language to read, and nothing is worked out from the
+ * request (no header, no cookie): it's the instance's `DEFAULT_LOCALE` once
+ * that has shipped to organizers, else English (`defaultFor`), the language
+ * an account with none stored gets. The e2e run's unshipped languages don't
+ * change it, since they only keep a language already stored on a row.
+ */
+export function signInLocale(): CatalogLocale {
+  return defaultFor('organizer', instanceDefaultLocale());
 }
 
 /**
