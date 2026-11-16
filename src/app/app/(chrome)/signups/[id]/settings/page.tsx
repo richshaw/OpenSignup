@@ -10,7 +10,7 @@ import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { FormError } from '@/components/ui/form-error';
-import { setRequireEmailAction, setSignupLocaleAction } from '../actions';
+import { saveSignupSettingsAction } from '../actions';
 import { DeleteSignupForm } from './delete-signup-form';
 
 type PageParams = {
@@ -44,32 +44,39 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   // Reminders are configured on the date field itself, in the Build tab's
   // field editor. This tab keeps what has no better home: whether the sign-up
   // form asks for an email, the signup's language once there's a choice, and
-  // deletion. Each form's own `saved` value says which one shows "Saved".
+  // deletion. The first two are one form with one Save (#899's tophat: with a
+  // Save on each card, saving one dropped an unsaved change in the other
+  // without a word).
+  const current = signupLanguage(sig.settings.locale);
   return (
     <section className="max-w-2xl space-y-6">
       {refusal ? <FormError>{refusal}</FormError> : null}
-      <section
-        aria-labelledby="signup-form-heading"
-        className="space-y-3 rounded-xl border border-surface-sunk bg-white p-6"
+      {/* A plain form, so this tab adds no script of its own. Keyed on the
+          stored values, so after a save the choices shown are the saved ones.
+          Gap, not space-y: the server's render starts the form with React's
+          hidden action inputs and a client render doesn't, so sibling margins
+          moved the first section 4px after a save. Each choice also sends the
+          value it was shown with, so Save sends only what changed
+          (`saveSignupSettingsAction`). */}
+      <form
+        key={`${requireEmail}-${current ?? ''}`}
+        action={saveSignupSettingsAction.bind(null, id)}
+        className="flex flex-col gap-4 rounded-xl border border-surface-sunk bg-white p-6"
       >
-        <h2 id="signup-form-heading" className="text-sm font-semibold">
-          {t('signupForm.title')}
-        </h2>
-        {/* A plain form, so this tab adds no script of its own. Keyed on the
-            stored value, so after a save the choice shown is the saved one.
-            Gap, not space-y: the server's render starts the form with React's
-            hidden action inputs and a client render doesn't, so sibling margins
-            moved the fieldset 4px after a save. */}
-        <form
-          key={String(requireEmail)}
-          action={setRequireEmailAction.bind(null, id)}
-          className="flex flex-col gap-4"
-        >
+        <section aria-labelledby="signup-form-heading" className="space-y-3">
+          <h2 id="signup-form-heading" className="text-sm font-semibold">
+            {t('signupForm.title')}
+          </h2>
           {/* Each choice has its own line, and CSS shows the one picked, so it
               follows the radio before a save with no script. A screen reader
               hears each line with its own radio. */}
           <fieldset className="group">
             <legend className="text-sm font-medium">{t('signupForm.askForEmail')}</legend>
+            <input
+              type="hidden"
+              name="requireEmailShown"
+              value={requireEmail ? 'required' : 'optional'}
+            />
             <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
@@ -108,32 +115,27 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
               {t('signupForm.optionalHelp')}
             </p>
           </fieldset>
-          <div className="flex flex-wrap items-center gap-3">
-            <AsyncSubmitButton
-              loadingLabel={t('saving')}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90"
-            >
-              {t('save')}
-            </AsyncSubmitButton>
-            {saved === '1' ? <SavedNotice role="status">{savedText}</SavedNotice> : null}
-          </div>
-        </form>
-      </section>
-      <SignupLanguageForm
-        signupId={id}
-        stored={sig.settings.locale}
-        saved={saved === 'language' ? savedText : null}
-        t={t}
-      />
+        </section>
+        {current ? <SignupLanguageSection current={current} t={t} /> : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <AsyncSubmitButton
+            loadingLabel={t('saving')}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90"
+          >
+            {t('save')}
+          </AsyncSubmitButton>
+          {saved === '1' ? <SavedNotice role="status">{savedText}</SavedNotice> : null}
+        </div>
+      </form>
       <section
-        aria-labelledby="danger-zone-heading"
+        aria-labelledby="delete-signup-heading"
         className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"
       >
         <div>
-          <h2 id="danger-zone-heading" className="text-sm font-semibold text-danger">
-            {t('dangerZone.title')}
+          <h2 id="delete-signup-heading" className="text-sm font-semibold text-danger">
+            {t('delete.title')}
           </h2>
-          <p className="mt-1 text-sm text-ink-muted">{t('dangerZone.body')}</p>
+          <p className="mt-1 text-sm text-ink-muted">{t('delete.body')}</p>
         </div>
         {/* A client component, so it takes its words as props and the page
             sends no messages to the browser. */}
@@ -154,82 +156,62 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
 }
 
 /**
- * The Settings tab's "Signup language": the language the signup's page and
- * emails use. With one language shipped to participants there's nothing to
- * choose, so it renders nothing until a second one ships. A plain form like
- * "Ask for an email address", so it adds no script. Each language is named in
- * itself (English, Svenska), so the organizer finds theirs whatever language
- * the rest of the tab is in; its own words are in the organizer's (`t`).
- *
- * Kept in this file: in one of its own, a second server import of
- * AsyncSubmitButton added a few bytes to that button's module on every page
- * that loads it.
+ * The language the Settings tab shows as the signup's: the one its pages use
+ * (`localeOfSignup`), so a signup with no language of its own, or one that has
+ * since left the list, shows the instance's, and the choice shown is always
+ * one that saves. None while one language has shipped to participants:
+ * there's nothing to choose, so the tab has no "Signup language".
  */
-function SignupLanguageForm({
-  signupId,
-  stored,
-  saved,
+function signupLanguage(stored: unknown): CatalogLocale | null {
+  return SHIPPED.participant.length < 2 ? null : localeOfSignup(stored);
+}
+
+/**
+ * The Settings tab's "Signup language": the language the signup's page and
+ * emails use, a section of the tab's one form, saved by its Save. Each
+ * language is named in itself (English, Svenska), so the organizer finds
+ * theirs whatever language the rest of the tab is in; its own words are in
+ * the organizer's (`t`).
+ */
+function SignupLanguageSection({
+  current,
   t,
 }: {
-  signupId: string;
-  /** The signup's `settings.locale` as stored, which may be anything. */
-  stored: unknown;
-  /** "Saved" in the organizer's language when this form just saved, else null. */
-  saved: string | null;
+  /** The language shown as chosen (`signupLanguage`). */
+  current: CatalogLocale;
   t: Translator<'organizer.signupSettings'>;
 }) {
   const languages: readonly CatalogLocale[] = SHIPPED.participant;
-  if (languages.length < 2) return null;
-  // A signup with no language of its own is in the instance's. One whose
-  // language has since left the list shows that too, so the choice shown is
-  // always one that saves, and is the language its pages use (`localeOfSignup`).
-  const current = localeOfSignup(stored);
-
   return (
     <section
       aria-labelledby="signup-language-heading"
-      className="space-y-3 rounded-xl border border-surface-sunk bg-white p-6"
+      className="space-y-3 border-t border-surface-sunk pt-4"
     >
       <h2 id="signup-language-heading" className="text-sm font-semibold">
         {t('language.title')}
       </h2>
-      {/* Keyed on the stored choice, so after a save the one shown is the saved one. */}
-      <form
-        key={current}
-        action={setSignupLocaleAction.bind(null, signupId)}
-        className="flex flex-col gap-4"
-      >
-        <fieldset>
-          <legend className="text-sm font-medium">{t('language.legend')}</legend>
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-            {languages.map((locale) => (
-              <label key={locale} className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="locale"
-                  value={locale}
-                  defaultChecked={locale === current}
-                  aria-describedby="signup-language-help"
-                  className="h-4 w-4 accent-brand"
-                />
-                <span lang={locale}>{languageName(locale)}</span>
-              </label>
-            ))}
-          </div>
-          <p id="signup-language-help" className="mt-2 text-sm text-ink-muted">
-            {t('language.help')}
-          </p>
-        </fieldset>
-        <div className="flex flex-wrap items-center gap-3">
-          <AsyncSubmitButton
-            loadingLabel={t('saving')}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:brightness-90"
-          >
-            {t('save')}
-          </AsyncSubmitButton>
-          {saved ? <SavedNotice role="status">{saved}</SavedNotice> : null}
+      <fieldset>
+        <legend className="text-sm font-medium">{t('language.legend')}</legend>
+        <input type="hidden" name="localeShown" value={current} />
+        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+          {languages.map((locale) => (
+            <label key={locale} className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="locale"
+                value={locale}
+                defaultChecked={locale === current}
+                aria-describedby="signup-language-help"
+                className="h-4 w-4 accent-brand"
+              />
+              <span lang={locale}>{languageName(locale)}</span>
+            </label>
+          ))}
         </div>
-      </form>
+        <p id="signup-language-help" className="mt-2 text-sm text-ink-muted">
+          {t('language.help')}
+        </p>
+      </fieldset>
     </section>
   );
 }

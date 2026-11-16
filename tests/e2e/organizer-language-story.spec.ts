@@ -48,8 +48,8 @@ for (const locale of CATALOG_LOCALES.filter((other) => other !== 'en')) {
       await page
         .getByRole('button', { name: messagesIn('en', 'organizer.settings')('language.save') })
         .click();
-      const settings = messagesIn(locale, 'organizer.settings');
-      await expect(page.getByRole('status')).toHaveText(settings('language.saved'));
+      const saveNotice = messagesIn(locale, 'organizer.saveNotice');
+      await expect(page.getByRole('status')).toHaveText(saveNotice('saved'));
     }
 
     // Your signups.

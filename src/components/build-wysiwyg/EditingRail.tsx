@@ -22,7 +22,9 @@ export function EditingRail({
   return (
     <div className="sticky top-0 z-20 flex items-center justify-between gap-2.5 rounded-t-xl border-b border-surface-sunk bg-white/95 px-4 py-2.5 backdrop-blur">
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em] text-brand">
+        {/* The darker blue: the brand's own is 3.7:1 on its tint, under AA's
+            4.5:1 for text this small. */}
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.06em] text-brand-hover">
           <Pencil size={10} />
           {t('editing')}
         </span>

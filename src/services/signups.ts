@@ -479,7 +479,7 @@ export async function openSignupsToSwitch(
 
 /**
  * Puts the acting organizer's open signups in `locale` (#639): account
- * Settings' "Switch your 3 open signups to Svenska". Which signups count is
+ * Settings' "Switch them to Svenska". Which signups count is
  * `ownOpenSignups`'s to say. One whose participants already get `locale`
  * (`localeOfSignup`) is left as it is, as is one with no language of its own
  * that reads as `locale` through the instance's. One whose language was chosen

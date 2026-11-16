@@ -7,6 +7,7 @@ import {
   isShipped,
   langWhereDifferent,
   languageName,
+  languageNameInSentence,
   openGraphLocale,
   resolveLocale,
 } from './config';
@@ -233,4 +234,30 @@ describe('languageName', () => {
     // CLDR has "engelska".
     expect(languageName('en', 'sv')).toBe('Engelska');
   });
+
+  it('starts every catalog language’s name with a capital, for a list', () => {
+    for (const locale of CATALOG_LOCALES) expect(languageName(locale)).toMatch(/^\p{Lu}/u);
+  });
+});
+
+describe('languageNameInSentence', () => {
+  /**
+   * Each catalog language's name, in itself, inside a sentence in each
+   * catalog language: `name[sentence][language]`. A new catalog language
+   * needs a row and a column here, which the type asks for.
+   */
+  const inSentence: Record<CatalogLocale, Record<CatalogLocale, string>> = {
+    // English capitalizes a language's name in a sentence, as in a list.
+    en: { en: 'English', sv: 'Svenska' },
+    // Swedish writes language names in lower case in a sentence ("byt till
+    // svenska"), and keeps English's own capital.
+    sv: { en: 'English', sv: 'svenska' },
+  };
+
+  it.each(CATALOG_LOCALES.flatMap((sentence) => CATALOG_LOCALES.map((name) => [name, sentence])))(
+    'writes %s inside a sentence in %s as that language does',
+    (name, sentence) => {
+      expect(languageNameInSentence(name, sentence)).toBe(inSentence[sentence][name]);
+    },
+  );
 });

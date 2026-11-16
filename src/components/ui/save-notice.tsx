@@ -6,9 +6,9 @@ import { Check } from 'lucide-react';
  * the Settings tab's forms and account Settings' language. It has no hooks,
  * so a server page can show it without adding script. Its text is the
  * caller's, in the organizer's language: "Saved" (`organizer.saveNotice`),
- * or a longer line in the same style, such as account Settings' "Saved. Your
- * 3 open signups now use Svenska." Pass `role="status"` where it appears
- * after a save on its own.
+ * or a longer line in the same style, such as account Settings' "Saved. 3 of
+ * your signups are open, and they're all in Svenska now." Pass
+ * `role="status"` where it appears after a save on its own.
  */
 export function SavedNotice({ role, children }: { role?: 'status'; children: ReactNode }) {
   return (

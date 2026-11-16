@@ -15,6 +15,7 @@ import { getProvider } from '@/oauth/instance';
 import { SCOPE_MESSAGES } from '@/oauth/scopes';
 import { DisconnectButton } from './disconnect-button';
 import { formatGrantDate } from './grant-date';
+import { connectedAppsLines } from './refusal-lines';
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = localeOfOrganizer(await getOrganizerSession());
@@ -41,7 +42,7 @@ export default async function ConnectedAppsPage({
   const describe = getServerTranslator(locale, 'auth.scopes');
   const lifetime = accessTokenLifetime(locale);
   const errors = getServerTranslator(locale, 'organizer.errors');
-  const refusal = refusalFromQuery(errors, error, { internal: errors('disconnectFailed') });
+  const refusal = refusalFromQuery(errors, error, connectedAppsLines(errors));
 
   async function disconnect(formData: FormData) {
     'use server';

@@ -22,12 +22,7 @@ import { getEmailTransport } from '@/email';
 import { loadCommitmentRow } from '@/email/commitment-row';
 import { confirmationFor } from '@/email/notify';
 import { sendCommitmentConfirmation } from '@/email/send';
-
-/**
- * What starts the printed line, so a log line beside it isn't read as the
- * email. tests/e2e/helpers/confirmation-email.ts looks for it.
- */
-const EMAIL_LINE = 'confirmation-email ';
+import { EMAIL_LINE } from './lib/confirmation-email-line';
 
 async function main(): Promise<void> {
   const [commitmentId, editToken] = process.argv.slice(2);
