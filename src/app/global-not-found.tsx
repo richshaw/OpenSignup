@@ -14,7 +14,7 @@ export const viewport = rootViewport;
 
 /**
  * What an address no page matches gets, with a 404 (`globalNotFound` in
- * next.config.mjs). With three root layouts and none above them, nothing else
+ * next.config.mjs). With several root layouts and none above them, nothing else
  * could give it a `<html lang>`. It renders outside every layout, so it brings
  * its own shell, and it's prerendered. A `notFound()` from a page renders the
  * nearest not-found page instead, inside the page's own root layout: a
