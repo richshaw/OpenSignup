@@ -31,7 +31,7 @@ describe('cookies page', () => {
     expect(rowFor('authjs.session-token')[2]).toBe(`${days} days from when you sign in`);
 
     // The page reads the constant; this pins that the config does too.
-    const config = readFileSync(path.resolve(__dirname, '../../../auth/config.ts'), 'utf8');
+    const config = readFileSync(path.resolve(__dirname, '../../../../auth/config.ts'), 'utf8');
     expect(config).toMatch(/session:\s*\{[^}]*maxAge:\s*SESSION_MAX_AGE_SECONDS/);
   });
 

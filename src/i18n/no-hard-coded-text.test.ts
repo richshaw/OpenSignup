@@ -22,9 +22,9 @@ const TRANSLATED_FILES = [
   'src/components/banner.tsx',
   'src/components/ui/BottomSheet.tsx',
   'src/components/ui/save-notice.tsx',
-  'src/app/app/(chrome)/signups/[id]/settings/page.tsx',
-  'src/app/app/(chrome)/signups/[id]/settings/delete-signup-form.tsx',
-  'src/app/app/(chrome)/signups/[id]/build/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings/delete-signup-form.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/build/page.tsx',
   'src/components/build-wysiwyg/BuildWysiwyg.tsx',
   'src/components/build-wysiwyg/Editable.tsx',
   'src/components/build-wysiwyg/EditingRail.tsx',
@@ -37,8 +37,8 @@ const TRANSLATED_FILES = [
   'src/components/build-wysiwyg/WysiwygSlot.tsx',
   'src/components/build-shared/SaveStatus.tsx',
   'src/components/build-shared/TimeSelect.tsx',
-  'src/app/app/(chrome)/signups/[id]/responses/page.tsx',
-  'src/app/app/(chrome)/signups/[id]/responses/remove-commitment-form.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses/remove-commitment-form.tsx',
   'src/app/s/[slug]/page.tsx',
   'src/app/s/[slug]/signup-view.tsx',
   'src/app/s/[slug]/state-message.tsx',
@@ -56,14 +56,14 @@ const TRANSLATED_FILES = [
   'src/email/templates/layout.tsx',
   'src/email/templates/slot-details.tsx',
   'src/email/templates/magic-link.tsx',
-  'src/app/app/(chrome)/layout.tsx',
-  'src/app/app/(chrome)/page.tsx',
-  'src/app/app/(chrome)/@crumbs/settings/page.tsx',
-  'src/app/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
+  'src/app/(organizer)/app/(chrome)/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
   'src/components/chrome/Crumb.tsx',
   'src/components/signup/SignupLoadError.tsx',
-  'src/app/app/(chrome)/signups/new/page.tsx',
-  'src/app/app/(chrome)/signups/new/NewSignupForm.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/new/page.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/new/NewSignupForm.tsx',
   'src/components/magic-compose/Compose.tsx',
   'src/components/magic-compose/Drafting.tsx',
   'src/components/magic-compose/DraftingFrom.tsx',
@@ -75,10 +75,10 @@ const TRANSLATED_FILES = [
   'src/components/magic-compose/Questions.tsx',
   'src/components/magic-compose/AiDraftBanner.tsx',
   'src/components/magic-compose/AiDraftWarnings.tsx',
-  'src/app/app/(chrome)/settings/page.tsx',
-  'src/app/app/(chrome)/settings/connected-apps/page.tsx',
-  'src/app/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
-  'src/app/app/(chrome)/signups/[id]/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/page.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/connected-apps/page.tsx',
+  'src/app/(organizer)/app/(chrome)/settings/connected-apps/disconnect-button.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/layout.tsx',
   'src/components/signup/SignupHeader.tsx',
   'src/components/signup/HeaderParts.tsx',
   'src/components/signup/MobileSignupHeader.tsx',
@@ -100,15 +100,15 @@ const TRANSLATED_FILES = [
   'src/components/share/ShareUnavailable.tsx',
   'src/components/share/share-heading.tsx',
   'src/components/PublicLinkChip.tsx',
-  'src/app/login/page.tsx',
-  'src/app/login/login-form.tsx',
-  'src/app/login/oauth-buttons.tsx',
-  'src/app/login/session-watcher.tsx',
-  'src/app/login/check/page.tsx',
-  'src/app/login/confirm/page.tsx',
-  'src/app/login/confirm/sign-in-link.tsx',
-  'src/app/oauth/consent/[uid]/page.tsx',
-  'src/app/oauth/consent/[uid]/consent-form.tsx',
+  'src/app/(organizer)/login/page.tsx',
+  'src/app/(organizer)/login/login-form.tsx',
+  'src/app/(organizer)/login/oauth-buttons.tsx',
+  'src/app/(organizer)/login/session-watcher.tsx',
+  'src/app/(organizer)/login/check/page.tsx',
+  'src/app/(organizer)/login/confirm/page.tsx',
+  'src/app/(organizer)/login/confirm/sign-in-link.tsx',
+  'src/app/(organizer)/oauth/consent/[uid]/page.tsx',
+  'src/app/(organizer)/oauth/consent/[uid]/consent-form.tsx',
 ] as const;
 const [TRANSLATED_FILE] = TRANSLATED_FILES;
 /** A file the rules are off for. */
@@ -375,14 +375,14 @@ describe('where the rules apply', () => {
 
   it('matches a listed folder with brackets or parentheses in its name, and nothing else', async () => {
     const filesAt = await loadFilesAt();
-    const files = filesAt(['src/app/s/[slug]', 'src/app/app/(chrome)/']);
+    const files = filesAt(['src/app/s/[slug]', 'src/app/(organizer)/app/(chrome)/']);
     // A glob would read `[slug]` as one of the letters s, l, u and g.
     const isOn = (file: string) => matches(ROOT, files, file);
     expect(await isOn('src/app/s/[slug]/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/[slug]/c/[id]/page.tsx')).toBe(true);
-    expect(await isOn('src/app/app/(chrome)/settings/page.tsx')).toBe(true);
+    expect(await isOn('src/app/(organizer)/app/(chrome)/settings/page.tsx')).toBe(true);
     expect(await isOn('src/app/s/s/page.tsx')).toBe(false);
-    expect(await isOn('src/app/app/c/settings/page.tsx')).toBe(false);
+    expect(await isOn('src/app/(organizer)/app/c/settings/page.tsx')).toBe(false);
   });
 
   // Windows can't put a backslash in a folder's name.

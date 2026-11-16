@@ -291,11 +291,14 @@ describe('the organizer’s own text on the public signup page', () => {
 
 describe('the public signup page’s metadata', () => {
   const robots = { index: false, follow: false };
+  // The page writes the site name into its tab title itself, since it shares
+  // its segment with its root layout and so misses the layout's template.
+  const tabTitle = (title: string) => ({ absolute: `${title} · ${INSTANCE_NAME}` });
 
   it('names an English signup’s language for link previews, and nothing else changes', async () => {
     storeSignup({});
     expect(await generateMetadata(params)).toEqual({
-      title: 'Snack duty',
+      title: tabTitle('Snack duty'),
       description: 'Fruit for the team',
       robots,
       openGraph: {
@@ -317,13 +320,13 @@ describe('the public signup page’s metadata', () => {
 
   it('gives a draft only the plain title, as before', async () => {
     storeSignup({ status: 'draft' });
-    expect(await generateMetadata(params)).toEqual({ title: 'Sign up', robots });
+    expect(await generateMetadata(params)).toEqual({ title: tabTitle('Sign up'), robots });
   });
 
   it('gives a Swedish draft the plain title in Swedish', async () => {
     ship('participant', ['en', 'sv']);
     storeSignup({ status: 'draft', settings: { locale: 'sv' } });
-    expect(await generateMetadata(params)).toEqual({ title: swedish('title'), robots });
+    expect(await generateMetadata(params)).toEqual({ title: tabTitle(swedish('title')), robots });
   });
 
   it('describes a signup with no description of its own in its language', async () => {

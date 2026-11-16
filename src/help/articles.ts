@@ -13,7 +13,7 @@ export interface HelpArticleMeta {
   summary: string;
   /**
    * The page's meta description, for search results and link previews:
-   * between 110 and 160 characters, like the site's own in `src/app/layout.tsx`.
+   * between 110 and 160 characters, like the site's own in `src/app/root-shell.tsx`.
    * `summary` stays short for the list on `/help`.
    */
   description: string;
