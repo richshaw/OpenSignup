@@ -4,10 +4,8 @@ import { expect } from '@playwright/test';
 import { getDb } from '@/db/client';
 import { alreadyRecorded, loadCommitmentRow } from '@/email/commitment-row';
 import type { EmailMessage } from '@/email/transport';
+import { EMAIL_LINE } from '../../../scripts/lib/confirmation-email-line';
 import { UNSHIPPED_LOCALES } from './unshipped-locales';
-
-/** What starts the line scripts/confirmation-email.ts prints the email on. */
-const EMAIL_LINE = 'confirmation-email ';
 
 /**
  * The confirmation email the participant of `commitmentId` got, as the app's
