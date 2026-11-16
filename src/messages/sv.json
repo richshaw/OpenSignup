@@ -367,7 +367,7 @@
         "signedUp": "{taken, plural, one {{taken, number} person är anmäld till det här passet.} other {{taken, number} personer är anmälda till det här passet.}} {reminders, select, on {Om du ändrar datum eller tid får {taken, plural, one {personen} other {de}} ett mejl om det.} other {Påminnelserna är avstängda, så {taken, plural, one {personen} other {de}} får inget mejl om du ändrar datum eller tid.}}",
         "value": "Värde för {field}",
         "spots": "Platser",
-        "noLimit": "Inget tak",
+        "noLimit": "Obegränsat",
         "spotsHelp": "Hur många platser passet har. Lämna tomt för obegränsat antal.",
         "noTime": "Ingen tid"
       },
@@ -584,7 +584,7 @@
         "whatBlank": "Lämnades tomt. Utkastet får platshållare för passen, som du kan fylla i senare.",
         "when": "När",
         "whenBlank": "Inte bestämt. Utkastet får platshållare för datumen, som du kan fylla i senare.",
-        "noLimit": "Inget tak",
+        "noLimit": "Obegränsat",
         "people": "{count, plural, one {{count, number} person} other {{count, number} personer}}",
         "dayAndTimes": "{day} · {times}"
       },
@@ -647,7 +647,7 @@
           "pickFirst": "Välj eller lägg till något ovan först.",
           "fewer": "Färre personer till {item}",
           "people": "Personer till {item}",
-          "noLimit": "Inget tak",
+          "noLimit": "Obegränsat",
           "more": "Fler personer till {item}"
         },
         "problems": {
@@ -660,7 +660,7 @@
       "answers": {
         "what": "Vad: {items}",
         "item": "{item} ({count, number})",
-        "itemNoLimit": "{item} (inget tak)",
+        "itemNoLimit": "{item} (obegränsat)",
         "when": "När: {when}",
         "dayAndTimes": "{day}, {times}",
         "fromTo": "{from}–{to}",
