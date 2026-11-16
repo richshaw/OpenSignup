@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteFooter } from '@/components/site-footer';
-import { buildLandingJsonLd, serializeJsonLd } from '@/lib/seo';
+import { SHARE_IMAGES, buildLandingJsonLd, serializeJsonLd } from '@/lib/seo';
 import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { recordLandingView, trackAfterResponse } from '@/lib/view-tracker';
 import { DemoVideoCta } from './_components/DemoVideoCta';
@@ -9,7 +9,7 @@ import { HomeExampleCard } from './_components/HomeExampleCard';
 import { StartSignupCta } from './_components/StartSignupCta';
 
 const PAGE_TITLE = `${INSTANCE_NAME} — free, ad-free sign-up sheets`;
-// Under 160 characters — see the note on DESCRIPTION in src/app/layout.tsx.
+// Under 160 characters — see the note on DESCRIPTION in src/app/root-shell.tsx.
 const PAGE_DESCRIPTION =
   'Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Ad-free, open-source, and no accounts for participants — just share a link.';
 
@@ -19,7 +19,8 @@ export const metadata: Metadata = {
   description: PAGE_DESCRIPTION,
   alternates: { canonical: '/' },
   // Next merges metadata shallowly: defining `openGraph`/`twitter` here replaces
-  // the root layout's objects wholesale, so re-state type/siteName/locale/card.
+  // the root layout's objects wholesale, so re-state type/siteName/locale/card
+  // and the share image.
   openGraph: {
     type: 'website',
     siteName: INSTANCE_NAME,
@@ -27,11 +28,13 @@ export const metadata: Metadata = {
     url: '/',
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,
+    images: SHARE_IMAGES.openGraph,
   },
   twitter: {
     card: 'summary_large_image',
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,
+    images: SHARE_IMAGES.twitter,
   },
 };
 

@@ -42,8 +42,8 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
  * - `code_malformed` (`invalid_input` on `code`): a sign-in code that isn't
  *   six digits, once spaces and dashes are dropped. This and the next two
  *   come from `redeemLoginCode`, which only the sign-in page's code form
- *   calls (`codeRefusal` in src/app/login/code-refusal.ts), so no API sends
- *   them.
+ *   calls (`codeRefusal` in src/app/(organizer)/login/code-refusal.ts), so
+ *   no API sends them.
  * - `code_invalid` (`invalid_input` on `code`): no live sign-in code matches:
  *   a wrong one, one already used, or one a newer email has replaced.
  * - `code_expired` (`already_consumed`): the sign-in code matched, but its

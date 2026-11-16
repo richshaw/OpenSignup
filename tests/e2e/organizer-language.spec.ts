@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { formatGrantDate } from '@/app/app/(chrome)/settings/connected-apps/grant-date';
+import { formatGrantDate } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/grant-date';
 import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { accessTokenLifetime } from '@/lib/lifetimes';
