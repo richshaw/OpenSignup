@@ -3,8 +3,12 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import type { CatalogLocale } from '@/i18n/config';
+import { getTranslator, messagesFor } from '@/i18n/translator';
 import { WHAT_ITEMS_MAX } from '@/lib/magic-compose/limits';
 import type { MagicComposeQuestions } from '@/lib/magic-compose/questions';
+import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { MagicComposeRoot } from './MagicComposeRoot';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -45,15 +49,32 @@ function stubReplies(...replies: Reply[]) {
   return (call: number) => JSON.parse(String(fetchMock.mock.calls[call]?.[1]?.body)) as unknown;
 }
 
+/** Magic Compose as its page renders it, with its messages in `locale`. */
+function renderRoot(locale: CatalogLocale = 'en') {
+  render(
+    <ClientMessages locale={locale} messages={messagesFor(locale, MAGIC_COMPOSE_NAMESPACES)}>
+      <MagicComposeRoot />
+    </ClientMessages>,
+  );
+}
+
+/** Magic Compose's own words in `locale`. */
+const composeIn = (locale: CatalogLocale) =>
+  getTranslator(locale, 'organizer.compose', {
+    onError: (error) => {
+      throw error;
+    },
+  });
+
 const asks = (questions: MagicComposeQuestions = ASKED): Reply => ({
   status: 200,
   body: { data: { questions } },
 });
 
-async function openQuestions(prompt = 'Bake sale', locale = 'en') {
-  render(<MagicComposeRoot locale={locale} />);
+async function openQuestions(prompt = 'Bake sale', locale: CatalogLocale = 'en') {
+  renderRoot(locale);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: prompt } });
-  fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
+  fireEvent.click(screen.getByRole('button', { name: composeIn(locale)('draft') }));
   return screen.findByRole('heading', { name: 'A few details first' });
 }
 
@@ -118,7 +139,7 @@ function expectEveryAnswerKept() {
 describe('<MagicComposeRoot /> questions', () => {
   it("doesn't promise a draft while the first reply is on its way", async () => {
     stubReplies('hang');
-    render(<MagicComposeRoot locale="en" />);
+    renderRoot();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     expect(
@@ -522,7 +543,7 @@ describe('<MagicComposeRoot /> focus after Back', () => {
         error: { code: 'internal', message: timedOut, details: { llmErrorCode: 'timeout' } },
       },
     });
-    render(<MagicComposeRoot locale="en" />);
+    renderRoot();
     const description = () => screen.getByRole('textbox', { name: 'Describe your signup' });
     expect(description()).not.toHaveFocus();
     fireEvent.change(description(), { target: { value: 'Bake sale' } });
@@ -687,7 +708,9 @@ describe('<MagicComposeRoot /> in another language', () => {
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '09:00' } });
     fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '13:00' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
-    const card = await screen.findByRole('region', { name: 'Drafting from' });
+    const card = await screen.findByRole('region', {
+      name: composeIn('sv')('draftingFrom.label'),
+    });
     expect(
       within(card).getByText(/^lördag 14 november( 2026)? · 09:00 to 13:00$/),
     ).toBeInTheDocument();

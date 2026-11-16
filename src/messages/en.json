@@ -536,6 +536,131 @@
         "notes": "Notes",
         "signedUp": "Signed up"
       }
+    },
+    "newSignup": {
+      "title": "New signup",
+      "intro": "You can add slots after it's created. Nothing is visible until you publish.",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Snack duty — Spring season",
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "One paragraph that shows up at the top of your signup page.",
+      "cancel": "Cancel",
+      "creating": "Creating…",
+      "create": "Create signup"
+    },
+    "compose": {
+      "eyebrow": "New signup",
+      "heading": "What are you organizing?",
+      "intro": "<strong>Say what people sign up for, when, and how many of each.</strong> We'll turn it into a title, blurb, and slots for you to edit.",
+      "describe": "Describe your signup",
+      "placeholder": "e.g. Snack duty for our U9 soccer team. 6 Saturday games starting April 25, two families per game, no nuts please.",
+      "count": "{count, number} / {max, number} characters",
+      "countOver": "{count, number} / {max, number} characters. Shorten it by {over, number} to draft.",
+      "skip": "Skip, fill in by hand",
+      "draft": "Draft my signup",
+      "examples": "Or start from an example",
+      "loaded": "Loaded",
+      "tryThis": "Try this",
+      "starters": {
+        "sports": {
+          "label": "Sports team",
+          "blurb": "Snack, treat, or carpool rosters across a season of games",
+          "body": "Snack duty for our soccer team. We have 6 Saturday games starting next Saturday. Two families bring snacks plus drinks per game. No nuts please."
+        },
+        "classroom": {
+          "label": "Classroom or school",
+          "blurb": "Potlucks, conference signups, supply drives, volunteer days",
+          "body": "End-of-year potluck for our grade 3 class on the last Friday of the month at 5pm. 20 families are each bringing one dish: we need 5 families on mains, 5 on sides, 5 on desserts and 5 on drinks."
+        },
+        "community": {
+          "label": "Community shifts",
+          "blurb": "Volunteer shifts, event setup, or rotating roles",
+          "body": "Volunteers for our spring book fair. Thursday and Friday next week, three 2-hour shifts each day (9 to 11, 11 to 1, 1 to 3). 2 volunteers per shift."
+        }
+      },
+      "tips": {
+        "heading": "Tips for a better draft",
+        "dates": {
+          "title": "Mention dates",
+          "body": "A range like “Saturdays Apr 25 to May 30” lets us generate one slot per date."
+        },
+        "howMany": {
+          "title": "Say how many",
+          "body": "“Two families per game” or “six volunteers per shift”, so we can set capacity."
+        },
+        "gotchas": {
+          "title": "Flag the gotchas",
+          "body": "Allergies, locations, no-shows policy. Anything participants should know."
+        }
+      },
+      "steps": {
+        "label": "Progress",
+        "read": "Reading your description",
+        "title": "Drafting a title",
+        "desc": "Writing a short blurb",
+        "fields": "Choosing fields for each slot",
+        "slots": "Generating slots",
+        "check": "Tidying up",
+        "details": "A few details",
+        "readShort": "Read",
+        "draftShort": "Draft"
+      },
+      "drafting": {
+        "readingTitle": "Reading your description",
+        "readingBody": "You'll get a draft, or a few quick questions if it needs more to go on.",
+        "draftingTitle": "Drafting your signup",
+        "draftingBody": "You'll be able to edit anything once it's ready.",
+        "cancel": "Cancel",
+        "liveReading": "Reading · live",
+        "liveDrafting": "Drafting · live",
+        "title": "Title",
+        "description": "Description",
+        "fields": "Fields",
+        "slots": "Slots",
+        "shown": "{shown, number, ::group-off} of {total, number, ::group-off}",
+        "more": "+{count, number, ::group-off} more"
+      },
+      "youWrote": {
+        "label": "Your description",
+        "heading": "You wrote",
+        "quoted": "“{text}”"
+      },
+      "draftingFrom": {
+        "label": "Drafting from",
+        "allAnswered": "All answered",
+        "oneBlank": "One left blank",
+        "twoBlank": "Two left blank",
+        "what": "What",
+        "whatBlank": "Left blank. The draft will use placeholder slots you can fill in later.",
+        "when": "When",
+        "whenBlank": "Not decided. The draft will use placeholder dates you can fill in later.",
+        "noLimit": "No limit",
+        "people": "{count, plural, one {{count, number, ::group-off} person} other {{count, number, ::group-off} people}}",
+        "dayAndTimes": "{day} · {times}"
+      },
+      "errors": {
+        "questionsUnavailable": "The questions couldn't be shown. Reload the page and try again; copy your description first if you want to keep it.",
+        "slow": "AI drafting is taking longer than expected. Try again or simplify your prompt.",
+        "slowWithAnswers": "AI drafting is taking longer than expected. Try again.",
+        "hourlyLimit": "You've used this hour's AI drafts. Try again in {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}, or <link>fill it in by hand</link>.",
+        "busy": "The AI service is busy. Try again {minutes, plural, =1 {in a minute} other {in {minutes, number, ::group-off} minutes}}.",
+        "askedAgain": "Couldn't draft this. Try again, or fill it in by hand.",
+        "askedAgainWithAnswers": "Couldn't draft from these answers. Add a little more, or fill it in by hand.",
+        "draftInvalid": "AI draft did not match expected shape — try again or adjust your prompt",
+        "timeout": "AI drafting timed out. Try a simpler prompt.",
+        "timeoutWithAnswers": "AI drafting timed out. Try again.",
+        "apiKey": "AI provider rejected the API key. An operator needs to check LLM_API_KEY.",
+        "unavailable": "AI provider is unavailable right now (HTTP {status, number, ::group-off}). Try again.",
+        "providerError": "AI provider returned an error. Try again.",
+        "providerErrorStatus": "AI provider returned an error (HTTP {status, number, ::group-off}). Try again.",
+        "malformed": "AI provider returned a malformed response. Try again.",
+        "shape": "AI provider returned an unexpected response shape. Try again.",
+        "failed": "AI drafting failed (HTTP {status, number, ::group-off}). Try again.",
+        "cancelled": "Request was cancelled.",
+        "offline": "Couldn't reach the server. Check your connection and try again.",
+        "unexpected": "The server returned an unexpected response. Try again.",
+        "unknown": "Something went wrong while drafting. Try again."
+      }
     }
   }
 }

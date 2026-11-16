@@ -36,7 +36,7 @@ import {
   timeLength,
   type Answers,
 } from './answers';
-import { handFillHref } from './hand-fill';
+import { useHandFillHref } from './hand-fill';
 import { DETAILS_STEP, DRAFT_STEPS, FRAME, PulseMark, StepList, type StepRow } from './Steps';
 import { HereDot, StepLine } from './StepLine';
 import { YOU_WROTE_BAND, YouWrote } from './YouWrote';
@@ -101,6 +101,7 @@ export function Questions({
   /** The answers can't go as they are; `message` says why. */
   onInvalid: (message: string) => void;
 }) {
+  const handFill = useHandFillHref(prompt);
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     headingRef.current?.focus();
@@ -157,7 +158,7 @@ export function Questions({
   const rows = DRAFT_STEPS.flatMap((s, i): StepRow[] =>
     i === 0
       ? [
-          { id: s.id, label: s.label, state: 'done' },
+          { id: s.id, state: 'done' },
           {
             ...DETAILS_STEP,
             state: 'active',
@@ -165,7 +166,7 @@ export function Questions({
             className: 'animate-grow-in overflow-hidden',
           },
         ]
-      : [{ id: s.id, label: s.label, state: 'todo' }],
+      : [{ id: s.id, state: 'todo' }],
   );
 
   // The drafting frame, with the questions in its panel: the steps keep their
@@ -222,7 +223,7 @@ export function Questions({
           style={{ animationDelay: `${80 + parts.length * 70}ms` }}
         >
           <Link
-            href={handFillHref(prompt)}
+            href={handFill}
             className="inline-flex min-h-11 items-center self-center text-[15px] text-ink-muted underline hover:text-ink sm:self-auto"
           >
             Fill in by hand instead

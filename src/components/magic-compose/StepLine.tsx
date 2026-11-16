@@ -1,4 +1,7 @@
+import { useTranslations } from 'next-intl';
 import { DETAILS_STEP, LABEL, StepIcon, type StepState } from './Steps';
+
+const SEPARATOR = '·';
 
 // Only the questions and the draft from their answers use these, so they load
 // with the questions rather than with the page.
@@ -17,14 +20,15 @@ export function HereDot() {
  * full list would push the questions, or the draft, below the first screen.
  */
 export function StepLine({ details, draft }: { details: 'here' | 'done'; draft: StepState }) {
+  const t = useTranslations('organizer.compose.steps');
   const parts: Array<[string, StepState | 'here']> = [
-    ['Read', 'done'],
-    [DETAILS_STEP.label, details],
-    ['Draft', draft],
+    [t('readShort'), 'done'],
+    [t(DETAILS_STEP.id), details],
+    [t('draftShort'), draft],
   ];
   return (
     <ol
-      aria-label="Progress"
+      aria-label={t('label')}
       className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] md:hidden"
     >
       {parts.map(([label, state], i) => (
@@ -35,7 +39,7 @@ export function StepLine({ details, draft }: { details: 'here' | 'done'; draft: 
         >
           {i > 0 && (
             <span aria-hidden="true" className="mr-0.5 text-ink-soft">
-              ·
+              {SEPARATOR}
             </span>
           )}
           {state === 'here' ? <HereDot /> : <StepIcon state={state} />}

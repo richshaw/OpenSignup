@@ -48,14 +48,23 @@ const TRANSLATED = [
   'src/app/app/(chrome)/@crumbs',
   'src/components/chrome',
   'src/components/signup/SignupLoadError.tsx',
+  // New signup: the form, and Magic Compose's screens.
+  'src/app/app/(chrome)/signups/new',
+  'src/components/magic-compose',
 ];
 
 /**
  * Files inside a `TRANSLATED` folder whose text hasn't moved yet, left out of
  * the rules until it does, written as in `TRANSLATED`. The sign-in email is
- * organizer text, which moves to the catalogs after the participant's.
+ * organizer text, which moves to the catalogs after the participant's. Magic
+ * Compose's questions and the banner on a draft it made move after its other
+ * screens.
  */
-const NOT_YET_TRANSLATED = ['src/email/templates/magic-link.tsx'];
+const NOT_YET_TRANSLATED = [
+  'src/email/templates/magic-link.tsx',
+  'src/components/magic-compose/Questions.tsx',
+  'src/components/magic-compose/AiDraftBanner.tsx',
+];
 
 /**
  * Glob patterns for `files` that match exactly `paths`, each a file or a

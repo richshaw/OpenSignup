@@ -2,8 +2,10 @@
 
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MAGIC_COMPOSE_NAMESPACES } from '@/components/magic-compose/client-namespaces';
 import { Compose } from '@/components/magic-compose/Compose';
 import { Questions } from '@/components/magic-compose/Questions';
+import { englishMessages } from '@/i18n/testing/client-messages';
 import { SharePanel } from '@/components/share/SharePanel';
 import { UI } from './create-and-publish-a-signup.ui';
 
@@ -13,7 +15,9 @@ vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
 // the names the article's note uses for them are checked here instead.
 describe('create-and-publish-a-signup: drafting screen names', () => {
   it('matches what the drafting screen shows', () => {
-    render(<Compose prompt="" locale="en" setPrompt={() => {}} onDraft={() => {}} />);
+    render(<Compose prompt="" setPrompt={() => {}} onDraft={() => {}} />, {
+      wrapper: englishMessages(MAGIC_COMPOSE_NAMESPACES),
+    });
     expect(screen.getByRole('heading', { name: UI.composeHeading })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: UI.draftCompose })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: UI.skipCompose })).toBeInTheDocument();
@@ -32,6 +36,7 @@ describe('create-and-publish-a-signup: drafting screen names', () => {
         onSend={() => {}}
         onInvalid={() => {}}
       />,
+      { wrapper: englishMessages(MAGIC_COMPOSE_NAMESPACES) },
     );
     expect(screen.getByRole('heading', { name: UI.questionsHeading })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: UI.draftCompose })).toBeInTheDocument();
