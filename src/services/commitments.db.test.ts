@@ -10,9 +10,11 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { makeId } from '@/lib/ids';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
 import type { Actor } from '@/lib/policy';
+import { formatSlotDate } from '@/lib/slot-label';
 import { PUBLIC_COMMITMENT_FIELDS } from '@/lib/public-commitment';
 import { editTokenFor } from '@/lib/token';
 import type { StoredSignupSettings } from '@/schemas/signups';
@@ -1990,7 +1992,7 @@ describe("getOwnCommitment and its signup's language (db)", () => {
   // signup's settings, which are the organizer's, only the language comes back.
   it("gives the signup's language as stored, and none of its other settings", async () => {
     const { commitmentId, editToken } = await signUpWhereSettingsAre('Stored language', {
-      locale: 'sv',
+      locale: OTHER_LOCALE,
       sendReminders: false,
       lockoutHoursBeforeSlot: 6,
       maxCommitmentsPerParticipant: 2,
@@ -1999,9 +2001,9 @@ describe("getOwnCommitment and its signup's language (db)", () => {
     const own = await getOwnCommitment(fx.db, commitmentId, editToken);
     if (!own.ok) throw new Error(`getOwnCommitment failed: ${own.error.message}`);
 
-    // As stored: Swedish hasn't shipped, and reading it as the language in
-    // effect is the page's job (`localeOfSignup`).
-    expect(own.value.signupLocale).toBe('sv');
+    // As stored, shipped or not: reading it as the language in effect is the
+    // page's job (`localeOfSignup`).
+    expect(own.value.signupLocale).toBe(OTHER_LOCALE);
     expect(Object.keys(own.value).sort()).toEqual(
       [
         ...PUBLIC_COMMITMENT_FIELDS,
@@ -2027,7 +2029,7 @@ describe("getOwnCommitment and its signup's language (db)", () => {
   it('is not found once the signup is deleted, whatever language it stores', async () => {
     const { signupId, commitmentId, editToken } = await signUpWhereSettingsAre(
       'Deleted with a language',
-      { locale: 'sv' },
+      { locale: OTHER_LOCALE },
     );
     expect((await deleteSignup(fx.db, fx.actor, signupId)).ok).toBe(true);
     const own = await getOwnCommitment(fx.db, commitmentId, editToken);
@@ -2202,13 +2204,13 @@ describe('editLimitsForCommitment (db)', () => {
     expect((await editLimitsForCommitment(fx.db, commitment, 'en')).slotName).toBe(
       'Juice · Mon, May 3',
     );
-    expect((await editLimitsForCommitment(fx.db, commitment, 'sv')).slotName).toBe(
-      'Juice · mån 3 maj',
+    expect((await editLimitsForCommitment(fx.db, commitment, OTHER_LOCALE)).slotName).toBe(
+      `Juice · ${formatSlotDate('2027-05-03', OTHER_LOCALE)}`,
     );
 
     expect((await cancelOwnCommitment(fx.db, commitment.id, editToken)).ok).toBe(true);
-    expect(await cancelledCommitmentState(fx.db, commitment, 'sv')).toMatchObject({
-      slotName: 'Juice · mån 3 maj',
+    expect(await cancelledCommitmentState(fx.db, commitment, OTHER_LOCALE)).toMatchObject({
+      slotName: `Juice · ${formatSlotDate('2027-05-03', OTHER_LOCALE)}`,
     });
   });
 });

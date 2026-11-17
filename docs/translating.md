@@ -1,9 +1,10 @@
 # Translating OpenSignup
 
 OpenSignup can show a signup, its sign-up sheet, the pages for changing or
-cancelling a spot and its emails in the signup's own language. English is the
-only language people can choose today. Swedish is being translated and isn't
-offered yet.
+cancelling a spot and its emails in the signup's own language, and the
+organizer app, the sign-in pages and the sign-in email in the organizer's.
+People can choose English or Swedish. The home, help and legal pages are in
+English only.
 
 This guide is for anyone who changes English text people read, adds a
 language, or fixes a translation, including an AI assistant doing any of
@@ -14,7 +15,8 @@ glossary is at the end.
 Translations are made and checked by machine. Nobody is paid to translate, so
 a Claude session translates with the `translate` skill
 (`.claude/skills/translate/SKILL.md`), and a different model reviews the result
-from screenshots of the participant screens and the rendered emails.
+from screenshots of the participant and organizer screens and the rendered
+emails.
 Corrections from people who speak the language are welcome as pull requests.
 
 ## Where the words live
@@ -43,8 +45,7 @@ language, though the panel around it is in the organizer's.
 
 Organizer text is in the organizer's own language (`localeOfOrganizer`,
 below), and marked with it where it sits on a page in a signup's language.
-While no language but English has shipped to organizers, that's English for
-everyone. The other way round, a signup's own words in the organizer app are
+The other way round, a signup's own words in the organizer app are
 in the signup's language, whatever the organizer's, and marked with it where
 the two differ (`langWhereDifferent` in `src/i18n/config.ts`): so far its title
 on Your signups, in its header and as the last crumb, and the message the
@@ -82,7 +83,7 @@ an account is created. Ask for the language of what you're rendering:
 | An organizer's own screens, the consent screen, CSV headers                                      | `localeOfOrganizer(session)`                                                                   |
 | A page nobody is signed in on: `/login` and its check and confirm pages, the OAuth error pages   | `signInLocale()`: the site default, else English                                               |
 | The sign-in email, which has an address but no session                                           | `signInEmailLocale(db, email)` (`src/auth/sign-in-email-locale.ts`)                            |
-| A `/s` page with no signup in hand: not-found, a link it can't read                              | `requestedSignupLocale()` or `signupLocaleForSlug(slug)` (`src/app/s/[slug]/signup-locale.ts`) |
+| A `/s` page with no signup in hand: their layout, not-found, a link it can't read                | `requestedSignupLocale()` or `signupLocaleForSlug(slug)` (`src/app/s/[slug]/signup-locale.ts`) |
 | What to store: on a new signup, on a new account                                                 | `newSignupLocale(session)`, `newOrganizerLocale(…)` (`src/i18n/organizer-locale.ts`)           |
 
 Each organizer page asks `localeOfOrganizer` with its own session, since a
@@ -181,8 +182,12 @@ and so does every translation:
 
 A plural picks a branch by a number. Each language has its own branches
 (CLDR's plural categories): English and Swedish use `one` and `other`; Polish
-uses `one`, `few`, `many` and `other`. `other` is always required. `=1` or
-`=24` matches that exact number, and `#` inside a branch prints the number.
+uses `one`, `few`, `many` and `other`. `other` is always required, and the
+catalog check fails a translation's plural that lacks a branch its language
+has. `=1` or `=24` matches that exact number, and `#` inside a branch prints
+the number. `=1` can stand in for `one` only in a language whose `one` holds
+no other number: Swedish's, not Russian's (which holds 21 too) or French's
+(which holds 0).
 
 ```json
 "onlyLeft": "Only {remaining, plural, one {{remaining, number, ::group-off} spot is} other {{remaining, number, ::group-off} spots are}} left, and you asked for {requested, number, ::group-off}."
@@ -311,8 +316,8 @@ anmälan till {slot} – med den här länken …").
 - `src/i18n/precompiled.test.ts`: both formatters print every message alike
 - `src/i18n/messages-declaration.test.ts`: `en.d.json.ts` matches `en.json`
 - `src/email/templates/emails.test.tsx` and `worker-render.test.ts`: every
-  email sample renders in English and Swedish, both ways, and under the
-  worker's own build
+  email sample renders in English and in every other language with a
+  catalog, both ways, and under the worker's own build
 
 Run just these with `pnpm test src/i18n src/email`. The catalog check takes a
 few seconds to start, because it reads the app's code with the TypeScript
@@ -339,6 +344,22 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
 - an entry in a language's record for a message English or the translation
   doesn't have, or a record for a language with no translation.
 
+These four apply in every language with a catalog, shipped or not. Each
+language's lists are in `src/i18n/testing/language-rules.ts`:
+
+- a plural without a branch for one of its language's plural categories
+  (`Intl.PluralRules`), say a Polish plural with only `one` and `other`;
+- a translation identical to its English, unless it has no letters outside
+  its placeholders and tags (`{day} · {times}`), or its language's
+  `sameAsEnglish` list names it with why (Swedish's "Status" and "Cookies");
+  a key on that list whose translation isn't a copy fails too, so the list
+  stays short;
+- a translation of English that names the product, "OpenSignup", without the
+  name;
+- a word its language's glossary rules out, from the language's `banned`
+  list: each pattern with the glossary line it enforces and, where it
+  applies to some namespaces only, those.
+
 ### What the checks miss
 
 - **A number dropped from one plural branch.** The check sees the number in
@@ -346,9 +367,11 @@ Each problem is one line, `<language> <key>: <what's wrong>`, for example
   so only a reader can tell.
 - **A tag or placeholder dropped from one select branch** while another keeps
   it.
-- **A plural branch the language needs and the message lacks.** The number
-  falls back to `other`, which may be wrong grammar.
-- **English left untranslated.** A copy of the English passes.
+- **English left in part of a message.** Only a whole copy of the English
+  fails.
+- **Words the glossary rules out that aren't on its `banned` list**, and
+  any glossary term used where another was meant. The list holds only what a
+  pattern can tell; the rest is for the reader.
 - **Spaces at the start or end of a branch**, and any punctuation.
 - **Meaning, terms, tone, word order and length.** Whether the words say what
   the English says, use the glossary, sound natural, and fit their place on a
@@ -448,8 +471,9 @@ Two lists in `src/i18n/config.ts` decide it:
   can be stored on a new organizer account (below). A site's `DEFAULT_LOCALE`
   counts only for audiences its language has shipped to (`resolveLocale`).
 
-Today `CATALOG_LOCALES` is `en` and `sv`, and `SHIPPED` holds only `en`, for
-every audience.
+Today `CATALOG_LOCALES` is `en` and `sv`. `SHIPPED` holds both for
+participants and organizers, and only `en` for `site`, the pages outside the
+app, which have no messages yet.
 
 A language launches for participants and organizers together: its launch
 adds it to `SHIPPED.participant` and `SHIPPED.organizer` in one change, and
@@ -463,8 +487,9 @@ has also passed the review in context, which no test can check: the pull
 request that adds it says so.
 
 `E2E_UNSHIPPED_LOCALES` is for tests only. `playwright.config.ts` sets it for
-the server it starts, to every language with a catalog that hasn't shipped,
-so the seeded Swedish signups show in Swedish before Swedish ships, and an
+the server it starts, to every language with a catalog that hasn't shipped
+(`UNSHIPPED_LOCALES` in `tests/e2e/helpers/unshipped-locales.ts`), so each
+seeded test signup shows in its language before that language ships, and an
 organizer whose account stores a listed language sees the organizer app in it
 (`tests/e2e/organizer-language.spec.ts`, and the whole story, from account
 Settings to a participant's email, in `organizer-language-story.spec.ts`).
@@ -475,9 +500,20 @@ choice. It's read in one place, `shown` in `src/i18n/locale.ts`, which
 `localeOfSignup` and `localeOfOrganizer` go through, so it only ever changes
 what's shown, never what's stored; `src/i18n/locale.test.ts` fails if any
 other module reads it. The web
-server and the worker log a warning when they start with it set. A reused
-`pnpm dev` needs it too: `E2E_UNSHIPPED_LOCALES=sv pnpm dev`. Never set it on
-a real site.
+server and the worker log a warning when they start with it set. Never set it
+on a real site.
+
+Every language with a catalog has shipped today, so the list is empty, and
+nothing in CI runs the e2e specs' path for a language that hasn't: where
+`translated-organizer.spec.ts` and `organizer-language-story.spec.ts` write
+the language into a new signup's row (`storeSignupLanguage` in
+`tests/e2e/helpers/organizer-language.ts`), and the story writes it into the
+account's, because the app won't store one that hasn't shipped. Swedish took
+that path until its launch; the unit tests still check the rule it relies
+on, and the next language's first pull request runs it again. For that
+language, a reused `pnpm dev` needs the variable too
+(`E2E_UNSHIPPED_LOCALES=<code> pnpm dev`): a spec that finds a seeded signup
+in English says so.
 
 ### An organizer's language
 
@@ -521,10 +557,11 @@ With `sv` shipped to participants:
 | `sv`                            | `de` (not shipped)     | nothing | `sv`             |
 | `sv`                            | none, or unreadable    | nothing | `sv`             |
 
-While only English has shipped, nothing is stored and every account gets
-English. `newOrganizerLocale` in `src/i18n/organizer-locale.ts` applies the
-rule, and `src/i18n/organizer-locale.test.ts` and `src/auth/adapter.db.test.ts`
-run every row of this table against it.
+While only English has shipped to participants, as before Swedish launched,
+nothing is stored and every account gets English. `newOrganizerLocale` in
+`src/i18n/organizer-locale.ts` applies the rule, and
+`src/i18n/organizer-locale.test.ts` and `src/auth/adapter.db.test.ts` run every
+row of this table against it.
 
 ## Changing English
 
@@ -532,10 +569,10 @@ run every row of this table against it.
 2. Run `pnpm dev` or `pnpm build` once, and commit the rewritten
    `src/messages/en.d.json.ts`.
 3. In the same pull request, run the `translate` skill for each language in
-   `SHIPPED` (none but English today): the catalog check fails each changed
-   message in a shipped language as stale until it's translated again and
-   marked. For a language that has a catalog but hasn't shipped, Swedish
-   today, do it too when you can, so it stays ready to launch. Until someone
+   `SHIPPED` (Swedish today): the catalog check fails each changed message
+   in a shipped language as stale until it's translated again and marked.
+   For a language that has a catalog but hasn't shipped (none today), do it
+   too when you can, so it stays ready to launch. Until someone
    does, the catalog test warns that it's stale, and its test signups show the
    old translation, or English for a new message.
 4. If you deleted or renamed a message, run `mark-translated.mjs` for each
@@ -544,39 +581,105 @@ run every row of this table against it.
 
 ## Adding a language
 
-1. **Make its catalog.** Add `src/messages/<code>.json` (start it as `{}`),
-   add the code to `CATALOG_LOCALES`, and import the catalog into `CATALOGS`
-   in `src/i18n/translator.ts`. Use a bare language code, like `sv`, never a
+1. **Make its catalog.** Add `src/messages/<code>.json`, add the code to
+   `CATALOG_LOCALES`, and import the catalog into `CATALOGS` in
+   `src/i18n/translator.ts`. Use a bare language code, like `sv`, never a
    region (`sv-SE`). Its record, `src/i18n/translated-from/<code>.json`,
-   comes with the first messages you mark as translated. `pnpm typecheck`
-   then points at the tests that keep a table by language, like
-   `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`: give each
-   an entry once the messages it checks are translated.
-2. **Give it test signups.** Add a seed like `makeSwedishSignup` in
-   `tests/e2e/helpers/seed.ts` (`playwright.config.ts` puts the code in
-   `E2E_UNSHIPPED_LOCALES` itself), and write a spec like
-   `tests/e2e/swedish-signup.spec.ts` that saves a `translationShot` of every
-   screen it checks. Add the spec to `TRANSLATION_SPECS` in
-   `playwright.config.ts`, and to `pnpm translation:screenshots` in
-   `package.json`. Add the participant emails in the language to
-   `scripts/lib/email-samples.ts` (the sign-in email's sample,
-   `magic-link-<code>`, comes with the catalog), and every one's name to the
-   list in `src/email/templates/worker-render.test.ts`. The list in
-   `emails.test.tsx` beside it holds only the Swedish ones
-   (`lang === 'sv'`), so give the new language an assertion of its own there.
-3. **Write its glossary** below, before translating: the product's own terms,
-   the tone and the date style.
-4. **Translate and review** with the `translate` skill, namespace by
-   namespace, for both audiences: participant text and organizer text
-   (`to-translate.mjs <code> --audience organizer`).
-5. **Check the layout.** `tests/e2e/slot-row-layout.spec.ts` checks that the
-   row buttons and the sheet's labels fit their boxes, on the English and the
-   Swedish signup. Add the new language's signup to it.
-6. **Launch** in a pull request of its own, which the owner approves: add the
-   code to `SHIPPED.participant` and `SHIPPED.organizer` together, and say
-   what changes in `CHANGELOG.md` and the README. Tests that check the
-   language stays unshipped (English pages, no picker, a refused save) fail
-   then; update them in the same pull request.
+   comes with the first messages you mark as translated.
+2. **Write its glossary** below, before translating: the product's own terms,
+   the tone and the date style. Give the language an entry in
+   `LANGUAGE_RULES` (`src/i18n/testing/language-rules.ts`) for the words the
+   glossary rules out that a pattern can catch.
+3. **Translate** with the `translate` skill, namespace by namespace, for both
+   audiences: participant text (`participant`, `email` and `common`) and
+   organizer text (`to-translate.mjs <code> --audience organizer`). Do at
+   least the participant text in the same pull request as the catalog, since
+   the tests below fail on English left on its pages.
+4. **Review it in context** with the `translate` skill, from the screenshots
+   and emails `pnpm translation:screenshots` makes (see "How translations are
+   made and checked").
+
+The tests pick the language up from `CATALOG_LOCALES`, and nothing is written
+for it. Every language with a catalog but English is a test language
+(`TEST_LOCALES` in `src/i18n/testing/locales.ts`), and for each one:
+
+- the e2e seed makes its test signups (open, a draft, closed and archived),
+  and `playwright.config.ts` shows them in the language until it ships;
+- `tests/e2e/translated-signup.spec.ts` checks every participant screen and
+  state on them, and the page around them (`<html lang>`, `og:locale` and the
+  footer), taking each expected text from the language's catalog, and fails
+  on English left on the page; the accessibility, precompiled-message and
+  Build-tab specs run on them too;
+- `tests/e2e/slot-row-layout.spec.ts` checks that the row buttons' labels and
+  the sign-up sheet's field labels fit their boxes, down to 320 pixels;
+- the e2e seed makes an organizer whose account stores it, with a signup of
+  their own in each state, and `tests/e2e/translated-organizer.spec.ts` walks
+  them through making, building and publishing a signup and opening Responses
+  and account Settings: each screen must say it's in the language (on
+  `<html lang>` and the app's wrapper) and show no English, by the same check
+  as the participant pages. The same spec checks the signup's tabs and header
+  buttons fit their boxes down to 320 pixels, and the accessibility spec
+  checks Your signups and the Build tab in it;
+- the other organizer specs (`organizer-language*.spec.ts` and the Build
+  tab's) store it on an account of their own and check the organizer app's
+  messages in it;
+- the email checks render each participant email and the sign-in email in
+  it, through the web process's formatter and the worker's;
+- `pnpm translation:screenshots` saves its screens to
+  `translation-review/<code>/screens/` and its emails to
+  `translation-review/<code>/emails/`.
+
+A few tests keep what a language says in a table by language. The first two
+need the new language's entry, and the third one only if the language shares
+a word with English:
+
+- `KEEP_IT_PRIVATE` in `src/app/s/[slug]/commit-dialog.test.tsx`, the words
+  in the share text that warn whoever has the link can change the sign-up.
+  `pnpm test` fails, naming the table, until it has one: add it once those
+  messages are translated.
+- `inSentence` in `src/i18n/config.test.ts`, how each language writes each
+  language's name inside a sentence. `pnpm typecheck` asks for the new
+  language's row and column, with the catalog.
+- `SHARED_WITH_ENGLISH` in `tests/e2e/helpers/no-english.ts`, the words of
+  the English that `translated-signup.spec.ts` and
+  `translated-organizer.spec.ts` look for on a translated page
+  (`ENGLISH_WORDS`) that the language writes as its own too, as Dutch writes
+  "link". A language without an entry shares none, so a page that shows one
+  of those words fails, and the failure names the catalog's messages that
+  write it.
+  Translate each, or add the word if the language really says it: never to
+  quiet a message left in English, which is what the check is there to catch.
+
+The test signups and email samples also carry what an organizer would write
+(titles, slots' names). A language without its own gets names that read as
+names in most languages; to make its screenshots read as a real signup's,
+give it an entry in `ORGANIZER_TEXT` in `tests/e2e/helpers/seed.ts` and
+`SAMPLE_TEXT` in `scripts/lib/email-samples.ts`, as Swedish has.
+
+**Launch** it in a pull request of its own, which the owner approves:
+
+- Add the code to `SHIPPED.participant` and `SHIPPED.organizer` together.
+- No test should need editing. A test of what a language gets before it
+  ships (English pages, no picker, a refused save), or of one audience's list
+  against the other's, starts from `shipOnlyEnglish()`
+  (`src/i18n/testing/ship.ts`) and ships what it needs on top with `ship`, so
+  it passes before and after each launch. The AI connector's tool
+  descriptions list the shipped languages, and their tests read the same
+  list. A test that fails at the launch leaned on today's lists without
+  saying so: give it `shipOnlyEnglish()`, never a changed assertion.
+- The e2e run stops listing the language in `E2E_UNSHIPPED_LOCALES` by
+  itself, and the specs take their launched path for it: the story spec
+  chooses it in account Settings and presses both language controls.
+- Re-take the help screenshots that show a language choice
+  (`pnpm help:screenshots`), since each lists every shipped language: today
+  the Settings tab's, in "Create and publish a signup".
+- Say what changes in `CHANGELOG.md`, and name the language where the docs
+  list them: the README ("Why OpenSignup" and `DEFAULT_LOCALE`),
+  `.env.example`, `docs/connect-ai-assistant.md`, this guide's first
+  paragraph and its `SHIPPED` line above, and CLAUDE.md's Translations
+  section.
+- Run the review in context once more over what's on `main`, and list its
+  findings in the pull request (see below).
 
 Node's official builds include every language's date and number data. A
 Node built with English-only ICU would print the new language's dates in
@@ -593,7 +696,8 @@ translator. Each one is made and checked the same way:
    today's English.
 2. The checks above pass.
 3. A different model from the translator's reviews the result in context:
-   screenshots of the participant screens and states, and every email's HTML.
+   screenshots of the participant screens and states and of the organizer's
+   main screens, and every email's HTML.
    It checks meaning against the English, the glossary, the tone, natural word
    order and plurals, and text too long for its place.
 4. The translator fixes what the review finds, and the pull request lists
@@ -606,12 +710,16 @@ pnpm translation:screenshots
 ```
 
 It sets `TRANSLATION_SCREENSHOTS=1`, which makes the email tests write each
-email's HTML and plain text, in English and Swedish, with the subject on the
-text's first line, and makes the Swedish e2e specs save a screenshot of each
-screen and state they check, on a desktop and at a phone's width (390
-pixels). Everything goes to `translation-review/`, which git ignores. Without
-the flag the tests write nothing, so CI is unaffected. In Claude's cloud
-container, Playwright's own Chromium isn't installed: add
+email's HTML and plain text, in English and every other language with a
+catalog, with the subject on the text's first line, and makes
+`tests/e2e/translated-signup.spec.ts` and `translated-organizer.spec.ts` save
+a screenshot of each screen and state they check, in each of those languages,
+on a desktop and at a phone's width (390 pixels). The organizer's are named
+`organizer-…`: Your signups, New signup (and Magic Compose's first screen,
+where the server has an AI set up), the Build tab with its Fields dialog and
+a slot's editor, the share panel, Responses and account Settings. Everything goes to `translation-review/<code>/`, which git
+ignores. Without the flag the tests write nothing, so CI is unaffected. In
+Claude's cloud container, Playwright's own Chromium isn't installed: add
 `-c .claude/skills/run-opensignup/playwright.container.config.ts`.
 
 Some messages have no screenshot, and the reviewer reads them in the catalog.
@@ -619,11 +727,13 @@ The reviewer's prompt (`.claude/skills/translate/references/review.md`) names
 the ones only in a tab's title, a link preview, what a screen reader says, or
 what a button hands to another app. A signup that doesn't exist has no
 language, so its not-found page (`participant.gonePage.signup`) is in the
-site's language, which can't be Swedish until Swedish ships. And the spec
+site's language, which can't be a language that hasn't shipped. And the spec
 doesn't reach a few rarer states: a cancelled spot whose slot has since filled
 or closed, someone the organizer took off a slot or moved, someone signed up
 for more than one slot, the edit page's errors when cancelling, and copying
-the link.
+the link. On the organizer's side, the other screens (Connected apps, a
+signup's Settings tab, Magic Compose's later steps, a refusal) have no
+screenshot: take the ones a change touches by hand.
 
 ## Swedish glossary
 
@@ -814,6 +924,11 @@ assistant (`auth`) use the terms above, and these. From #953's second batch.
 
 ### Style
 
+The catalog check enforces the rules a pattern can tell: _ni_, _din plats_ in
+participant text and emails, and "..." (`LANGUAGE_RULES.sv.banned` in
+`src/i18n/testing/language-rules.ts`). Changing one of those lines means
+changing that list, and the other way round.
+
 - **Tone.** _Du_, never _ni_, and the plain, friendly tone of the English.
   Instructions are imperatives: "Försök igen.", "Kontrollera den och försök
   igen."
@@ -896,7 +1011,8 @@ each with what was done.
 
 ### Settled after the owner's walkthrough
 
-The owner's tophat of the whole stack, on 15 November 2026, settled these.
+The owner's tophat of the whole stack, on 15 November 2026, the follow-ups
+to it and the launch's translation review (#1019) settled these.
 
 1. **Short forms of _anmälningslista_ only where the whole word doesn't
    fit.** Organizer text keeps two, the button and crumb "Ny lista" and New
@@ -916,6 +1032,22 @@ The owner's tophat of the whole stack, on 15 November 2026, settled these.
    English's "your open signup", read as the product's name, OpenSignup.
    Account Settings says "1 av dina anmälningslistor är öppen och är inte på
    svenska ännu." and offers "Byt den till svenska" ("Byt dem" for more).
+5. **"Obegränsat" stays in Magic Compose's how-many box**
+   (`organizer.compose.questions.howMany.noLimit`), and the box is wider: 96
+   pixels on a phone and 100 on a computer, where it was 72 and 76, the room
+   taken from the item's name beside it (on a narrow phone the box goes under
+   the name instead). The word needs about 88 pixels at the box's 16-pixel
+   text. The owner chose this over a shorter word: "Inget tak" fitted, but
+   reads as "no ceiling". The Build tab's Spots box was widened for the same
+   word (#999).
+6. **"Try again" is "Försök igen."**, except after a sentence that already
+   ends on _igen_, where it's "Försök en gång till.", so the word doesn't
+   come twice in a row: "Vi kunde inte slå på dina påminnelser igen. Försök
+   en gång till." (`participant.unsubscribe.turnOnFailed`) and "Det gick inte
+   att öppna anmälan igen. Försök en gång till."
+   (`organizer.signup.refusal.reopenFailed`). The _igen_ there is the
+   glossary's own ("Slå på påminnelserna igen", "Öppna anmälan igen"), so
+   it stays.
 
 ### Open questions
 
@@ -947,11 +1079,3 @@ so the next pass sees it.
    sheet (`participant.dialog.copied`) and the share panel's chip and
    message say "Länken är kopierad", the state with _är_ that Organizer terms
    chose. From the review of the joined stack.
-6. **"Obegränsat" in Magic Compose's how-many box**
-   (`organizer.compose.questions.howMany.noLimit`). The word needs about
-   90 pixels at that box's 16-pixel text, and the box is 72 wide, so it's
-   cut off; "Inget tak" fitted, but reads as "no ceiling". The Build tab's
-   Spots box was widened for it (#999); this one sits between − and + in a
-   row whose item name would lose the room, so it waits for a decision: a
-   wider box, or a shorter word, with the hint above it saying "Lämna en
-   ruta tom för obegränsat antal".

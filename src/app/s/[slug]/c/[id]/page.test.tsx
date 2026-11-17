@@ -4,7 +4,9 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { CatalogLocale } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
+import { getTranslator } from '@/i18n/translator';
 import { ok } from '@/lib/result';
 import { formatSlotDate } from '@/lib/slot-label';
 
@@ -123,16 +125,21 @@ afterEach(() => {
 // slot's date as that page does, and its words are that language's.
 describe("the edit page in its signup's language", () => {
   it("reads the slot's date in the signup's language, and marks the page with it", async () => {
-    ship('participant', ['en', 'sv']);
-    request.signupLocale = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.signupLocale = OTHER_LOCALE;
     await renderPage();
-    expect(services.editLimitsForCommitment).toHaveBeenCalledWith({}, expect.anything(), 'sv');
-    expect(screen.getByText(slotNameIn('sv'))).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+    expect(services.editLimitsForCommitment).toHaveBeenCalledWith(
+      {},
+      expect.anything(),
+      OTHER_LOCALE,
+    );
+    expect(screen.getByText(slotNameIn(OTHER_LOCALE))).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
   });
 
   it("stays English for a stored language that hasn't shipped", async () => {
-    request.signupLocale = 'sv';
+    shipOnlyEnglish();
+    request.signupLocale = OTHER_LOCALE;
     await renderPage();
     expect(services.editLimitsForCommitment).toHaveBeenCalledWith({}, expect.anything(), 'en');
     expect(screen.getByText(slotNameIn('en'))).toBeInTheDocument();
@@ -140,21 +147,29 @@ describe("the edit page in its signup's language", () => {
   });
 
   it("takes the instance's language for a signup with none, once it has shipped", async () => {
-    ship('participant', ['en', 'sv']);
-    request.instanceDefault = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.instanceDefault = OTHER_LOCALE;
     await renderPage();
-    expect(services.editLimitsForCommitment).toHaveBeenCalledWith({}, expect.anything(), 'sv');
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+    expect(services.editLimitsForCommitment).toHaveBeenCalledWith(
+      {},
+      expect.anything(),
+      OTHER_LOCALE,
+    );
+    expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
   });
 
   it("names a cancelled sign-up's slot in the signup's language", async () => {
-    ship('participant', ['en', 'sv']);
-    request.signupLocale = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.signupLocale = OTHER_LOCALE;
     request.status = 'cancelled';
     await renderPage();
-    expect(services.cancelledCommitmentState).toHaveBeenCalledWith({}, expect.anything(), 'sv');
-    expect(screen.getByText(slotNameIn('sv'))).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+    expect(services.cancelledCommitmentState).toHaveBeenCalledWith(
+      {},
+      expect.anything(),
+      OTHER_LOCALE,
+    );
+    expect(screen.getByText(slotNameIn(OTHER_LOCALE))).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
   });
 });
 
@@ -192,34 +207,47 @@ describe('the edit page’s words', () => {
   });
 
   it('takes every line from the catalog in the signup’s language', async () => {
-    ship('participant', ['en', 'sv']);
-    request.signupLocale = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.signupLocale = OTHER_LOCALE;
     request.closed = true;
     await renderPage();
     const main = screen.getByRole('main');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'participant.editPage.title in sv',
+      `participant.editPage.title in ${OTHER_LOCALE}`,
     );
-    expect(screen.getByRole('link', { name: 'participant.editPage.back in sv' })).toBeVisible();
-    expect(screen.getByText('participant.editPage.editingAsWithEmail in sv')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: `participant.editPage.back in ${OTHER_LOCALE}` }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(`participant.editPage.editingAsWithEmail in ${OTHER_LOCALE}`),
+    ).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
-      'participant.editPage.closedBanner.title in svparticipant.editPage.closedBanner.body in sv',
+      `participant.editPage.closedBanner.title in ${OTHER_LOCALE}participant.editPage.closedBanner.body in ${OTHER_LOCALE}`,
     );
-    // The form's messages are the signup's language's, here the Swedish catalog's.
-    expect(screen.getByLabelText('Ditt namn')).toHaveValue('Pat Example');
-    expect(screen.getByText('Du kan ha högst 4 platser.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Spara' })).toBeInTheDocument();
+    // The form's messages are the signup's language's, from its catalog.
+    const strict = {
+      onError: (error: Error) => {
+        throw error;
+      },
+    };
+    const fields = getTranslator(OTHER_LOCALE, 'participant.fields', strict);
+    const form = getTranslator(OTHER_LOCALE, 'participant.editForm', strict);
+    expect(screen.getByLabelText(fields('name'))).toHaveValue('Pat Example');
+    expect(screen.getByText(form('spotsMax', { max: 4 }))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: form('save') })).toBeInTheDocument();
     expect(main).not.toHaveTextContent(
       /Your spot|Back to|You're editing|Closed|You can|Save|Cancel/,
     );
   });
 
   it('names the sign-up without an address in the signup’s language too', async () => {
-    ship('participant', ['en', 'sv']);
-    request.signupLocale = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.signupLocale = OTHER_LOCALE;
     request.participantEmail = null;
     await renderPage();
-    expect(screen.getByText('participant.editPage.editingAs in sv')).toBeInTheDocument();
+    expect(
+      screen.getByText(`participant.editPage.editingAs in ${OTHER_LOCALE}`),
+    ).toBeInTheDocument();
   });
 });
 
@@ -271,27 +299,29 @@ describe('the cancelled page’s words', () => {
   });
 
   it('takes its words from the catalog in the signup’s language', async () => {
-    ship('participant', ['en', 'sv']);
-    request.signupLocale = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.signupLocale = OTHER_LOCALE;
     request.status = 'cancelled';
     request.state = { movedTo: null, removed: false, slot: 'full' };
     await renderPage();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'participant.cancelledPage.title in sv',
+      `participant.cancelledPage.title in ${OTHER_LOCALE}`,
     );
-    expect(screen.getByText('participant.cancelledPage.full in sv')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'participant.cancelledPage.back in sv' }),
+      screen.getByText(`participant.cancelledPage.full in ${OTHER_LOCALE}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: `participant.cancelledPage.back in ${OTHER_LOCALE}` }),
     ).toBeVisible();
 
     cleanup();
     request.state = { movedTo: 'com_2', removed: false, slot: 'open' };
     await renderPage();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'participant.cancelledPage.moved.title in sv',
+      `participant.cancelledPage.moved.title in ${OTHER_LOCALE}`,
     );
     expect(
-      screen.getByRole('link', { name: 'participant.cancelledPage.moved.link in sv' }),
+      screen.getByRole('link', { name: `participant.cancelledPage.moved.link in ${OTHER_LOCALE}` }),
     ).toBeVisible();
   });
 });
@@ -307,7 +337,7 @@ describe('the edit page’s title', () => {
   });
 
   it('is the catalog’s in the language of the signup the path names', async () => {
-    request.pathLocale = 'sv';
-    expect((await generateMetadata()).title).toBe('participant.editPage.title in sv');
+    request.pathLocale = OTHER_LOCALE;
+    expect((await generateMetadata()).title).toBe(`participant.editPage.title in ${OTHER_LOCALE}`);
   });
 });

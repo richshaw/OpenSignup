@@ -22,6 +22,7 @@ import {
   previewReminderOptOut,
   reminderOptOutTokenFor,
 } from './reminder-optout';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 interface Fixture {
   db: Db;
@@ -280,7 +281,7 @@ describe('reminder opt-out (db)', () => {
       .update(signups)
       .set({
         settings: {
-          locale: 'sv',
+          locale: OTHER_LOCALE,
           sendReminders: true,
           lockoutHoursBeforeSlot: 6,
           confirmationMessage: 'Organizers only: the gate code is 4321',
@@ -289,7 +290,7 @@ describe('reminder opt-out (db)', () => {
       .where(eq(signups.id, signupId));
     const stored = await preview();
     if (!stored.ok) throw new Error(stored.error.message);
-    expect(stored.value.signupLocale).toBe('sv');
+    expect(stored.value.signupLocale).toBe(OTHER_LOCALE);
     expect(JSON.stringify(stored.value)).not.toMatch(
       /"(settings|locale|sendReminders|lockoutHoursBeforeSlot|confirmationMessage)"|gate code/,
     );

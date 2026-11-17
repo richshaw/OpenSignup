@@ -878,7 +878,7 @@ declare const messages: {
         "save": "Save",
         "toSwitch": "{count, plural, one {{count, number, ::group-off} of your signups is open and isn't in <language>{name}</language> yet.} other {{count, number, ::group-off} of your signups are open and aren't in <language>{name}</language> yet.}}",
         "switch": "{count, plural, one {Switch it to <language>{name}</language>} other {Switch them to <language>{name}</language>}}",
-        "switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.",
+        "switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and fields you typed stay as they are. People who already signed up see the new language too.",
         "switched": "Saved. {count, plural, one {{count, number, ::group-off} of your signups is open, and it's in <language>{name}</language> now.} other {{count, number, ::group-off} of your signups are open, and they're all in <language>{name}</language> now.}}"
       }
     },

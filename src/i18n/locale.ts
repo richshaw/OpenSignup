@@ -109,8 +109,8 @@ function shown(audience: Audience, stored: unknown): CatalogLocale {
  * shows, though it hasn't shipped, on a signup that stores it or on the
  * screens of an organizer whose account stores it: `E2E_UNSHIPPED_LOCALES`, a
  * comma-separated list, which playwright.config.ts sets for the server it
- * starts. That's how the seeded Swedish signup (tests/e2e/helpers/seed.ts)
- * renders in Swedish before Swedish ships.
+ * starts. That's how each seeded test signup (tests/e2e/helpers/seed.ts)
+ * renders in its language before that language ships.
  *
  * Set on a real instance, it ships nothing. It only lets a signup or an
  * account keep a language already in its row, and nothing in the app can put

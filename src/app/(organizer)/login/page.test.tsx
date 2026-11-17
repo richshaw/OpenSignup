@@ -5,8 +5,9 @@ import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import type { ServiceError } from '@/lib/errors';
+import { INSTANCE_NAME } from '@/lib/site-config';
 import type { LoginForm as LoginFormType } from './login-form';
 
 // The instance's DEFAULT_LOCALE, the sign-in providers it has set up, and
@@ -94,7 +95,10 @@ describe('the sign-in page', () => {
     expect(screen.queryByText('or')).not.toBeInTheDocument();
     const footer = within(screen.getByRole('navigation', { name: 'Footer' }));
     expect(footer.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy');
-    expect(await generateMetadata()).toEqual({ title: 'Sign in', robots: { index: false } });
+    expect(await generateMetadata()).toEqual({
+      title: { absolute: `Sign in · ${INSTANCE_NAME}` },
+      robots: { index: false },
+    });
   });
 
   it('offers each sign-in provider the instance has set up, in English', async () => {
@@ -122,12 +126,16 @@ describe('the sign-in page', () => {
   });
 
   describe.each(OTHER_LANGUAGES)('with DEFAULT_LOCALE=%s', (other) => {
+    beforeEach(shipOnlyEnglish);
+
     it('stays English while that language hasn’t shipped to organizers', async () => {
       request.defaultLocale = other;
       const { frame } = await renderPage();
       expect(frame).toHaveAttribute('lang', 'en');
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sign in to OpenSignup');
-      expect(await generateMetadata()).toMatchObject({ title: 'Sign in' });
+      expect(await generateMetadata()).toMatchObject({
+        title: { absolute: `Sign in · ${INSTANCE_NAME}` },
+      });
     });
 
     it('is in that language once it has shipped to organizers', async () => {
@@ -159,7 +167,7 @@ describe('the sign-in page', () => {
       );
       expect(footer.getByRole('link', { name: `common.footer.privacy in ${other}` })).toBeVisible();
       expect(await generateMetadata()).toEqual({
-        title: `auth.tabTitle in ${other}`,
+        title: { absolute: `auth.tabTitle in ${other} · ${INSTANCE_NAME}` },
         robots: { index: false },
       });
     });

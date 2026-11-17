@@ -12,6 +12,7 @@ import { getDb } from '@/db/client';
 import { signInLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { RateLimits, chargeRateLimit, ipSubject } from '@/lib/rate-limit';
+import { INSTANCE_NAME } from '@/lib/site-config';
 import { EmailSchema } from '@/schemas/common';
 import { codeRefusal } from './code-refusal';
 import { LoginForm, type CodeActionResult, type LoginActionResult } from './login-form';
@@ -19,9 +20,13 @@ import { loginFormText } from './login-text';
 import { OAuthButtons } from './oauth-buttons';
 import { requestMagicLink } from './request-magic-link';
 
+// The tab title, with the site name after it. Next applies the root layout's
+// title template only to the segments below the layout's own, and this page
+// shares its segment with that layout (./layout.tsx), so it writes the site
+// name in itself, the way the template does for every other page.
 export async function generateMetadata(): Promise<Metadata> {
   const t = getServerTranslator(signInLocale(), 'auth');
-  return { title: t('tabTitle'), robots: { index: false } };
+  return { title: { absolute: `${t('tabTitle')} · ${INSTANCE_NAME}` }, robots: { index: false } };
 }
 
 export default async function LoginPage({
