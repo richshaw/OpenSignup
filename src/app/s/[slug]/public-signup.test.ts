@@ -12,7 +12,6 @@ const ROW = {
   description: 'Bring something to share',
   status: 'open',
   visibility: 'unlisted',
-  theme: { accent: 'internal' },
   tags: ['internal-tag'],
   opensAt: null,
   closesAt: new Date('2030-05-01T00:00:00Z'),
@@ -47,7 +46,6 @@ const ROW = {
       slotAt: new Date('2030-04-06T12:00:00Z'),
       capacity: 3,
       status: 'open',
-      priceCents: 500,
       sortOrder: 0,
       createdAt: new Date('2030-01-01T00:00:00Z'),
       updatedAt: new Date('2030-01-02T00:00:00Z'),
@@ -114,5 +112,21 @@ describe('toPublicSignup', () => {
   it('sends the language it is given as settings.locale, never the stored one', () => {
     const stored = { ...ROW, settings: { ...ROW.settings, locale: 'xx' } };
     expect(toPublicSignup(stored, 'en').settings.locale).toBe('en');
+  });
+
+  // The page shows an open signup past its closing time as closed, and the
+  // service refuses a sign-up to it, so the API says so too.
+  it('sends an open signup whose closing time has passed as closed', () => {
+    const now = Date.parse('2030-05-01T12:00:00Z');
+    const past = { ...ROW, closesAt: new Date(now - 60 * 60 * 1000) };
+    expect(toPublicSignup(past, 'en', now).status).toBe('closed');
+    const ahead = { ...ROW, closesAt: new Date(now + 60 * 60 * 1000) };
+    expect(toPublicSignup(ahead, 'en', now).status).toBe('open');
+  });
+
+  it('sends the description trimmed, as the page shows it', () => {
+    expect(toPublicSignup({ ...ROW, description: '  Bring a dish \n' }, 'en').description).toBe(
+      'Bring a dish',
+    );
   });
 });

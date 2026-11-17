@@ -821,7 +821,7 @@ const signupSummaryColumns = {
   locale: sql<string | null>`${signups.settings}->>'locale'`,
 };
 
-/** A signup as a list shows it: no description, settings, theme or tags. */
+/** A signup as a list shows it: no description, settings or tags. */
 export type SignupSummary = Pick<
   SignupRow,
   'id' | 'slug' | 'title' | 'status' | 'closesAt' | 'createdAt' | 'updatedAt'

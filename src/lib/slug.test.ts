@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slugBase, toSlug } from './slug';
+import { slugBase, toSlug, trimSlugTail } from './slug';
 
 describe('toSlug', () => {
   it('lowercases and kebab-cases', () => {
@@ -76,5 +76,26 @@ describe('slugBase', () => {
   it('does not take a final word that has letters outside the suffix alphabet', () => {
     // "lunch" has a "u", which Crockford base32 leaves out.
     expect(slugBase('school-lunch')).toBe('school-lunch');
+  });
+});
+
+describe('trimSlugTail', () => {
+  it('leaves a slug as it is', () => {
+    expect(trimSlugTail('team-snacks-a7vc8')).toBe('team-snacks-a7vc8');
+  });
+
+  it.each(['.', ',', ')', '…', '!', '?', '.)', '...', ').'])(
+    'takes %s off the end, as typed after a pasted link',
+    (tail) => {
+      expect(trimSlugTail(`team-snacks-a7vc8${tail}`)).toBe('team-snacks-a7vc8');
+    },
+  );
+
+  it('leaves a stray character in the middle alone', () => {
+    expect(trimSlugTail('team.snacks-a7vc8')).toBe('team.snacks-a7vc8');
+  });
+
+  it('trims a slug of only punctuation to nothing', () => {
+    expect(trimSlugTail('...')).toBe('');
   });
 });

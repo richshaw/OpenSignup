@@ -13,9 +13,7 @@ const row: Commitment = {
   status: 'confirmed',
   quantity: 1,
   notes: '',
-  notesVisibility: 'public',
   customFieldValues: {},
-  paymentId: null,
   editTokenHash: 'deadbeef',
   idempotencyKeyHash: 'cafebabe',
   createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -30,6 +28,13 @@ describe('toPublicCommitment', () => {
     expect(Object.keys(publicRow)).toStrictEqual([...PUBLIC_COMMITMENT_FIELDS]);
     expect(publicRow).not.toHaveProperty('editTokenHash');
     expect(publicRow).not.toHaveProperty('idempotencyKeyHash');
+  });
+
+  it('sends no paymentId or notesVisibility, which were never anything but null and public', () => {
+    const publicRow = toPublicCommitment(row);
+
+    expect(publicRow).not.toHaveProperty('paymentId');
+    expect(publicRow).not.toHaveProperty('notesVisibility');
   });
 
   it('drops a field nobody has listed, as a new column would be', () => {

@@ -5,12 +5,10 @@ import { getServerTranslator } from '@/i18n/server';
 import { messagesFor, type Translator } from '@/i18n/translator';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import { willSendReminder } from '@/lib/reminder-eligibility';
-import { shownSignupStatus } from '@/lib/signup-closing';
-import { requiresEmail, sendsReminders, type SignupStatus } from '@/schemas/signups';
 import { Banner } from '@/components/banner';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
-import { toSignupViewSlots } from './public-signup';
+import { toSignupViewSignup, toSignupViewSlots } from './public-signup';
 import {
   ACTION_SIZING,
   buildMetaSegments,
@@ -22,34 +20,14 @@ import {
   pickPrimaryField,
   renderFieldValue,
 } from './slot-format';
-import type { OwnCommitment, SignupViewField, SignupViewSlot } from './signup-view-types';
+import type {
+  OwnCommitment,
+  SignupViewField,
+  SignupViewSignup,
+  SignupViewSlot,
+} from './signup-view-types';
 
 export type { SignupViewField, SignupViewSlot };
-
-/**
- * The live page's view of the signup itself. Past its closing time an open
- * signup takes no sign-ups (`signupShutReason`), so it shows as closed: the
- * Closed banner, and Closed on every slot. The description is trimmed, so one
- * saved as only spaces before the schema trimmed it shows as none.
- */
-export function toSignupViewSignup(
-  signup: {
-    title: string;
-    description: string;
-    status: string;
-    closesAt: Date | null;
-    settings: unknown;
-  },
-  now: number = Date.now(),
-): SignupViewProps['signup'] {
-  return {
-    title: signup.title,
-    description: signup.description.trim(),
-    status: shownSignupStatus(signup, now) as SignupStatus,
-    requireEmail: requiresEmail(signup.settings),
-    sendReminders: sendsReminders(signup.settings),
-  };
-}
 
 /**
  * Everything the page needs from a signup as a service loads it, with the
@@ -72,17 +50,7 @@ export function toSignupViewProps(
 }
 
 interface SignupViewCommonProps {
-  signup: {
-    title: string;
-    description: string;
-    status: SignupStatus;
-    /** Whether the sign-up form asks for the email; true when left out. Only
-     *  the live page's form reads it. */
-    requireEmail?: boolean;
-    /** The signup's `sendReminders` setting; false when left out, so nothing
-     *  promises a reminder. Only the live page's form reads it. */
-    sendReminders?: boolean;
-  };
+  signup: SignupViewSignup;
   fields: SignupViewField[];
   groupByRef: string | null;
   slots: SignupViewSlot[];
