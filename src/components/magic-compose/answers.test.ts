@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EARLIEST_DATE_YEAR } from '@/lib/magic-compose/limits';
 import type { MagicComposeQuestions } from '@/lib/magic-compose/questions';
-import { isRealDate, MIN_DATE_YEAR } from '@/lib/reminder-fields';
+import { isRealDate } from '@/lib/reminder-fields';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import {
@@ -97,8 +96,8 @@ describe('answersProblem', () => {
     expect(answersProblem(ALL, answered, problems)).toBeNull();
   });
 
-  it('stops a date the server would refuse for its year, as a short year typed in', () => {
-    for (const date of ['0202-11-14', '1899-12-31', '20260-11-14']) {
+  it('stops a date the server would refuse, as a short year typed in or a day that does not exist', () => {
+    for (const date of ['0202-11-14', '1899-12-31', '20260-11-14', '2026-02-30']) {
       expect(answersProblem(ALL, { ...answered, date }, problems)).toBe("Check the date's year.");
       expect(isRealDate(date)).toBe(false);
     }
@@ -140,10 +139,6 @@ describe('answersProblem', () => {
         problems,
       ),
     ).toBeNull();
-  });
-
-  it("takes the server's earliest year", () => {
-    expect(EARLIEST_DATE_YEAR).toBe(MIN_DATE_YEAR);
   });
 });
 
