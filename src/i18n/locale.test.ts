@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATALOG_LOCALES } from './config';
-import { ship } from './testing/ship';
+import { ship, shipOnlyEnglish } from './testing/ship';
 
 // Unit tests have no DATABASE_URL, so the real getEnv() would throw.
 const env = vi.hoisted(() => ({ DEFAULT_LOCALE: undefined as string | undefined }));
@@ -13,6 +13,11 @@ const { localeOfOrganizer, localeOfSignup, newSignupLocale, signInLocale } =
 
 /** Every language with a catalog besides English, each tried in turn. */
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
+
+// Each test starts from before any launch, English only, and ships what it
+// needs on top, so the rules for a language that hasn't shipped stay tested
+// once one has.
+beforeEach(shipOnlyEnglish);
 
 afterEach(() => {
   env.DEFAULT_LOCALE = undefined;

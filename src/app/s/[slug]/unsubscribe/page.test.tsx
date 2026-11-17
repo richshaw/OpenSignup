@@ -2,7 +2,8 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ship } from '@/i18n/testing/ship';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
 
@@ -136,30 +137,31 @@ describe("unsubscribe page — the signup's language", () => {
     ['opted in', optedInTarget],
     ['opted out', optedOutTarget],
   ])('marks the page with the signup’s language when %s', async (_, target) => {
-    ship('participant', ['en', 'sv']);
-    previewReminderOptOut.mockResolvedValue(ok({ ...target, signupLocale: 'sv' }));
-    expect(await mainLang({ p: 'par_1', token: 'tok' })).toBe('sv');
+    ship('participant', ['en', OTHER_LOCALE]);
+    previewReminderOptOut.mockResolvedValue(ok({ ...target, signupLocale: OTHER_LOCALE }));
+    expect(await mainLang({ p: 'par_1', token: 'tok' })).toBe(OTHER_LOCALE);
   });
 
   it("stays English for a stored language that hasn't shipped", async () => {
-    previewReminderOptOut.mockResolvedValue(ok({ ...optedInTarget, signupLocale: 'sv' }));
+    shipOnlyEnglish();
+    previewReminderOptOut.mockResolvedValue(ok({ ...optedInTarget, signupLocale: OTHER_LOCALE }));
     expect(await mainLang({ p: 'par_1', token: 'tok' })).toBe('en');
   });
 
   it("takes the instance's language for a signup with none, once it has shipped", async () => {
-    ship('participant', ['en', 'sv']);
-    request.instanceDefault = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.instanceDefault = OTHER_LOCALE;
     previewReminderOptOut.mockResolvedValue(ok(optedInTarget));
-    expect(await mainLang({ p: 'par_1', token: 'tok' })).toBe('sv');
+    expect(await mainLang({ p: 'par_1', token: 'tok' })).toBe(OTHER_LOCALE);
   });
 
   // No row to read, so the language of the signup the path names, as a
   // broken edit link's page has it.
   it('marks a link that is not valid, or is incomplete, with the path’s language', async () => {
-    request.pathLocale = 'sv';
+    request.pathLocale = OTHER_LOCALE;
     previewReminderOptOut.mockResolvedValue(err(serviceError('forbidden', 'not valid')));
-    expect(await mainLang({ p: 'par_1', token: 'bad' })).toBe('sv');
-    expect(await mainLang({ p: 'par_1' })).toBe('sv');
+    expect(await mainLang({ p: 'par_1', token: 'bad' })).toBe(OTHER_LOCALE);
+    expect(await mainLang({ p: 'par_1' })).toBe(OTHER_LOCALE);
   });
 });
 
@@ -299,7 +301,7 @@ describe('unsubscribe page — its words in English', () => {
 });
 
 describe('unsubscribe page — its words in the signup’s language', () => {
-  const sv = (key: string) => `participant.unsubscribe.${key} in sv`;
+  const inOther = (key: string) => `participant.unsubscribe.${key} in ${OTHER_LOCALE}`;
   const noEmail = { participantEmail: null };
 
   afterEach(() => {
@@ -375,15 +377,15 @@ describe('unsubscribe page — its words in the signup’s language', () => {
   ])(
     'takes every word from the catalog when $state',
     async ({ target, params, title, body, controls }) => {
-      ship('participant', ['en', 'sv']);
-      previewReminderOptOut.mockResolvedValue(ok({ ...target, signupLocale: 'sv' }));
+      ship('participant', ['en', OTHER_LOCALE]);
+      previewReminderOptOut.mockResolvedValue(ok({ ...target, signupLocale: OTHER_LOCALE }));
       await renderPage({ p: 'par_1', token: 'tok', ...params });
       expect(said()).toEqual({
-        heading: sv(title),
-        sentence: sv(body),
+        heading: inOther(title),
+        sentence: inOther(body),
         // The stand-in leaves the tags out, so no bold title to find.
         bold: undefined,
-        controls: controls.map(sv).join(' | '),
+        controls: controls.map(inOther).join(' | '),
       });
     },
   );
@@ -394,24 +396,26 @@ describe('unsubscribe page — its words in the signup’s language', () => {
   ] as const)(
     'says turning reminders %s failed in the catalog’s words',
     async (...[, target, error, key]) => {
-      ship('participant', ['en', 'sv']);
-      previewReminderOptOut.mockResolvedValue(ok({ ...target, signupLocale: 'sv' }));
+      ship('participant', ['en', OTHER_LOCALE]);
+      previewReminderOptOut.mockResolvedValue(ok({ ...target, signupLocale: OTHER_LOCALE }));
       await renderPage({ p: 'par_1', token: 'tok', error });
-      expect(screen.getByRole('alert')).toHaveTextContent(sv(key));
+      expect(screen.getByRole('alert')).toHaveTextContent(inOther(key));
     },
   );
 
   it('explains a link it can’t use in the language of the signup the path names', async () => {
-    request.pathLocale = 'sv';
+    request.pathLocale = OTHER_LOCALE;
     await renderPage({ p: 'par_1' });
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(sv('incomplete.title'));
-    expect(screen.getByText(sv('incomplete.body'))).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      inOther('incomplete.title'),
+    );
+    expect(screen.getByText(inOther('incomplete.body'))).toBeInTheDocument();
 
     cleanup();
     previewReminderOptOut.mockResolvedValue(err(serviceError('forbidden', 'not valid')));
     await renderPage({ p: 'par_1', token: 'bad' });
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(sv('invalid.title'));
-    expect(screen.getByText(sv('invalid.body'))).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(inOther('invalid.title'));
+    expect(screen.getByText(inOther('invalid.body'))).toBeInTheDocument();
   });
 });
 
@@ -430,7 +434,9 @@ describe('unsubscribe page — its title', () => {
   });
 
   it('is the catalog’s in the language of the signup the path names', async () => {
-    request.pathLocale = 'sv';
-    expect((await generateMetadata()).title).toBe('participant.unsubscribe.title in sv');
+    request.pathLocale = OTHER_LOCALE;
+    expect((await generateMetadata()).title).toBe(
+      `participant.unsubscribe.title in ${OTHER_LOCALE}`,
+    );
   });
 });

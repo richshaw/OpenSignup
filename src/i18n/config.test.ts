@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   type Audience,
   CATALOG_LOCALES,
@@ -11,7 +11,7 @@ import {
   openGraphLocale,
   resolveLocale,
 } from './config';
-import { ship } from './testing/ship';
+import { ship, shipOnlyEnglish } from './testing/ship';
 
 /** Every language with a catalog besides English, each tried in turn. */
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
@@ -63,6 +63,8 @@ afterEach(() => {
 });
 
 describe('resolveLocale while only English has shipped', () => {
+  beforeEach(shipOnlyEnglish);
+
   it.each(AUDIENCES)('is English for %s, from whichever step names it first', (audience) => {
     expect(resolveLocale(audience, 'en', 'en')).toEqual({ locale: 'en', source: 'setting' });
     expect(resolveLocale(audience, null, 'en')).toEqual({ locale: 'en', source: 'instance' });
@@ -120,6 +122,8 @@ describe('resolveLocale while only English has shipped', () => {
 });
 
 describe.each(OTHER_LANGUAGES)('resolveLocale once %s has shipped', (other) => {
+  beforeEach(shipOnlyEnglish);
+
   it('takes the stored language before anything else', () => {
     ship('participant', ['en', other]);
     expect(resolveLocale('participant', other, 'en')).toEqual({

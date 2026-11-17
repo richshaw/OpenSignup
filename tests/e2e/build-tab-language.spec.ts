@@ -1,15 +1,17 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { englishName, TEST_LOCALES, withRegion } from '@/i18n/testing/locales';
 import { getTranslator } from '@/i18n/translator';
 import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { datedSignupIn, type DatedSignup } from './helpers/dated-signup';
 import { loadSeed } from './helpers/fixtures';
+import { messagesIn } from './helpers/languages';
 import { createOrganizerIn, type OrganizerIn } from './helpers/organizer-language';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 const seed = loadSeed();
-const { groups } = seed.swedishBuild;
 
 /**
  * What the browser reports while `page` is open that would mean its first
@@ -75,79 +77,87 @@ async function openBuildTab(
 }
 
 /**
- * A Swedish signup's Build tab. Its language reaches the tab's client
- * components as the order its groups sort in and the names a new field gets,
- * and both render on the server first, so the browser must agree with the
- * server whatever its own language: Node's ICU and the browser's could sort
- * or format differently. Swedish hasn't shipped, so the server shows these
- * signups in Swedish only with `E2E_UNSHIPPED_LOCALES=sv`, which
- * playwright.config.ts gives the server it starts.
+ * A Build tab of a signup in each test language. Its language reaches the
+ * tab's client components as the order its groups sort in and the names a
+ * new field gets, and both render on the server first, so the browser must
+ * agree with the server whatever its own language: Node's ICU and the
+ * browser's could sort or format differently. A language that hasn't shipped
+ * shows on these signups only on a server started with it in
+ * `E2E_UNSHIPPED_LOCALES`, which playwright.config.ts gives the server it
+ * starts.
  */
-for (const browserLocale of ['en-US', 'sv-SE']) {
-  test.describe(`a Swedish signup’s Build tab, in a browser set to ${browserLocale}`, () => {
-    test.use({ locale: browserLocale });
+for (const locale of TEST_LOCALES) {
+  const language = englishName(locale);
+  const { open, build } = seed.languages[locale];
+  // The groups in the order the tab sorts them in the language, as
+  // BuildWysiwyg.tsx compares them.
+  const groups = [...build.groups].sort((a, b) => a.localeCompare(b, locale));
+  // A browser set to the language where it's most spoken: sv-SE for Swedish.
+  const browserLocales = ['en-US', withRegion(locale)];
 
+  for (const browserLocale of browserLocales) {
+    test.describe(`a ${language} signup’s Build tab, in a browser set to ${browserLocale}`, () => {
+      test.use({ locale: browserLocale });
+
+      test.beforeEach(async ({ context }) => {
+        await loginAsSeededOrganizer(context);
+      });
+
+      test(`hydrates with no mismatch, and sorts its groups in ${language}`, async ({ page }) => {
+        const errors = watchForHydrationErrors(page);
+        await openBuildTab(page, build.id);
+        expect(await groupHeadings(page), `groups in English order: ${howToShow(locale)}`).toEqual(
+          groups,
+        );
+        expect(errors).toEqual([]);
+        // The tab's own words are its organizer's, who stores no language.
+        expect(await languageOf(page.getByRole('button', { name: /^Fields/ }))).toBe('en');
+        // Each slot's date and time are the signup's, in its language and marked so.
+        const time = page.getByText(formatSlotTime('18:30', locale)!, { exact: true });
+        await expect(time).toHaveCount(groups.length);
+        await expect(time.first()).toHaveAttribute('lang', locale);
+      });
+
+      test('hydrates with no mismatch on a signup grouped by date', async ({ page }) => {
+        const errors = watchForHydrationErrors(page);
+        await openBuildTab(page, open.id);
+        await expect(page.getByRole('button', { name: /^Group header/ }).first()).toBeVisible();
+        expect(errors).toEqual([]);
+        const heading = page.getByText(formatSlotDate(open.manyDate, locale)!, { exact: true });
+        await expect(heading).toHaveAttribute('lang', locale);
+      });
+    });
+  }
+
+  test.describe(`a ${language} signup’s Build tab`, () => {
     test.beforeEach(async ({ context }) => {
       await loginAsSeededOrganizer(context);
     });
 
-    test('hydrates with no mismatch, and sorts its groups in Swedish', async ({ page }) => {
-      const errors = watchForHydrationErrors(page);
-      await openBuildTab(page, seed.swedishBuild.id);
-      expect(
-        await groupHeadings(page),
-        'groups in English order: start the server with E2E_UNSHIPPED_LOCALES=sv',
-      ).toEqual([...groups]);
-      expect(errors).toEqual([]);
-      // The tab's own words are its organizer's, who stores no language.
-      expect(await languageOf(page.getByRole('button', { name: /^Fields/ }))).toBe('en');
-      // Each slot's date and time are the signup's, in Swedish and marked so.
-      const time = page.getByText(formatSlotTime('18:30', 'sv')!, { exact: true });
-      await expect(time).toHaveCount(groups.length);
-      await expect(time.first()).toHaveAttribute('lang', 'sv');
-    });
-
-    test('hydrates with no mismatch on a signup grouped by date', async ({ page }) => {
-      const errors = watchForHydrationErrors(page);
-      await openBuildTab(page, seed.swedish.id);
-      await expect(page.getByRole('button', { name: /^Group header/ }).first()).toBeVisible();
-      expect(errors).toEqual([]);
-      const heading = page.getByText(formatSlotDate(seed.swedish.manyDate, 'sv')!, {
-        exact: true,
-      });
-      await expect(heading).toHaveAttribute('lang', 'sv');
+    test(`names a new field left without a name, and its first option, in ${language}`, async ({
+      page,
+    }) => {
+      const defaults = messagesIn(locale, 'participant.defaults');
+      await openBuildTab(page, build.id);
+      await page.getByRole('button', { name: /^Fields/ }).click();
+      // Named by its title, which says New field once the form opens.
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('button', { name: 'Add field' }).click();
+      await dialog.getByRole('button', { name: 'List', exact: true }).click();
+      const saved = page.waitForResponse(
+        (r) =>
+          r.url().endsWith(`/api/signups/${build.id}/fields`) && r.request().method() === 'POST',
+      );
+      await dialog.getByRole('button', { name: 'Add field', exact: true }).click();
+      const field = (await (await saved).json()).data as {
+        label: string;
+        config: { choices: string[] };
+      };
+      expect(field.label).toBe(defaults('untitledField'));
+      expect(field.config.choices).toEqual([defaults('firstChoice')]);
     });
   });
 }
-
-test.describe('a Swedish signup’s Build tab', () => {
-  test.beforeEach(async ({ context }) => {
-    await loginAsSeededOrganizer(context);
-  });
-
-  test('names a new field left without a name, and its first option, in Swedish', async ({
-    page,
-  }) => {
-    await openBuildTab(page, seed.swedishBuild.id);
-    await page.getByRole('button', { name: /^Fields/ }).click();
-    // Named by its title, which says New field once the form opens.
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Add field' }).click();
-    await dialog.getByRole('button', { name: 'List', exact: true }).click();
-    const saved = page.waitForResponse(
-      (r) =>
-        r.url().endsWith(`/api/signups/${seed.swedishBuild.id}/fields`) &&
-        r.request().method() === 'POST',
-    );
-    await dialog.getByRole('button', { name: 'Add field', exact: true }).click();
-    const field = (await (await saved).json()).data as {
-      label: string;
-      config: { choices: string[] };
-    };
-    expect(field.label).toBe('Namnlös');
-    expect(field.config.choices).toEqual(['Alternativ 1']);
-  });
-});
 
 /**
  * An organizer who stores each language with a catalog but English, on a
@@ -159,7 +169,7 @@ test.describe('a Swedish signup’s Build tab', () => {
  * language only with it in `E2E_UNSHIPPED_LOCALES`, as playwright.config.ts
  * starts the server.
  */
-for (const locale of CATALOG_LOCALES.filter((l) => l !== 'en')) {
+for (const locale of TEST_LOCALES) {
   test.describe(`an organizer who stores ${locale}, on a signup in English`, () => {
     let organizer: OrganizerIn;
 
@@ -182,7 +192,7 @@ for (const locale of CATALOG_LOCALES.filter((l) => l !== 'en')) {
       await expect(fields).toBeVisible();
       expect(
         await languageOf(fields),
-        `the organizer app isn’t in ${locale}: start the server with E2E_UNSHIPPED_LOCALES=${locale}`,
+        `the organizer app isn’t in ${locale}: ${howToShow(locale)}`,
       ).toBe(locale);
       await expect(page.getByText(t('rail.editing'), { exact: true })).toBeVisible();
       const count = t('slot.takenOf', { taken: 0, capacity: 5 });
@@ -218,7 +228,7 @@ for (const signupLocale of CATALOG_LOCALES) {
   test.describe(`a signup in ${signupLocale}, built by an organizer in ${organizerLocale}`, () => {
     let organizer: OrganizerIn;
     let signup: DatedSignup;
-    const unshippedHint = `start the server with E2E_UNSHIPPED_LOCALES=${CATALOG_LOCALES.filter((l) => l !== 'en').join(',')}`;
+    const unshippedHint = howToShow(signupLocale === 'en' ? organizerLocale : signupLocale);
 
     test.beforeAll(async () => {
       organizer = await createOrganizerIn(

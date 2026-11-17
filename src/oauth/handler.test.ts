@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { waitInMinutes } from '@/lib/format-duration';
 
 const seen: { url?: string; method?: string }[] = [];
@@ -146,6 +146,8 @@ describe('handleOAuthRequest', () => {
   });
 
   describe.each(OTHER_LANGUAGES)('with DEFAULT_LOCALE=%s', (other) => {
+    beforeEach(shipOnlyEnglish);
+
     it('stays English while that language hasn’t shipped to organizers', async () => {
       instance.defaultLocale = other;
       const page = await (await rateLimitedPage(540)).text();

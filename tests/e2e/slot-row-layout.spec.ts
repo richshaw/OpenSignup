@@ -1,15 +1,9 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { getTranslator } from '@/i18n/translator';
+import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import { loadSeed } from './helpers/fixtures';
-import { gotoSwedish, remember } from './helpers/swedish';
+import { gotoIn, messagesIn, remember, signUpButton } from './helpers/languages';
 
 const seed = loadSeed();
-/** The Swedish row labels, from the catalog. Throws on a missing key. */
-const swedish = getTranslator('sv', 'participant.signupView', {
-  onError: (error) => {
-    throw error;
-  },
-});
 
 const PHONE = { width: 390, height: 844 };
 const NARROW = { width: 320, height: 568 };
@@ -29,54 +23,69 @@ const DESKTOP = { width: 1280, height: 800 };
  * `--project=chromium` only: a phone-only assertion gated on the mobile-safari
  * project would silently skip on every run.
  *
- * Each runs on the English seed signup and on the Swedish one, whose labels
- * are longer ("Anmäl dig" where English has "Sign up"): `ACTION_SIZING` in
- * slot-format.ts was sized for English, and the sign-up sheet's Spots box
- * (`NotesAndSpots` in participant-fields.tsx) is 80px wide in every language.
+ * Each runs on the English seed signup and on each test language's
+ * (`TEST_LOCALES`), whose labels can be longer (Swedish says "Anmäl dig" where
+ * English has "Sign up"): `ACTION_SIZING` in slot-format.ts was sized for
+ * English, and the sign-up sheet's Spots box (`NotesAndSpots` in
+ * participant-fields.tsx) is 80px wide in every language. Each language's
+ * labels come from its catalog.
  *
  * `sheet` is a slot with room for more than one person, so its sheet asks how
  * many spots, and with email optional, so it shows every field the sheet has.
  * `shows` are the labels a signup's rows must include, so a change to the seed
- * can't quietly stop a label being measured: the open Swedish signup has no
- * closed slot and no sign-up of the browser's own, so the closed one, with a
- * sign-up the browser remembers, is here for Stängt and Ändra.
+ * can't quietly stop a label being measured: a language's open signup has no
+ * closed slot and no sign-up of the browser's own, so its closed one, with a
+ * sign-up the browser remembers, is here for Closed and Edit.
  */
-const SIGNUPS = [
+interface LayoutCase {
+  name: string;
+  path: string;
+  labels: { full: string; closed: string };
+  shows: string[];
+  goto: (page: Page, path: string) => Promise<unknown>;
+  sheet: { path: string; slot: string; signUp: RegExp } | null;
+}
+
+const SIGNUPS: LayoutCase[] = [
   {
     name: 'in English',
     path: `/s/${seed.publicSlug}`,
     labels: { full: 'Full', closed: 'Closed' },
-    shows: [] as string[],
-    goto: (page: Page, path: string) => page.goto(path),
+    shows: [],
+    goto: (page, path) => page.goto(path),
     sheet: {
       path: `/s/${seed.optionalEmailSlug}`,
       slot: seed.optionalEmailSlotLabel,
       signUp: /^Sign up for /,
     },
   },
-  {
-    name: 'in Swedish',
-    path: `/s/${seed.swedish.slug}`,
-    labels: { full: swedish('full'), closed: swedish('closed') },
-    shows: [swedish('full')],
-    goto: gotoSwedish,
-    sheet: {
-      path: `/s/${seed.swedish.slug}`,
-      slot: seed.swedish.slots.many,
-      signUp: /^Anmäl dig till /,
-    },
-  },
-  {
-    name: 'in Swedish, closed, with your own sign-up',
-    path: `/s/${seed.swedishClosed.slug}`,
-    labels: { full: swedish('full'), closed: swedish('closed') },
-    shows: [swedish('closed'), swedish('edit')],
-    goto: async (page: Page, path: string) => {
-      await remember(page.context(), seed.swedishClosed.remembered);
-      await gotoSwedish(page, path);
-    },
-    sheet: null,
-  },
+  ...TEST_LOCALES.flatMap((locale): LayoutCase[] => {
+    const language = englishName(locale);
+    const view = messagesIn(locale, 'participant.signupView');
+    const labels = { full: view('full'), closed: view('closed') };
+    const { open, closed } = seed.languages[locale];
+    return [
+      {
+        name: `in ${language}`,
+        path: `/s/${open.slug}`,
+        labels,
+        shows: [view('full')],
+        goto: (page, path) => gotoIn(page, locale, path),
+        sheet: { path: `/s/${open.slug}`, slot: open.slots.many, signUp: signUpButton(locale) },
+      },
+      {
+        name: `in ${language}, closed, with your own sign-up`,
+        path: `/s/${closed.slug}`,
+        labels,
+        shows: [view('closed'), view('edit')],
+        goto: async (page, path) => {
+          await remember(page.context(), closed.remembered);
+          await gotoIn(page, locale, path);
+        },
+        sheet: null,
+      },
+    ];
+  }),
 ];
 
 /**

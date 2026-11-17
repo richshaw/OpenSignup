@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { formatSlotDate, formatSlotTime, renderFieldValue, slotDetails } from './slot-label';
 
 const fields = [
@@ -39,10 +40,10 @@ describe('slotDetails', () => {
 
   it('reads the values in the language it is given', () => {
     expect(
-      slotDetails(fields, { date: '2025-05-03', time: '13:00', role: 'Front desk' }, 'sv'),
+      slotDetails(fields, { date: '2025-05-03', time: '13:00', role: 'Front desk' }, OTHER_LOCALE),
     ).toEqual([
-      { label: 'Date', value: 'lör 3 maj' },
-      { label: 'Time', value: '13:00' },
+      { label: 'Date', value: formatSlotDate('2025-05-03', OTHER_LOCALE) },
+      { label: 'Time', value: formatSlotTime('13:00', OTHER_LOCALE) },
       { label: 'Role', value: 'Front desk' },
     ]);
   });

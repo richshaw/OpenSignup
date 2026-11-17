@@ -32,6 +32,7 @@ if (readFileSync('src/help/articles.ts', 'utf8').includes(`slug: '${slug}'`)) {
 
 const component = slug.replace(/(^|-)([a-z0-9])/g, (_, __, c) => c.toUpperCase());
 const uiAlias = `${component[0].toLowerCase()}${component.slice(1)}Ui`;
+const fromCatalogAlias = `${component[0].toLowerCase()}${component.slice(1)}FromCatalog`;
 const quote = (s) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 
 // Every edit is worked out and checked first, then all are written together,
@@ -50,6 +51,21 @@ export const UI = {
   // TODO: every button, link, box and message the steps name, exactly as on screen.
   yourSignups: 'Your signups',
 } as const;
+
+/**
+ * Where each name above is in the English catalog (src/messages/en.json):
+ * the key of the message the control shows, with its placeholders' values
+ * where it has any, or a list where one name stands for several controls.
+ * src/help/ui-names.test.ts checks each name is that message's English, so
+ * a reworded message fails it until the name, and the article, change with
+ * it. Null for a name whose text isn't in the catalog.
+ */
+type FromCatalog = string | { key: string; values: Readonly<Record<string, string>> };
+export const FROM_CATALOG: {
+  readonly [Name in keyof typeof UI]: FromCatalog | readonly FromCatalog[] | null;
+} = {
+  yourSignups: 'organizer.dashboard.title',
+};
 `,
 );
 
@@ -135,11 +151,11 @@ if (!bodies.includes(iface) || !bodies.includes(map))
   throw new Error(`can't find where to register in ${bodiesPath}`);
 bodies = bodies.replace(
   `\n\n${iface}`,
-  `\nimport { ${component}, UI as ${uiAlias} } from './articles/${slug}';\n\n${iface}`,
+  `\nimport { ${component}, UI as ${uiAlias} } from './articles/${slug}';\nimport { FROM_CATALOG as ${fromCatalogAlias} } from './articles/${slug}.ui';\n\n${iface}`,
 );
 const mapStart = bodies.indexOf(map);
 const mapEnd = bodies.indexOf('\n};', mapStart);
-bodies = `${bodies.slice(0, mapEnd)}\n  ${quote(slug)}: { Body: ${component}, ui: ${uiAlias} },${bodies.slice(mapEnd)}`;
+bodies = `${bodies.slice(0, mapEnd)}\n  ${quote(slug)}: { Body: ${component}, ui: ${uiAlias}, fromCatalog: ${fromCatalogAlias} },${bodies.slice(mapEnd)}`;
 writes.set(bodiesPath, bodies);
 
 // The sitemap test lists every indexable address, help articles included.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { closedMessage } from './closed-message';
 
@@ -20,14 +21,14 @@ describe('closedMessage', () => {
   });
 
   it('takes its lines from the translator it is given', () => {
-    const sv = getStandInTranslator('sv', 'participant.errors');
-    expect(closedMessage({ code: 'closed' }, 'join', sv)).toStrictEqual({
-      message: 'participant.errors.closed.join in sv',
-      suggestion: 'participant.errors.closed.reload in sv',
+    const other = getStandInTranslator(OTHER_LOCALE, 'participant.errors');
+    expect(closedMessage({ code: 'closed' }, 'join', other)).toStrictEqual({
+      message: `participant.errors.closed.join in ${OTHER_LOCALE}`,
+      suggestion: `participant.errors.closed.reload in ${OTHER_LOCALE}`,
     });
-    expect(closedMessage({ code: 'closed' }, 'change', sv)).toStrictEqual({
-      message: 'participant.errors.closed.change in sv',
-      suggestion: 'participant.errors.keepNumber in sv',
+    expect(closedMessage({ code: 'closed' }, 'change', other)).toStrictEqual({
+      message: `participant.errors.closed.change in ${OTHER_LOCALE}`,
+      suggestion: `participant.errors.keepNumber in ${OTHER_LOCALE}`,
     });
   });
 

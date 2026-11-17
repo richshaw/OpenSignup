@@ -7,7 +7,9 @@
  */
 import { expect, test } from '@playwright/test';
 import { UI } from '@/help/articles/create-and-publish-a-signup.ui';
+import { languageName, SHIPPED } from '@/i18n/config';
 import { loginAsSeededOrganizer } from '../helpers/auth';
+import { loadSeed } from '../helpers/fixtures';
 import { helpElementShot } from '../helpers/help-shots';
 import { createPublishedSignup } from '../helpers/signups';
 
@@ -330,6 +332,52 @@ test.describe('help: create and publish your first signup', () => {
     await next.close();
   });
 
+  test('a signup’s language can be changed, and its page follows', async ({
+    page,
+    context,
+    browser,
+    isMobile,
+  }) => {
+    test.skip(isMobile, 'the same steps on a phone; the desktop run takes the picture');
+    // The article's example: a language besides English signups can be in.
+    const other = SHIPPED.participant.find((locale) => locale !== 'en');
+    test.skip(!other, 'only English has shipped, so there is no other language to choose');
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Language ${Date.now()}`,
+      slot: { values: { what: 'Fruit and water', date: '2030-04-06' }, capacity: 2 },
+    });
+
+    // "To see or change it, choose your email address at the top of any page.
+    // It's under Language."
+    await page.goto(`/app/signups/${signup.id}/build`);
+    await page.getByRole('link', { name: loadSeed().organizerEmail, exact: true }).click();
+    const mine = page.getByRole('group', { name: UI.language, exact: true });
+    // The seeded organizer stores none, and the site sets none: English.
+    await expect(mine.getByRole('radio', { name: languageName('en') })).toBeChecked();
+
+    // "A new signup starts in your own language": this one is in English.
+    await page.goto(`/app/signups/${signup.id}/settings`);
+    const choice = page.getByRole('group', { name: UI.signupLanguage });
+    const form = page.locator('form').filter({ has: choice });
+    await expect(choice.getByRole('radio', { name: languageName('en') })).toBeChecked();
+    // "Each one is written in its own words."
+    await choice.getByRole('radio', { name: languageName(other!) }).check();
+    await form.getByRole('button', { name: UI.save }).click();
+    await expect(form.getByRole('status')).toHaveText(UI.saved);
+    await expect(choice.getByRole('radio', { name: languageName(other!) })).toBeChecked();
+    await helpElementShot(page, SLUG, form, 'signup-language');
+
+    // The signup page is in it now, and the tab stays in the organizer's.
+    expect(await form.evaluate((element) => element.closest('[lang]')?.getAttribute('lang'))).toBe(
+      'en',
+    );
+    const visitor = await browser.newPage();
+    await visitor.goto(`/s/${signup.slug}`);
+    await expect(visitor.locator('main')).toHaveAttribute('lang', other!);
+    await visitor.close();
+  });
+
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
@@ -442,6 +490,14 @@ test.describe('help: create and publish your first signup', () => {
       const bar = page.locator('[data-phone-bar]');
       await expect(bar.getByText('0 of 1 spot taken', { exact: true })).toBeVisible();
       await expect(bar.getByRole('button', { name: UI.share, exact: true })).toBeFocused();
+    });
+
+    // "… or Account on a phone. It's under Language."
+    test('your own language is behind Account', async ({ page, context }) => {
+      await loginAsSeededOrganizer(context);
+      await page.goto('/app');
+      await page.getByRole('link', { name: UI.account, exact: true }).click();
+      await expect(page.getByRole('group', { name: UI.language, exact: true })).toBeVisible();
     });
   });
 });

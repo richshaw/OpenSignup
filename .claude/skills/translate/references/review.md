@@ -31,9 +31,11 @@ namespaces" | "every message in the organizer, auth and common namespaces" |
 How it looks in place, under `<repo root>/translation-review/`:
 
 - `<code>/screens/chromium/` and `<code>/screens/chromium-phone/`: a screenshot
-  of each participant screen and state, at desktop and phone width (390
+  of each participant screen and state, and of the organizer screens on the
+  way to a published signup (`organizer-…`), at desktop and phone width (390
   pixels), named for what it shows (`page-open`, `sheet-error-filled-up`,
-  `edit-page-closed`, `unsubscribe-confirm` …). Look at the images.
+  `edit-page-closed`, `unsubscribe-confirm`, `organizer-build-slot` …). Look
+  at the images.
 - `<code>/emails/*.html` and `*.txt`: each participant email. Its English is
   in `en/emails/`, under the same name without `-<code>` (`reminder-sv.txt`
   and `reminder.txt`). Each `.txt` starts with a `Subject:` line: the email's
@@ -43,8 +45,9 @@ How it looks in place, under `<repo root>/translation-review/`:
   the hidden preview text just before `<body>`. The sign-in email is there
   too, as `magic-link` and `magic-link-<code>`: it's organizer text
   (`auth.email`), in the language of the account it goes to.
-- For organizer text: <where the translator saved the organizer screens this
-  change touches, at desktop and phone width>. An organizer's screens are in
+- For organizer text on other screens: <where the translator saved the
+  organizer screens this change touches that have no `organizer-…`
+  screenshot, at desktop and phone width>. An organizer's screens are in
   the language stored on their account.
 
 Some messages show in no screenshot, because they're only in a tab's title, a
