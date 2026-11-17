@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import type { ClientDisplay } from '@/oauth/client-display';
 import { describeScopes, type Scope } from '@/oauth/scopes';
 
@@ -226,6 +226,8 @@ describe('the consent page', () => {
   });
 
   describe.each(OTHER_LANGUAGES)('for an organizer whose language is %s', (other) => {
+    beforeEach(shipOnlyEnglish);
+
     const ask = (key: string) => `auth.consent.${key} in ${other}`;
 
     it('stays English while that language hasn’t shipped to organizers', async () => {

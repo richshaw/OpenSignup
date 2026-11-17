@@ -8,8 +8,8 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
-import type { CatalogLocale } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { OTHER_LANGUAGE, OTHER_LOCALE, withRegion } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
@@ -35,8 +35,6 @@ vi.mock('@/i18n/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/i18n/server')>()),
   instanceDefaultLocale: () => route.instanceDefault,
 }));
-
-const SV: CatalogLocale = 'sv';
 
 const BUCKET = RateLimits.signupCreatePerOrganizer.bucket;
 
@@ -239,6 +237,8 @@ describe('POST /api/signups chooses the new signup’s language (db)', () => {
   }
 
   describe('while only English has shipped', () => {
+    beforeEach(shipOnlyEnglish);
+
     it('stores no language, and records none, whatever the organizer’s steps say', async () => {
       route.locale = 'en';
       route.instanceDefault = 'en';
@@ -257,35 +257,35 @@ describe('POST /api/signups chooses the new signup’s language (db)', () => {
     });
 
     it('refuses a language the caller sent that hasn’t shipped, and makes nothing', async () => {
-      const r = await create({ title: 'Unshipped', settings: { locale: 'sv' } });
+      const r = await create({ title: 'Unshipped', settings: { locale: OTHER_LOCALE } });
       expect(r.status).toBe(400);
       expect(r.error).toMatchObject({ code: 'invalid_input', field: 'settings.locale' });
       expect(await made('Unshipped')).toEqual([]);
     });
   });
 
-  describe('once Swedish has shipped to participants', () => {
+  describe(`once ${OTHER_LANGUAGE} has shipped to participants`, () => {
     beforeEach(() => {
-      ship('participant', ['en', SV]);
+      ship('participant', ['en', OTHER_LOCALE]);
     });
 
     it('takes the organizer’s saved language first', async () => {
-      route.locale = 'sv';
+      route.locale = OTHER_LOCALE;
       route.instanceDefault = 'en';
       const r = await create({}, 'en');
-      expect(r.settings).toMatchObject({ locale: 'sv' });
-      expect(r.telemetry).toMatchObject({ locale: 'sv', localeSource: 'setting' });
+      expect(r.settings).toMatchObject({ locale: OTHER_LOCALE });
+      expect(r.telemetry).toMatchObject({ locale: OTHER_LOCALE, localeSource: 'setting' });
     });
 
     it('takes the instance’s DEFAULT_LOCALE when the account stores none, whatever the browser asks for', async () => {
-      route.instanceDefault = 'sv';
+      route.instanceDefault = OTHER_LOCALE;
       const r = await create({}, 'en');
-      expect(r.settings).toMatchObject({ locale: 'sv' });
-      expect(r.telemetry).toMatchObject({ locale: 'sv', localeSource: 'instance' });
+      expect(r.settings).toMatchObject({ locale: OTHER_LOCALE });
+      expect(r.telemetry).toMatchObject({ locale: OTHER_LOCALE, localeSource: 'instance' });
     });
 
     it('takes no language from the browser: English when nothing is stored and the instance sets none', async () => {
-      const r = await create({}, 'sv-SE,en;q=0.8');
+      const r = await create({}, `${withRegion(OTHER_LOCALE)},en;q=0.8`);
       expect(r.settings).toMatchObject({ locale: 'en' });
       expect(r.telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
     });
@@ -298,17 +298,17 @@ describe('POST /api/signups chooses the new signup’s language (db)', () => {
     });
 
     it('keeps the caller’s language over the organizer’s', async () => {
-      route.locale = 'sv';
-      const r = await create({ settings: { locale: 'en' } }, 'sv');
+      route.locale = OTHER_LOCALE;
+      const r = await create({ settings: { locale: 'en' } }, OTHER_LOCALE);
       expect(r.settings).toMatchObject({ locale: 'en' });
       expect(r.telemetry).toMatchObject({ locale: 'en', localeSource: 'api' });
-      const sent = await create({ settings: { locale: 'sv' } });
-      expect(sent.settings).toMatchObject({ locale: 'sv' });
-      expect(sent.telemetry).toMatchObject({ locale: 'sv', localeSource: 'api' });
+      const sent = await create({ settings: { locale: OTHER_LOCALE } });
+      expect(sent.settings).toMatchObject({ locale: OTHER_LOCALE });
+      expect(sent.telemetry).toMatchObject({ locale: OTHER_LOCALE, localeSource: 'api' });
     });
 
     it('still refuses a sent language that hasn’t shipped, rather than choosing one', async () => {
-      route.locale = 'sv';
+      route.locale = OTHER_LOCALE;
       for (const locale of ['xx', null, '']) {
         const title = `Refused ${String(locale)}`;
         const r = await create({ title, settings: { locale } });
@@ -319,14 +319,14 @@ describe('POST /api/signups chooses the new signup’s language (db)', () => {
     });
 
     it('adds the language to the other settings sent', async () => {
-      route.locale = 'sv';
+      route.locale = OTHER_LOCALE;
       const r = await create({ settings: { sendReminders: false } });
-      expect(r.settings).toMatchObject({ sendReminders: false, locale: 'sv' });
+      expect(r.settings).toMatchObject({ sendReminders: false, locale: OTHER_LOCALE });
     });
 
     it('leaves settings that aren’t an object for the service to refuse', async () => {
-      route.locale = 'sv';
-      const r = await create({ title: 'Bad settings', settings: 'sv' });
+      route.locale = OTHER_LOCALE;
+      const r = await create({ title: 'Bad settings', settings: OTHER_LOCALE });
       expect(r.status).toBe(400);
       expect(r.error).toMatchObject({ code: 'invalid_input' });
       expect(await made('Bad settings')).toEqual([]);

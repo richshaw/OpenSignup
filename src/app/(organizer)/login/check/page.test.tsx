@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { formatDuration } from '@/lib/format-duration';
 
 // The instance's DEFAULT_LOCALE and how long its links last. `realText`
@@ -71,6 +71,8 @@ describe('the check-your-email page', () => {
   });
 
   describe.each(OTHER_LANGUAGES)('with DEFAULT_LOCALE=%s', (other) => {
+    beforeEach(shipOnlyEnglish);
+
     it('stays English while that language hasn’t shipped to organizers', async () => {
       request.defaultLocale = other;
       const { frame } = await renderPage();

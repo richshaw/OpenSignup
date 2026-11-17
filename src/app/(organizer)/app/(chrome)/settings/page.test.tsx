@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import {
@@ -11,7 +11,7 @@ import {
   languageNameInSentence,
 } from '@/i18n/config';
 import type { Namespace } from '@/i18n/translator';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
 // What the page reads around the form: the instance's language (none, unless
 // a test sets one) and the session, with the language stored on the account.
@@ -119,6 +119,10 @@ describe('Account Settings', () => {
 });
 
 describe('Account Settings: Language', () => {
+  // From before any launch: each test ships the languages it shows, and
+  // English alone to the audience it doesn't.
+  beforeEach(shipOnlyEnglish);
+
   it('isn’t there while one language has shipped to participants', async () => {
     request.saved = 'en';
     await renderPage({ saved: 'language' });
@@ -228,6 +232,8 @@ describe('Account Settings: Language', () => {
 });
 
 describe('Account Settings: switching the open signups', () => {
+  beforeEach(shipOnlyEnglish);
+
   const switchButton = () => screen.queryByRole('button', { name: /^Switch (it|them) to/ });
   /** The organizer has `open` open signups, `count` of them in another language. */
   const toSwitch = (count: number, open = count) =>
@@ -237,7 +243,7 @@ describe('Account Settings: switching the open signups', () => {
     });
   /** What switching changes and what it leaves, under the button. */
   const NOTE =
-    "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.";
+    "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and fields you typed stay as they are. People who already signed up see the new language too.";
 
   it('isn’t there, and reads nothing, while one language has shipped to participants', async () => {
     request.saved = 'en';

@@ -6,6 +6,8 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { eq, inArray } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
+import { TEST_LOCALES, type TestLocale } from '@/i18n/testing/locales';
+import { getTranslator } from '@/i18n/translator';
 import { sessions } from '@/db/schema/auth';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { workspaceMembers } from '@/db/schema/members';
@@ -63,13 +65,12 @@ export interface SeedData {
   /** Published signup whose settings make the email optional, with an open slot. */
   optionalEmailSlug: string;
   optionalEmailSlotLabel: string;
-  /** Published signup in Swedish: see makeSwedishSignup. */
-  swedish: SwedishSeed;
-  /** Draft in Swedish for its Build tab: see makeSwedishBuildSignup. */
-  swedishBuild: SwedishBuildSeed;
-  /** Closed and archived signups in Swedish: see makeSwedishClosedAndArchived. */
-  swedishClosed: SwedishClosedSeed;
-  swedishArchived: SwedishArchivedSeed;
+  /**
+   * In each test language (`TEST_LOCALES`): an open signup, a draft for its
+   * Build tab, and a closed and an archived signup (see makeSignupsIn), and
+   * an organizer whose account stores the language (see makeOrganizerIn).
+   */
+  languages: Record<TestLocale, LanguageSeed>;
 }
 
 /**
@@ -84,32 +85,115 @@ export interface Remembered {
 }
 
 /**
- * The Swedish test signup's slots, by what each exercises. Grouped by date,
- * so the slots with no date sit under "(utan datum)".
+ * The open test signup's slots, by what each exercises. Grouped by date, so
+ * the slots with no date sit under the date field's "(no …)" heading.
  */
-const SWEDISH_SLOTS = {
+interface OpenSlots {
   /**
-   * Capacity 20, one taken: "19 kvar", "19 av 20 platser kvar". Its name has
-   * å, ä and ö, which the calendar file's name keeps.
+   * Capacity 20, one taken: "19 left", "19 of 20 spots left". Its name is one
+   * word with letters beyond A to Z, which the calendar file's name keeps as
+   * they are.
    */
-  many: 'Räksmörgås',
+  many: string;
   /** Capacity 1, open: the row's Sign up and nothing in the count column. */
-  one: 'Saft',
+  one: string;
   /** Capacity 1, taken: Full. */
-  full: 'Bullar',
-  /** No date, no limit, one taken: "1 anmäld", the plural's one. */
-  unlimitedOne: 'Disk',
-  /** No date, no limit, two taken: "2 anmälda", the plural's other. */
-  unlimitedTwo: 'Städning',
-} as const;
+  full: string;
+  /** No date, no limit, one taken: "1 signed up", the plural's one. */
+  unlimitedOne: string;
+  /** No date, no limit, two taken: "2 signed up", the plural's other. */
+  unlimitedTwo: string;
+}
 
-interface SwedishSeed {
+/**
+ * What an organizer writing in a test language would give its test signups:
+ * titles, slots' names, and the names of the people on them. It's their own
+ * text, not the catalog's, so it changes nothing a test checks, but it makes
+ * the translation screenshots read as such a signup would. A language with no
+ * entry in `ORGANIZER_TEXT` gets `ANY_LANGUAGE`'s. The fields a new signup
+ * names ("What", "Date") take their names from the language's catalog
+ * (`participant.defaults`), as a new signup's do.
+ */
+interface OrganizerText {
+  /** Each sign-up's person, numbered: "Deltagare 1", deltagare1@example.test. */
+  person: { name: string; mailbox: string };
+  open: { title: string; description: string; slots: OpenSlots };
+  /** Its first slot keeps a sign-up, made by `mailbox`1@example.test. */
+  closed: { title: string; mailbox: string; slots: readonly [string, string] };
+  archived: { title: string; slot: string };
+  /**
+   * Grouped by a text field (`group`), with a date and a time (`time`) on
+   * each slot. `groups` are the group field's values, in the order the draft
+   * makes its slots: names whose order depends on the language, as Å, Ä and
+   * Ö come after Z in Swedish but among the A's and O's in English.
+   */
+  build: {
+    title: string;
+    labels: { group: string; time: string };
+    groups: readonly [string, string, string, string];
+  };
+}
+
+/** The test signups' own text in a language, where it has some. */
+const ORGANIZER_TEXT: { [L in TestLocale]?: OrganizerText } = {
+  sv: {
+    person: { name: 'Deltagare', mailbox: 'deltagare' },
+    open: {
+      title: 'Fika till vårfesten',
+      description: 'Ta med något gott till vårfesten.',
+      slots: {
+        many: 'Räksmörgås',
+        one: 'Saft',
+        full: 'Bullar',
+        unlimitedOne: 'Disk',
+        unlimitedTwo: 'Städning',
+      },
+    },
+    closed: { title: 'Loppis i aulan', mailbox: 'loppis', slots: ['Kaffe', 'Tårta'] },
+    archived: { title: 'Vårkonsert', slot: 'Biljettbord' },
+    build: {
+      title: 'Städdag i parken',
+      labels: { group: 'Grupp', time: 'Tid' },
+      groups: ['Ödla', 'Zebra', 'Äpple', 'Apa'],
+    },
+  },
+};
+
+/**
+ * For a language with none of its own: names that read as names in most
+ * languages (dishes and places) and labels that are notation, none of them
+ * an English word the specs look for on a translated page.
+ */
+const ANY_LANGUAGE: OrganizerText = {
+  person: { name: 'Alex', mailbox: 'alex' },
+  open: {
+    title: 'Café Mozart',
+    description: '☕',
+    slots: {
+      many: 'Smørrebrød',
+      one: 'Espresso',
+      full: 'Croissant',
+      unlimitedOne: 'Tiramisù',
+      unlimitedTwo: 'Baklava',
+    },
+  },
+  closed: { title: 'Bazar', mailbox: 'bazar', slots: ['Strudel', 'Pavlova'] },
+  archived: { title: 'Concerto', slot: 'Kiosk' },
+  build: {
+    title: 'Picnic',
+    labels: { group: 'A–Z', time: 'hh:mm' },
+    groups: ['Örebro', 'Zürich', 'Ålesund', 'Aachen'],
+  },
+};
+
+/** A test signup that is open, with sign-ups on it: see makeOpenSignupIn. */
+interface OpenSeed {
   id: string;
   slug: string;
   title: string;
   /** The heading over the slots with no date: the date field's "(no …)". */
   noDateHeading: string;
-  slots: typeof SWEDISH_SLOTS;
+  slots: OpenSlots;
   /** The date `slots.many` is on, as its date field stores it (YYYY-MM-DD). */
   manyDate: string;
   /** The edit link and the unsubscribe link of the sign-up on `slots.many`, and who made it. */
@@ -129,7 +213,7 @@ interface SwedishSeed {
   optedOutEmail: string;
 }
 
-interface SwedishClosedSeed {
+interface ClosedSeed {
   slug: string;
   /** The sign-up still on it, as its browser remembers it, and its edit link. */
   remembered: Remembered;
@@ -138,23 +222,47 @@ interface SwedishClosedSeed {
   cancelledEditPath: string;
 }
 
-interface SwedishArchivedSeed {
+interface ArchivedSeed {
   slug: string;
 }
 
-/**
- * The Swedish Build-tab draft's groups, in Swedish alphabetical order, where
- * Å, Ä and Ö come after Z. English puts Äpple and Ödla among the A's and O's,
- * before Zebra. The draft's slots are in neither order.
- */
-const SWEDISH_BUILD_GROUPS = ['Apa', 'Zebra', 'Äpple', 'Ödla'] as const;
-
-interface SwedishBuildSeed {
+interface BuildSeed {
   id: string;
   /** Its page's address: a draft's, which tells visitors it isn't ready. */
   slug: string;
-  /** The group field's values, in the order the Build tab sorts them. */
-  groups: typeof SWEDISH_BUILD_GROUPS;
+  /** The group field's values, in the order the draft made its slots. */
+  groups: readonly string[];
+}
+
+/** A test language's signups: see makeSignupsIn. */
+interface LanguageSignups {
+  /** Published, with sign-ups on it. */
+  open: OpenSeed;
+  /** A draft, for its Build tab. */
+  build: BuildSeed;
+  closed: ClosedSeed;
+  archived: ArchivedSeed;
+}
+
+/**
+ * An organizer whose account stores a test language, signed in through a
+ * session of their own, with signups of their own in it: see makeOrganizerIn.
+ */
+interface OrganizerSeed {
+  id: string;
+  email: string;
+  sessionToken: string;
+  /**
+   * Made as the language's test signups are (makeSignupsIn), in their own
+   * workspace, so Your signups shows one in each state, and Responses people
+   * on the open one.
+   */
+  signups: LanguageSignups;
+}
+
+/** A test language's signups, and its organizer. */
+interface LanguageSeed extends LanguageSignups {
+  organizer: OrganizerSeed;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -180,6 +288,7 @@ async function insertOrganizer(
   email: string,
   workspaceSlug: string,
   names: { organizer: string; workspace: string },
+  locale: TestLocale | null = null,
 ): Promise<{ organizerId: string; workspaceId: string }> {
   const organizerId = makeId('org');
   const workspaceId = makeId('ws');
@@ -189,6 +298,7 @@ async function insertOrganizer(
       email,
       name: names.organizer,
       defaultWorkspaceId: workspaceId,
+      locale,
     });
     await tx.insert(workspaces).values({
       id: workspaceId,
@@ -251,16 +361,16 @@ async function makePublishedSignup(
 }
 
 /**
- * Writes Swedish into a signup's row. Swedish can't be chosen until it ships
- * (`createSignup` refuses it), so the seed writes it after creating the
- * signup. It hasn't shipped, so the signup shows in it only on a server
- * started with `E2E_UNSHIPPED_LOCALES=sv`, which playwright.config.ts gives
- * the server it starts (`localeOfSignup` in src/i18n/locale.ts).
+ * Writes `locale` into a signup's row as its language. A language that hasn't
+ * shipped can't be chosen (`createSignup` refuses it), so the seed writes it
+ * after creating the signup, and the signup shows in it only on a server
+ * started with it in `E2E_UNSHIPPED_LOCALES`, which playwright.config.ts
+ * gives the server it starts (`localeOfSignup` in src/i18n/locale.ts).
  */
-async function writeSwedish(db: Db, signup: SignupRow): Promise<void> {
+async function writeLanguage(db: Db, signup: SignupRow, locale: TestLocale): Promise<void> {
   await db
     .update(signups)
-    .set({ settings: { ...signup.settings, locale: 'sv' } })
+    .set({ settings: { ...signup.settings, locale } })
     .where(eq(signups.id, signup.id));
 }
 
@@ -270,38 +380,59 @@ function dayFromNow(days: number): string {
 }
 
 /**
- * A published signup whose language is Swedish, for the specs that check the
- * participant pages in a second language. Fields and slots are an organizer's
- * in Swedish, as a Swedish signup's would be. Swedish is written into the
- * row afterwards (`writeSwedish`).
+ * The fields a test signup in `locale` is made with: a text field and a date
+ * field, named as a new signup's are in that language
+ * (`participant.defaults`: "Vad" and "Datum" in Swedish).
  */
-async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Promise<SwedishSeed> {
-  const title = 'Fika till vårfesten';
+function whatAndDate(locale: TestLocale): SignupTemplate['fields'] {
+  const defaults = getTranslator(locale, 'participant.defaults', {
+    onError: (error) => {
+      throw error;
+    },
+  });
+  return [
+    {
+      ref: 'what',
+      label: defaults('what'),
+      fieldType: 'text',
+      sortOrder: 0,
+      config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
+    },
+    {
+      ref: 'date',
+      label: defaults('date'),
+      fieldType: 'date',
+      sortOrder: 1,
+      config: { fieldType: 'date' },
+    },
+  ];
+}
+
+/**
+ * A published signup in `locale`, for the specs that check the participant
+ * pages in a language other than English: its fields named in the language
+ * (`whatAndDate`), its other text the organizer's (`text`), and the language
+ * written into its row afterwards (`writeLanguage`).
+ */
+async function makeOpenSignupIn(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+  locale: TestLocale,
+  text: OrganizerText,
+): Promise<OpenSeed> {
+  const { title, slots: names } = text.open;
   const manyDate = dayFromNow(30);
+  const fields = whatAndDate(locale);
   const template: SignupTemplate = {
-    id: 'e2e-swedish',
-    fields: [
-      {
-        ref: 'vad',
-        label: 'Vad',
-        fieldType: 'text',
-        sortOrder: 0,
-        config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
-      },
-      {
-        ref: 'datum',
-        label: 'Datum',
-        fieldType: 'date',
-        sortOrder: 1,
-        config: { fieldType: 'date' },
-      },
-    ],
+    id: `e2e-${locale}`,
+    fields,
     slots: [
-      { capacity: 20, values: { vad: SWEDISH_SLOTS.many, datum: manyDate } },
-      { capacity: 1, values: { vad: SWEDISH_SLOTS.one, datum: dayFromNow(30) } },
-      { capacity: 1, values: { vad: SWEDISH_SLOTS.full, datum: dayFromNow(31) } },
-      { capacity: null, values: { vad: SWEDISH_SLOTS.unlimitedOne } },
-      { capacity: null, values: { vad: SWEDISH_SLOTS.unlimitedTwo } },
+      { capacity: 20, values: { what: names.many, date: manyDate } },
+      { capacity: 1, values: { what: names.one, date: dayFromNow(30) } },
+      { capacity: 1, values: { what: names.full, date: dayFromNow(31) } },
+      { capacity: null, values: { what: names.unlimitedOne } },
+      { capacity: null, values: { what: names.unlimitedTwo } },
     ],
   };
   const signup = unwrap(
@@ -311,18 +442,18 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
       workspaceId,
       {
         title,
-        description: 'Ta med något gott till vårfesten. Seeded by tests/e2e/helpers/seed.ts',
+        description: `${text.open.description} Seeded by tests/e2e/helpers/seed.ts`,
         tags: [],
         visibility: 'unlisted' as const,
         // Email optional, so the sheet shows the email box's help, with its
         // reminder clause on a dated slot and without it on one with no date.
-        settings: { groupByFieldRefs: ['datum'], requireEmail: false },
+        settings: { groupByFieldRefs: ['date'], requireEmail: false },
       },
       { template },
     ),
     `createSignup(${title})`,
   );
-  await writeSwedish(db, signup);
+  await writeLanguage(db, signup, locale);
   unwrap(await publishSignup(db, actor, signup.id), `publishSignup(${title})`);
 
   const slotIds = new Map(
@@ -331,20 +462,21 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
         .select({ id: slots.id, values: slots.values })
         .from(slots)
         .where(eq(slots.signupId, signup.id))
-    ).map((slot) => [slot.values.vad, slot.id]),
+    ).map((slot) => [slot.values.what, slot.id]),
   );
   const taken: [string, number][] = [
-    [SWEDISH_SLOTS.many, 1],
-    [SWEDISH_SLOTS.full, 1],
-    [SWEDISH_SLOTS.unlimitedOne, 1],
-    [SWEDISH_SLOTS.unlimitedTwo, 2],
+    [names.many, 1],
+    [names.full, 1],
+    [names.unlimitedOne, 1],
+    [names.unlimitedTwo, 2],
   ];
+  const { name: who, mailbox } = text.person;
   let n = 0;
   const made: (CommitResult & { name: string; email: string })[] = [];
   for (const [label, people] of taken) {
     for (let i = 0; i < people; i += 1) {
       n += 1;
-      const person = { name: `Deltagare ${n}`, email: `deltagare${n}@example.test` };
+      const person = { name: `${who} ${n}`, email: `${mailbox}${n}@example.test` };
       made.push({
         ...unwrap(
           await commitToSlot(db, slotIds.get(label)!, { ...person, quantity: 1 }),
@@ -359,9 +491,9 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
 
   n += 1;
   const cancelled = unwrap(
-    await commitToSlot(db, slotIds.get(SWEDISH_SLOTS.many)!, {
-      name: `Deltagare ${n}`,
-      email: `deltagare${n}@example.test`,
+    await commitToSlot(db, slotIds.get(names.many)!, {
+      name: `${who} ${n}`,
+      email: `${mailbox}${n}@example.test`,
       quantity: 1,
     }),
     'commitToSlot(cancelled)',
@@ -378,12 +510,18 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
     'optOutOfReminders',
   );
 
+  const noValue = getTranslator(locale, 'participant.slot', {
+    onError: (error) => {
+      throw error;
+    },
+  });
   return {
     id: signup.id,
     slug: signup.slug,
     title,
-    noDateHeading: '(utan datum)',
-    slots: SWEDISH_SLOTS,
+    // As src/app/s/[slug]/slot-format.ts heads it: the label, lowercased.
+    noDateHeading: noValue('noValue', { label: fields[1]!.label.toLocaleLowerCase(locale) }),
+    slots: names,
     manyDate,
     editPath: commitmentEditPath(signup.slug, commitment.id, editToken),
     remembered: { signupId: signup.id, commitmentId: commitment.id, token: editToken },
@@ -409,41 +547,43 @@ async function makeSwedishSignup(db: Db, actor: Actor, workspaceId: string): Pro
 }
 
 /**
- * A draft whose language is Swedish, for the specs on its Build tab, which
- * sorts groups in the signup's language and names a new field's defaults in
- * it. Grouped by a text field, so the order of its groups depends on the
- * language, with a date and a time on each slot, which the tab formats.
- * Swedish is written into the row afterwards, as for makeSwedishSignup, and
- * shows only on a server started with `E2E_UNSHIPPED_LOCALES=sv`. Specs may
- * add fields to it.
+ * A draft in `locale`, for the specs on its Build tab, which sorts groups in
+ * the signup's language and names a new field's defaults in it. Grouped by a
+ * text field, so the order of its groups depends on the language, with a
+ * date and a time on each slot, which the tab formats. The language is
+ * written into the row afterwards, as for makeOpenSignupIn. Specs may add
+ * fields to it.
  */
-async function makeSwedishBuildSignup(
+async function makeBuildSignupIn(
   db: Db,
   actor: Actor,
   workspaceId: string,
-): Promise<SwedishBuildSeed> {
+  locale: TestLocale,
+  text: OrganizerText,
+): Promise<BuildSeed> {
+  const { title, labels, groups } = text.build;
   const template: SignupTemplate = {
-    id: 'e2e-swedish-build',
+    id: `e2e-${locale}-build`,
     fields: [
       {
-        ref: 'grupp',
-        label: 'Grupp',
+        ref: 'group',
+        label: labels.group,
         fieldType: 'text',
         sortOrder: 0,
         config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
       },
+      { ...whatAndDate(locale)[1]!, sortOrder: 1 },
       {
-        ref: 'datum',
-        label: 'Datum',
-        fieldType: 'date',
-        sortOrder: 1,
-        config: { fieldType: 'date' },
+        ref: 'time',
+        label: labels.time,
+        fieldType: 'time',
+        sortOrder: 2,
+        config: { fieldType: 'time' },
       },
-      { ref: 'tid', label: 'Tid', fieldType: 'time', sortOrder: 2, config: { fieldType: 'time' } },
     ],
-    slots: ['Ödla', 'Zebra', 'Äpple', 'Apa'].map((grupp, i) => ({
+    slots: groups.map((group, i) => ({
       capacity: 2,
-      values: { grupp, datum: dayFromNow(30 + i), tid: '18:30' },
+      values: { group, date: dayFromNow(30 + i), time: '18:30' },
     })),
   };
   const signup = unwrap(
@@ -452,50 +592,37 @@ async function makeSwedishBuildSignup(
       actor,
       workspaceId,
       {
-        title: 'Städdag i parken',
+        title,
         description: 'Seeded by tests/e2e/helpers/seed.ts',
         tags: [],
         visibility: 'unlisted' as const,
-        settings: { groupByFieldRefs: ['grupp'] },
+        settings: { groupByFieldRefs: ['group'] },
       },
       { template },
     ),
-    'createSignup(Städdag i parken)',
+    `createSignup(${title})`,
   );
-  await writeSwedish(db, signup);
-  return { id: signup.id, slug: signup.slug, groups: SWEDISH_BUILD_GROUPS };
+  await writeLanguage(db, signup, locale);
+  return { id: signup.id, slug: signup.slug, groups };
 }
 
 /**
- * Two more signups in Swedish, for the pages a signup shows once it has
+ * Two more signups in `locale`, for the pages a signup shows once it has
  * closed or been archived, which a translation's review reads from the
- * screenshots the Swedish spec saves (`translationShot`). The closed one keeps
- * one sign-up, whose own page and edit page say it's still theirs, and has
- * one cancelled before it closed. Swedish is written into each row
- * (`writeSwedish`).
+ * screenshots the spec saves (`translationShot`). The closed one keeps one
+ * sign-up, whose own page and edit page say it's still theirs, and has one
+ * cancelled before it closed. The language is written into each row
+ * (`writeLanguage`).
  */
-async function makeSwedishClosedAndArchived(
+async function makeClosedAndArchivedIn(
   db: Db,
   actor: Actor,
   workspaceId: string,
-): Promise<{ closed: SwedishClosedSeed; archived: SwedishArchivedSeed }> {
-  const fields: SignupTemplate['fields'] = [
-    {
-      ref: 'vad',
-      label: 'Vad',
-      fieldType: 'text',
-      sortOrder: 0,
-      config: { fieldType: 'text', maxLength: TEXT_DEFAULT_MAX_LENGTH },
-    },
-    {
-      ref: 'datum',
-      label: 'Datum',
-      fieldType: 'date',
-      sortOrder: 1,
-      config: { fieldType: 'date' },
-    },
-  ];
-  const make = async (title: string, slotValues: { vad: string; capacity: number }[]) => {
+  locale: TestLocale,
+  text: OrganizerText,
+): Promise<{ closed: ClosedSeed; archived: ArchivedSeed }> {
+  const fields = whatAndDate(locale);
+  const make = async (title: string, slotValues: { what: string; capacity: number }[]) => {
     const signup = unwrap(
       await createSignup(
         db,
@@ -510,57 +637,58 @@ async function makeSwedishClosedAndArchived(
         },
         {
           template: {
-            id: 'e2e-swedish-states',
+            id: `e2e-${locale}-states`,
             fields,
-            slots: slotValues.map(({ vad, capacity }) => ({
+            slots: slotValues.map(({ what, capacity }) => ({
               capacity,
-              values: { vad, datum: dayFromNow(20) },
+              values: { what, date: dayFromNow(20) },
             })),
           },
         },
       ),
       `createSignup(${title})`,
     );
-    await writeSwedish(db, signup);
+    await writeLanguage(db, signup, locale);
     unwrap(await publishSignup(db, actor, signup.id), `publishSignup(${title})`);
     return signup;
   };
 
-  const closedTitle = 'Loppis i aulan';
+  const { title: closedTitle, mailbox, slots: closedSlots } = text.closed;
+  const [keptSlot, otherSlot] = closedSlots;
   const closed = await make(closedTitle, [
-    { vad: 'Kaffe', capacity: 4 },
-    { vad: 'Tårta', capacity: 1 },
+    { what: keptSlot, capacity: 4 },
+    { what: otherSlot, capacity: 1 },
   ]);
-  const kaffe = (
+  const kept = (
     await db
       .select({ id: slots.id, values: slots.values })
       .from(slots)
       .where(eq(slots.signupId, closed.id))
-  ).find((slot) => slot.values.vad === 'Kaffe');
-  const kept = unwrap(
-    await commitToSlot(db, kaffe!.id, {
-      name: 'Deltagare 1',
-      email: 'loppis1@example.test',
+  ).find((slot) => slot.values.what === keptSlot);
+  const stays = unwrap(
+    await commitToSlot(db, kept!.id, {
+      name: `${text.person.name} 1`,
+      email: `${mailbox}1@example.test`,
       quantity: 1,
     }),
-    'commitToSlot(Kaffe)',
+    `commitToSlot(${keptSlot})`,
   );
   const cancelled = unwrap(
-    await commitToSlot(db, kaffe!.id, {
-      name: 'Deltagare 2',
-      email: 'loppis2@example.test',
+    await commitToSlot(db, kept!.id, {
+      name: `${text.person.name} 2`,
+      email: `${mailbox}2@example.test`,
       quantity: 1,
     }),
-    'commitToSlot(Kaffe, cancelled)',
+    `commitToSlot(${keptSlot}, cancelled)`,
   );
   unwrap(
     await cancelOwnCommitment(db, cancelled.commitment.id, cancelled.editToken),
-    'cancelOwnCommitment(Kaffe)',
+    `cancelOwnCommitment(${keptSlot})`,
   );
   unwrap(await closeSignup(db, actor, closed.id), `closeSignup(${closedTitle})`);
 
-  const archivedTitle = 'Vårkonsert';
-  const archived = await make(archivedTitle, [{ vad: 'Biljettbord', capacity: 2 }]);
+  const { title: archivedTitle, slot: archivedSlot } = text.archived;
+  const archived = await make(archivedTitle, [{ what: archivedSlot, capacity: 2 }]);
   unwrap(await archiveSignup(db, actor, archived.id), `archiveSignup(${archivedTitle})`);
 
   return {
@@ -568,10 +696,10 @@ async function makeSwedishClosedAndArchived(
       slug: closed.slug,
       remembered: {
         signupId: closed.id,
-        commitmentId: kept.commitment.id,
-        token: kept.editToken,
+        commitmentId: stays.commitment.id,
+        token: stays.editToken,
       },
-      editPath: commitmentEditPath(closed.slug, kept.commitment.id, kept.editToken),
+      editPath: commitmentEditPath(closed.slug, stays.commitment.id, stays.editToken),
       cancelledEditPath: commitmentEditPath(
         closed.slug,
         cancelled.commitment.id,
@@ -579,6 +707,69 @@ async function makeSwedishClosedAndArchived(
       ),
     },
     archived: { slug: archived.slug },
+  };
+}
+
+/**
+ * Every signup the specs check a test language on (`TEST_LOCALES`): an open
+ * one with sign-ups, a draft for its Build tab, and a closed and an archived
+ * one. A language needs nothing written for it here: its text comes from
+ * its catalog, and the organizer's from `ORGANIZER_TEXT`, or `ANY_LANGUAGE`.
+ */
+async function makeSignupsIn(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+  locale: TestLocale,
+): Promise<LanguageSignups> {
+  const text = ORGANIZER_TEXT[locale] ?? ANY_LANGUAGE;
+  const open = await makeOpenSignupIn(db, actor, workspaceId, locale, text);
+  const build = await makeBuildSignupIn(db, actor, workspaceId, locale, text);
+  const { closed, archived } = await makeClosedAndArchivedIn(db, actor, workspaceId, locale, text);
+  return { open, build, closed, archived };
+}
+
+/**
+ * An organizer whose account stores `locale`, for the specs that check the
+ * organizer app in it (tests/e2e/translated-organizer.spec.ts), signed in
+ * through a session of their own, with a signup of their own in each state
+ * (makeSignupsIn). A language that hasn't shipped can't be saved on an
+ * account (`updateOrganizerLocale` refuses it), so it's written into the row,
+ * and the organizer app shows it only on a server started with it in
+ * `E2E_UNSHIPPED_LOCALES` (`localeOfOrganizer` in src/i18n/locale.ts), as
+ * playwright.config.ts starts it. Nothing signs this session out.
+ */
+async function makeOrganizerIn(db: Db, locale: TestLocale): Promise<OrganizerSeed> {
+  const email = `organizer-${locale}@example.test`;
+  const workspaceSlug = `e2e-organizer-${locale}`;
+  await removeOrganizer(db, email, workspaceSlug);
+  const { organizerId, workspaceId } = await insertOrganizer(
+    db,
+    email,
+    workspaceSlug,
+    // Names, not words the no-English check looks for
+    // (tests/e2e/helpers/no-english.ts).
+    { organizer: 'Kim', workspace: 'Kim' },
+    locale,
+  );
+  const sessionToken = randomBytes(32).toString('hex');
+  await db.insert(sessions).values({
+    sessionToken,
+    userId: organizerId,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+  const actor: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  return {
+    id: organizerId,
+    email,
+    sessionToken,
+    signups: await makeSignupsIn(db, actor, workspaceId, locale),
   };
 }
 
@@ -660,13 +851,13 @@ export async function seedE2E(): Promise<SeedData> {
     { requireEmail: false },
   );
 
-  const swedish = await makeSwedishSignup(db, actor, workspaceId);
-  const swedishBuild = await makeSwedishBuildSignup(db, actor, workspaceId);
-  const { closed: swedishClosed, archived: swedishArchived } = await makeSwedishClosedAndArchived(
-    db,
-    actor,
-    workspaceId,
-  );
+  const languages = {} as Record<TestLocale, LanguageSeed>;
+  for (const locale of TEST_LOCALES) {
+    languages[locale] = {
+      ...(await makeSignupsIn(db, actor, workspaceId, locale)),
+      organizer: await makeOrganizerIn(db, locale),
+    };
+  }
 
   // Draft signup for the organizer publish flow.
   const draft = unwrap(
@@ -699,10 +890,7 @@ export async function seedE2E(): Promise<SeedData> {
     deletedToken: deletedCommit.editToken,
     optionalEmailSlug: optionalEmailSignup.slug,
     optionalEmailSlotLabel: 'Park gate',
-    swedish,
-    swedishBuild,
-    swedishClosed,
-    swedishArchived,
+    languages,
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));
   return data;

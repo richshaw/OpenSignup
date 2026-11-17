@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ok } from '@/lib/result';
 
 // Who is signed in, and what their workspace holds.
@@ -119,6 +119,7 @@ describe('Your signups', () => {
   it.each(OTHER_LANGUAGES)(
     'leaves a signup stored in %s unmarked until it ships',
     async (other) => {
+      shipOnlyEnglish();
       request.rows = [
         { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: other },
       ];
