@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { activity, type ActivityEvent } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import type { Db, Queryable } from '@/db/client';
@@ -120,4 +120,35 @@ export async function listActivityForSignup(db: Db, signupId: string, limit: num
     .where(eq(activity.signupId, signupId))
     .orderBy(desc(activity.occurredAt))
     .limit(limit);
+}
+
+/**
+ * Whether an `eventType` row is already recorded for this commitment, such as
+ * the `commitment.confirmation_sent` or `reminder.sent` that says its email
+ * went out, or the `commitment.removed` that says an organizer took it off its
+ * slot. `where`, a condition over `activity`, narrows which rows count.
+ */
+export async function alreadyRecorded(
+  db: Db,
+  eventType: ActivityEvent,
+  signupId: string,
+  commitmentId: string,
+  where?: SQL,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: activity.id })
+    .from(activity)
+    .where(
+      and(
+        eq(activity.eventType, eventType),
+        // Scoped to the signup as well as the commitment: the row carries
+        // signup_id anyway, and it keeps this off a full scan of every such
+        // event ever recorded even where the expression index is absent.
+        eq(activity.signupId, signupId),
+        sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+        where,
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
 }

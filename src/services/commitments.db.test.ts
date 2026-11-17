@@ -1,7 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, sql } from 'drizzle-orm';
-import { getDb, type Db } from '@/db/client';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { getDb, SESSION_SETTINGS, type Db } from '@/db/client';
+import * as schema from '@/db/schema';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
@@ -11,6 +14,7 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { getEnv } from '@/lib/env';
 import { makeId } from '@/lib/ids';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
 import type { Actor } from '@/lib/policy';
@@ -2378,6 +2382,35 @@ describe('cancelledCommitmentState (db)', () => {
       slot: 'open',
       slotName: '',
     });
+  });
+
+  it('reads the slot it names once', async () => {
+    // A client of its own that logs every statement, as in
+    // src/services/slots.db.test.ts.
+    const sent: string[] = [];
+    const client = postgres(getEnv().DATABASE_URL, {
+      max: 1,
+      prepare: false,
+      connection: SESSION_SETTINGS,
+      debug: (_connection, query) => {
+        sent.push(query);
+      },
+    });
+    try {
+      const db: Db = drizzle(client, { schema, casing: 'snake_case' });
+      const s = await signedUp('Cancelled, slot read once');
+      expect((await cancelOwnCommitment(fx.db, s.commitment.id, s.editToken)).ok).toBe(true);
+      sent.length = 0;
+      expect(await cancelledCommitmentState(db, s.commitment, 'en')).toEqual({
+        movedTo: null,
+        removed: false,
+        slot: 'open',
+        slotName: '',
+      });
+      expect(sent.filter((q) => /\bfrom "slots"/.test(q))).toHaveLength(1);
+    } finally {
+      await client.end();
+    }
   });
 
   it('reads as a cancel when the sign-up it moved to was cancelled too', async () => {

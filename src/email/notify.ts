@@ -11,14 +11,14 @@
  */
 import type { Db } from '@/db/client';
 import { localeOfSignup } from '@/i18n/locale';
-import { recordActivity } from '@/lib/activity';
+import { alreadyRecorded, recordActivity } from '@/lib/activity';
 import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { normalizeEmail } from '@/schemas/common';
 import { sendsReminders } from '@/schemas/signups';
-import { alreadyRecorded, loadCommitmentRow, slotText } from './commitment-row';
+import { loadCommitmentRow, slotText } from './commitment-row';
 import { sendCommitmentConfirmation } from './send';
 import type { CommitmentConfirmationEmailProps } from './templates/commitment-confirmation';
 
