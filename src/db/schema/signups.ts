@@ -18,7 +18,9 @@ export const signups = pgTable(
     description: text('description').notNull().default(''),
     status: text('status').notNull().default('draft'), // draft | open | closed | archived
     visibility: text('visibility').notNull().default('unlisted'), // public | unlisted | password
-    theme: jsonb('theme').notNull().default({}),
+    // theme was never written. It's out of this schema but still in the
+    // database: the build serving during a deploy selects it, so the migration
+    // that drops it comes a release later.
     opensAt: timestamp('opens_at', { withTimezone: true }),
     closesAt: timestamp('closes_at', { withTimezone: true }),
     // claim_token_hash, for a signup-claim link that was never built, is out of
