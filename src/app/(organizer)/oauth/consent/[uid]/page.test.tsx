@@ -33,7 +33,7 @@ vi.mock('next/navigation', () => ({
   },
 }));
 vi.mock('@/auth/session', () => ({ getOrganizerSession: async () => request.session }));
-vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn() }));
+vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn(), switchOrganizer: vi.fn() }));
 vi.mock('@/oauth/consent', () => ({
   ConsentUnavailable: Gone,
   loadConsentContext: async (uid: string) => {
