@@ -542,11 +542,15 @@ function HowMany({ answers, update }: Part) {
             return (
               <li
                 key={item}
-                className="flex items-center justify-between gap-2.5 border-t border-surface-sunk py-1.5 sm:gap-3"
+                className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 border-t border-surface-sunk py-1.5 sm:gap-x-3"
               >
-                <span className="min-w-0 text-[15px]">{item}</span>
+                {/* The name keeps at least 128px and its longest word: where
+                    the box doesn't fit beside that, the box goes under the
+                    name, so no word hides behind it. A word wider than the
+                    whole row breaks. */}
+                <span className="w-min min-w-32 grow break-words text-[15px]">{item}</span>
                 {/* 46px with its border, so −, + and the number are each 44px targets. */}
-                <span className="inline-flex h-[46px] flex-shrink-0 items-center overflow-hidden rounded-[10px] border border-surface-sunk bg-white shadow-sm focus-within:border-brand">
+                <span className="ml-auto inline-flex h-[46px] flex-shrink-0 items-center overflow-hidden rounded-[10px] border border-surface-sunk bg-white shadow-sm focus-within:border-brand">
                   <button
                     type="button"
                     aria-label={t('fewer', { item })}
@@ -568,7 +572,11 @@ function HowMany({ answers, update }: Part) {
                     // Show what will be sent: the number, or empty for no limit. A
                     // fraction stays as typed, for Draft my signup to stop.
                     onBlur={() => setCount(item, String(parseCount(count) ?? ''))}
-                    className="h-11 w-[72px] border-x border-surface-sunk bg-transparent px-0.5 text-center text-base tabular-nums outline-none [appearance:textfield] placeholder:text-ink-soft sm:w-[76px] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    // Wide enough for its placeholder in every catalog
+                    // language: Swedish "Obegränsat" needs 88px of text at
+                    // 16px where English "No limit" needs 57px, and the 72px
+                    // box cut it off.
+                    className="h-11 w-24 border-x border-surface-sunk bg-transparent px-0.5 text-center text-base tabular-nums outline-none [appearance:textfield] placeholder:text-ink-soft sm:w-[100px] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                   <button
                     type="button"

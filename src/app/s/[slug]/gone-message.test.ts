@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { goneMessage, gonePage } from './gone-message';
 
@@ -15,10 +16,10 @@ describe('goneMessage', () => {
   });
 
   it('takes its lines from the translator it is given', () => {
-    const sv = getStandInTranslator('sv', 'participant.errors');
-    expect(goneMessage({ code: 'not_found' }, sv)).toStrictEqual({
-      message: 'participant.errors.gone.message in sv',
-      suggestion: 'participant.errors.gone.suggestion in sv',
+    const other = getStandInTranslator(OTHER_LOCALE, 'participant.errors');
+    expect(goneMessage({ code: 'not_found' }, other)).toStrictEqual({
+      message: `participant.errors.gone.message in ${OTHER_LOCALE}`,
+      suggestion: `participant.errors.gone.suggestion in ${OTHER_LOCALE}`,
     });
   });
 
@@ -48,14 +49,14 @@ describe('gonePage', () => {
   });
 
   it('takes its lines from the translator it is given', () => {
-    const sv = gonePage(getStandInTranslator('sv', 'participant.gonePage'));
-    expect(sv.signup).toStrictEqual({
-      title: 'participant.gonePage.signup.title in sv',
-      body: 'participant.gonePage.signup.body in sv',
+    const other = gonePage(getStandInTranslator(OTHER_LOCALE, 'participant.gonePage'));
+    expect(other.signup).toStrictEqual({
+      title: `participant.gonePage.signup.title in ${OTHER_LOCALE}`,
+      body: `participant.gonePage.signup.body in ${OTHER_LOCALE}`,
     });
-    expect(sv.editLink).toStrictEqual({
-      title: 'participant.gonePage.editLink.title in sv',
-      body: 'participant.gonePage.editLink.body in sv',
+    expect(other.editLink).toStrictEqual({
+      title: `participant.gonePage.editLink.title in ${OTHER_LOCALE}`,
+      body: `participant.gonePage.editLink.body in ${OTHER_LOCALE}`,
     });
   });
 

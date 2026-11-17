@@ -14,12 +14,13 @@ const utf8Downloads = {
 
 /**
  * `pnpm translation:screenshots` sets TRANSLATION_SCREENSHOTS=1, and these
- * specs then save a screenshot of each participant screen they check in a
- * language other than English (`translationShot`), for a translation's
- * review (docs/translating.md). With the flag they also run at a phone's
- * width, in Chromium, so the screenshots show where longer words wrap.
+ * specs then save a screenshot of each participant and organizer screen they
+ * check, in every language other than English (`translationShot`), for a
+ * translation's review (docs/translating.md). With the flag they also run at
+ * a phone's width, in Chromium, so the screenshots show where longer words
+ * wrap.
  */
-const TRANSLATION_SPECS = /swedish-signup\.spec\.ts$/;
+const TRANSLATION_SPECS = /translated-(signup|organizer)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -40,9 +41,10 @@ export default defineConfig({
     command: 'pnpm start',
     // Every language with a catalog that hasn't shipped: a signup or an
     // account that stores one shows in it (`localeOfSignup` and
-    // `localeOfOrganizer` in src/i18n/locale.ts), as the seeded Swedish
+    // `localeOfOrganizer` in src/i18n/locale.ts), as each seeded test
     // signup does, and nothing else: it can't make a language anybody's
-    // choice. A server you start yourself for these specs needs it too.
+    // choice. A server you start yourself for these specs needs it too: a
+    // spec that finds a seeded signup in English says which value to set.
     env: { E2E_UNSHIPPED_LOCALES: UNSHIPPED_LOCALES },
     url: baseURL,
     reuseExistingServer: !process.env.CI,

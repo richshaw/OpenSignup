@@ -249,11 +249,9 @@ export async function connectAppFor(organizer: OrganizerIn): Promise<ConnectedAp
 /**
  * Gets `organizer`'s signup `signupId`, made in the browser, ready for a
  * participant: a slot, "Cookies", that holds 3, and published. With
- * `locale`, writes that language into its row first: a new signup starts in
- * its organizer's language only once that language has shipped
- * (`newSignupLocale`), so before then a spec stands in for it here, as
- * `publishSignupIn` does, and the server shows it only with it in
- * `E2E_UNSHIPPED_LOCALES`.
+ * `locale`, writes that language into its row first (`storeSignupLanguage`),
+ * standing in for the organizer's language a new signup starts in once it has
+ * shipped.
  */
 export async function publishForParticipants(
   organizer: OrganizerIn,
@@ -262,20 +260,31 @@ export async function publishForParticipants(
 ): Promise<{ slug: string; slotId: string }> {
   const db = getDb();
   const actor = actorFor(organizer);
-  if (locale) {
-    const [row] = await db
-      .select({ settings: signups.settings })
-      .from(signups)
-      .where(eq(signups.id, signupId));
-    await db
-      .update(signups)
-      .set({ settings: { ...row?.settings, locale } })
-      .where(eq(signups.id, signupId));
-  }
+  if (locale) await storeSignupLanguage(signupId, locale);
   const slot = unwrap(
     await addSlot(db, actor, signupId, { values: { what: 'Cookies' }, capacity: 3 }),
     'addSlot',
   );
   const signup = unwrap(await publishSignup(db, actor, signupId), 'publishSignup');
   return { slug: signup.slug, slotId: slot.id };
+}
+
+/**
+ * Writes `locale` into signup `signupId`'s row as its language. A new signup
+ * starts in its organizer's language only once that language has shipped
+ * (`newSignupLocale`), and a language that hasn't can't be chosen
+ * (`createSignup` and `updateSignup` refuse it), so before then a spec stands
+ * in for it here, and the server shows it only with it in
+ * `E2E_UNSHIPPED_LOCALES`.
+ */
+export async function storeSignupLanguage(signupId: string, locale: CatalogLocale): Promise<void> {
+  const db = getDb();
+  const [row] = await db
+    .select({ settings: signups.settings })
+    .from(signups)
+    .where(eq(signups.id, signupId));
+  await db
+    .update(signups)
+    .set({ settings: { ...row?.settings, locale } })
+    .where(eq(signups.id, signupId));
 }

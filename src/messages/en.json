@@ -292,8 +292,8 @@
     },
     "preview": {
       "title": "Preview",
-      "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is live. The page below shows what visitors see.}}",
-      "signUpDisabled": "Preview: publish to enable signups"
+      "body": "{status, select, draft {This is what people will see once you publish. No signups will be saved.} closed {This signup is closed. The page below shows what visitors see.} archived {This signup is archived and is not visible to participants.} other {This signup is open. The page below shows what visitors see.}}",
+      "signUpDisabled": "{status, select, draft {Preview: publish to let people sign up} other {Preview: people sign up at the public link}}"
     },
     "chrome": {
       "tabTitle": "Dashboard",
@@ -875,7 +875,7 @@
         "save": "Save",
         "toSwitch": "{count, plural, one {{count, number, ::group-off} of your signups is open and isn't in <language>{name}</language> yet.} other {{count, number, ::group-off} of your signups are open and aren't in <language>{name}</language> yet.}}",
         "switch": "{count, plural, one {Switch it to <language>{name}</language>} other {Switch them to <language>{name}</language>}}",
-        "switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and column names you typed stay as they are. People who already signed up see the new language too.",
+        "switchNote": "Only OpenSignup's own words change: buttons, messages, dates and emails. Titles, slots and fields you typed stay as they are. People who already signed up see the new language too.",
         "switched": "Saved. {count, plural, one {{count, number, ::group-off} of your signups is open, and it's in <language>{name}</language> now.} other {{count, number, ::group-off} of your signups are open, and they're all in <language>{name}</language> now.}}"
       }
     },

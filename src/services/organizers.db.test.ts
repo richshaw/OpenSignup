@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
-import { ship } from '@/i18n/testing/ship';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -62,28 +63,29 @@ describe('updateOrganizerLocale (db)', () => {
   });
 
   it('stores a second language once it has shipped to participants', async () => {
-    ship('participant', ['en', 'sv']);
-    expect(await updateOrganizerLocale(db, organizer(mine), 'sv')).toEqual({
+    ship('participant', ['en', OTHER_LOCALE]);
+    expect(await updateOrganizerLocale(db, organizer(mine), OTHER_LOCALE)).toEqual({
       ok: true,
-      value: { locale: 'sv' },
+      value: { locale: OTHER_LOCALE },
     });
-    expect(await storedLocale(mine)).toBe('sv');
+    expect(await storedLocale(mine)).toBe(OTHER_LOCALE);
   });
 
   it('changes only the acting organizer’s own language', async () => {
     await store(theirs, 'en');
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
 
-    expect((await updateOrganizerLocale(db, organizer(mine), 'sv')).ok).toBe(true);
-    expect(await storedLocale(mine)).toBe('sv');
+    expect((await updateOrganizerLocale(db, organizer(mine), OTHER_LOCALE)).ok).toBe(true);
+    expect(await storedLocale(mine)).toBe(OTHER_LOCALE);
     expect(await storedLocale(theirs)).toBe('en');
   });
 
   it('refuses a language that hasn’t shipped, or none, and keeps the stored one', async () => {
+    shipOnlyEnglish();
     await store(mine, 'en');
-    // Swedish has a name but hasn't shipped; the rest name no language as
+    // The first has a catalog but hasn't shipped; the rest name no language as
     // the list writes them. Organizers only ever pick from that list.
-    for (const sent of ['sv', 'xx', 'EN', 'en-GB', '', ' en', null, undefined, 1, ['en']]) {
+    for (const sent of [OTHER_LOCALE, 'xx', 'EN', 'en-GB', '', ' en', null, undefined, 1, ['en']]) {
       const result = await updateOrganizerLocale(db, organizer(mine), sent);
       expect(result.ok, `${JSON.stringify(sent)} was accepted`).toBe(false);
       if (!result.ok) {

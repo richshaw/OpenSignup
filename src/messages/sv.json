@@ -224,7 +224,7 @@
       "turnedOn": {
         "title": "Påminnelserna är påslagna igen",
         "body": "Du får påminnelser om <b>{title}</b> igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen.",
-        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> till {email} igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen."
+        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> igen, och mejl när datum eller tid ändras. Vi skickar dem till {email}. Du kan stänga av dem när som helst via länken i något av mejlen."
       },
       "back": "Tillbaka till anmälningslistan"
     },
@@ -697,7 +697,7 @@
     "preview": {
       "title": "Förhandsgranskning",
       "body": "{status, select, draft {Så här ser det ut för andra när du har publicerat. Inga anmälningar sparas.} closed {Den här anmälningslistan är stängd. Sidan nedan visar vad besökarna ser.} archived {Den här anmälningslistan är arkiverad och syns inte för deltagarna.} other {Den här anmälningslistan är öppen. Sidan nedan visar vad besökarna ser.}}",
-      "signUpDisabled": "Förhandsgranskning: publicera för att ta emot anmälningar"
+      "signUpDisabled": "{status, select, draft {Förhandsgranskning: publicera så att andra kan anmäla sig} other {Förhandsgranskning: andra anmäler sig via den offentliga länken}}"
     },
     "chrome": {
       "tabTitle": "Översikt",
@@ -875,7 +875,7 @@
         "save": "Spara",
         "toSwitch": "{count, plural, one {{count, number} av dina anmälningslistor är öppen och är inte på <language>{name}</language> ännu.} other {{count, number} av dina anmälningslistor är öppna och är inte på <language>{name}</language> ännu.}}",
         "switch": "{count, plural, one {Byt den till <language>{name}</language>} other {Byt dem till <language>{name}</language>}}",
-        "switchNote": "Bara det som OpenSignup själv skriver byts: knappar, meddelanden, datum och mejl. Titlar, pass och kolumnnamn som du har skrivit ändras inte. De som redan är anmälda ser också det nya språket.",
+        "switchNote": "Bara det som OpenSignup själv skriver byts: knappar, meddelanden, datum och mejl. Titlar, pass och fält som du har skrivit ändras inte. De som redan är anmälda ser också det nya språket.",
         "switched": "Sparat. {count, plural, one {{count, number} av dina anmälningslistor är öppen, och den är på <language>{name}</language> nu.} other {{count, number} av dina anmälningslistor är öppna, och alla är på <language>{name}</language> nu.}}"
       }
     },

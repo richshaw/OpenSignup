@@ -75,6 +75,20 @@ describe('the tool registry', () => {
     }
   });
 
+  // Every text a client reads about a tool: its title, its description and
+  // each description in its input schema.
+  const descriptions = (node: unknown): string[] =>
+    node && typeof node === 'object'
+      ? Object.entries(node).flatMap(([key, value]) =>
+          key === 'description' && typeof value === 'string' ? [value] : descriptions(value),
+        )
+      : [];
+  const toolTexts = (tool: (typeof TOOLS)[number]): string[] => [
+    tool.title,
+    tool.description,
+    ...descriptions(toJsonSchema(tool.inputSchema)),
+  ];
+
   it('describes what each tool does without telling the model how to behave', () => {
     // The Claude connectors directory refuses descriptions that steer the
     // model or hide text. Ask-first, publish and show-as-a-table guidance
@@ -82,21 +96,19 @@ describe('the tool registry', () => {
     const directive =
       /\bask the organizer\b|\bconfirm with\b|\b(show|tell) the organizer\b|\bonly if they agree\b/i;
     const hidden = /[\p{Cc}\p{Cf}]/u;
-    const descriptions = (node: unknown): string[] =>
-      node && typeof node === 'object'
-        ? Object.entries(node).flatMap(([key, value]) =>
-            key === 'description' && typeof value === 'string' ? [value] : descriptions(value),
-          )
-        : [];
     for (const tool of TOOLS) {
-      for (const text of [
-        tool.title,
-        tool.description,
-        ...descriptions(toJsonSchema(tool.inputSchema)),
-      ]) {
+      for (const text of toolTexts(tool)) {
         expect(text, tool.name).not.toMatch(directive);
         expect(text, tool.name).not.toMatch(hidden);
       }
+    }
+  });
+
+  it('calls a signup people can sign up on open, never live', () => {
+    // The status a tool returns says open, as the organizer's screens do;
+    // published means only that it has left draft (docs/writing-help.md).
+    for (const tool of TOOLS) {
+      for (const text of toolTexts(tool)) expect(text, tool.name).not.toMatch(/\blive\b/i);
     }
   });
 

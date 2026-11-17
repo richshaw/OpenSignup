@@ -14,6 +14,7 @@ import { makeId } from '@/lib/ids';
 import { SESSION_MAX_AGE_SECONDS } from './session-lifetime';
 import { loadOrganizerSessionById, toActor } from './organizer-session';
 import { getOrganizerSession } from './session';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 // The cookie path reads the Auth.js session cookie through next/headers.
 let cookieHeader = '';
@@ -85,11 +86,11 @@ afterAll(async () => {
 
 describe('loadOrganizerSessionById and the saved language', () => {
   it('returns the saved language in the one statement it already sends', async () => {
-    await saveLocale('sv');
+    await saveLocale(OTHER_LOCALE);
     statements = 0;
     const session = await loadOrganizerSessionById(countingDb, organizerId);
     expect(statements).toBe(1);
-    expect(session?.locale).toBe('sv');
+    expect(session?.locale).toBe(OTHER_LOCALE);
     expect(session?.memberships).toHaveLength(2);
   });
 
@@ -112,7 +113,7 @@ describe('loadOrganizerSessionById and the saved language', () => {
   it('keeps the language off the actor, so it is the same whatever was saved', async () => {
     await saveLocale(null);
     const unset = toActor(await loadOrganizerSessionById(db, organizerId));
-    await saveLocale('sv');
+    await saveLocale(OTHER_LOCALE);
     const saved = toActor(await loadOrganizerSessionById(db, organizerId));
     expect(saved).toEqual(unset);
     expect(saved).not.toHaveProperty('locale');
@@ -138,7 +139,7 @@ describe('getOrganizerSession, the cookie path', () => {
   });
 
   it.each([
-    ['as saved', 'sv'],
+    ['as saved', OTHER_LOCALE],
     ['null when unset', null],
     ['raw, a value that names no language', 'not a language at all'],
   ])("carries the organizer's language %s", async (_name, locale) => {

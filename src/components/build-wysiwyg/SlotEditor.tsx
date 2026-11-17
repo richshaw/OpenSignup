@@ -114,10 +114,12 @@ export function SlotEditor({
             <Trash2 size={11} />
             {t('editor.delete')}
           </button>
+          {/* The darker blue: the brand's own is 4.4:1 on the open editor's
+              grey, under AA's 4.5:1 for text this small. */}
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-brand hover:bg-brand-soft"
+            className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-brand-hover hover:bg-brand-soft"
           >
             <Check size={11} />
             {t('editor.done')}

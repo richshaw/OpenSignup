@@ -27,13 +27,13 @@ const TRANSLATED = [
   // The notice a save shows, which takes its text from the page, and a
   // signup's Settings tab, the delete form included.
   'src/components/ui/save-notice.tsx',
-  'src/app/app/(chrome)/signups/[id]/settings',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/settings',
   // A signup's Build tab: the page, and the client components it renders.
-  'src/app/app/(chrome)/signups/[id]/build',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/build',
   'src/components/build-wysiwyg',
   'src/components/build-shared',
   // A signup's Responses tab: the table, its empty lines and the remove flow.
-  'src/app/app/(chrome)/signups/[id]/responses',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/responses',
   // Everything a participant sees under a signup's address: its page, the
   // sign-up sheet, the pages for changing or cancelling a spot and for
   // turning reminders off, both not-found pages, and the copy helpers.
@@ -43,19 +43,19 @@ const TRANSLATED = [
   'src/email/templates',
   // The organizer app's header and crumbs, Your signups, and the card a
   // signup's pages show when it can't be loaded.
-  'src/app/app/(chrome)/layout.tsx',
-  'src/app/app/(chrome)/page.tsx',
-  'src/app/app/(chrome)/@crumbs',
+  'src/app/(organizer)/app/(chrome)/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/page.tsx',
+  'src/app/(organizer)/app/(chrome)/@crumbs',
   'src/components/chrome',
   // New signup: the form, and Magic Compose's screens, its questions and the
   // banner on a draft it made included.
-  'src/app/app/(chrome)/signups/new',
+  'src/app/(organizer)/app/(chrome)/signups/new',
   'src/components/magic-compose',
   // Account Settings and Connected apps, the disconnect button included.
-  'src/app/app/(chrome)/settings',
+  'src/app/(organizer)/app/(chrome)/settings',
   // A signup's header, tabs, status pill and closed box, on every tab, and the
   // card its pages show when it can't be loaded.
-  'src/app/app/(chrome)/signups/[id]/layout.tsx',
+  'src/app/(organizer)/app/(chrome)/signups/[id]/layout.tsx',
   'src/components/signup',
   'src/components/status-pill.tsx',
   // The share panel, its QR code and the public link's chip.
@@ -63,10 +63,10 @@ const TRANSLATED = [
   'src/components/PublicLinkChip.tsx',
   // The sign-in pages: the form and its code box, the provider buttons, and
   // the check-your-email and confirm pages.
-  'src/app/login',
+  'src/app/(organizer)/login',
   // The screen that connects an AI assistant, its buttons, and the replies
   // when the organizer chooses.
-  'src/app/oauth',
+  'src/app/(organizer)/oauth',
 ];
 
 /**

@@ -4,10 +4,12 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
 import { INSTANCE_NAME } from '@/lib/site-config';
+import { openGraphLocale } from '@/i18n/config';
 import { formatSlotDate } from '@/lib/slot-label';
 import { findDraftForOrganizer } from '@/services/signups';
 
@@ -21,9 +23,9 @@ const request = vi.hoisted(() => ({
   /** The language stored on the signed-in organizer's account. */
   organizerLocale: null as string | null,
 }));
-// English from the catalog; Swedish answers each key with where it was asked
-// for ("participant.signupPage.title in sv"), so a test sees which text is
-// asked for in it.
+// English from the catalog; any other language answers each key with where
+// it was asked for ("participant.signupPage.title in sv"), so a test sees which
+// text is asked for in it.
 vi.mock('@/i18n/server', async () => ({
   instanceDefaultLocale: () => request.instanceDefault,
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
@@ -100,7 +102,7 @@ async function renderPage() {
   render(await PublicSignupPage(params));
 }
 
-const SWEDISH_DATE = formatSlotDate('2026-05-17', 'sv')!;
+const OTHER_DATE = formatSlotDate('2026-05-17', OTHER_LOCALE)!;
 const ENGLISH_DATE = formatSlotDate('2026-05-17', 'en')!;
 
 /** Signs in an organizer of the signup's workspace. */
@@ -114,8 +116,8 @@ function signInItsOrganizer() {
   };
 }
 
-/** Where the mocked translator says Swedish text was asked for. */
-const swedish = (key: string) => `participant.signupPage.${key} in sv`;
+/** Where the mocked translator says text in the other language was asked for. */
+const inOther = (key: string) => `participant.signupPage.${key} in ${OTHER_LOCALE}`;
 
 afterEach(() => {
   cleanup();
@@ -130,12 +132,12 @@ afterEach(() => {
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('the public signup page, in its signup’s language', () => {
-  it('reads a Swedish signup’s dates in Swedish, and marks the page so', async () => {
-    ship('participant', ['en', 'sv']);
-    storeSignup({ settings: { locale: 'sv' } });
+  it(`reads a ${OTHER_LANGUAGE} signup’s dates in ${OTHER_LANGUAGE}, and marks the page so`, async () => {
+    ship('participant', ['en', OTHER_LOCALE]);
+    storeSignup({ settings: { locale: OTHER_LOCALE } });
     await renderPage();
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
-    expect(screen.getByText(SWEDISH_DATE)).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
+    expect(screen.getByText(OTHER_DATE)).toBeInTheDocument();
     expect(screen.queryByText(ENGLISH_DATE)).toBeNull();
   });
 
@@ -148,35 +150,36 @@ describe('the public signup page, in its signup’s language', () => {
 
   // As the Settings tab shows it: the choice there is the language here.
   it('reads a stored language that hasn’t shipped as the instance’s', async () => {
-    storeSignup({ settings: { locale: 'sv' } });
+    shipOnlyEnglish();
+    storeSignup({ settings: { locale: OTHER_LOCALE } });
     await renderPage();
     expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
     expect(screen.getByText(ENGLISH_DATE)).toBeInTheDocument();
 
     cleanup();
-    ship('participant', ['en', 'sv']);
-    request.instanceDefault = 'sv';
+    ship('participant', ['en', OTHER_LOCALE]);
+    request.instanceDefault = OTHER_LOCALE;
     storeSignup({ settings: { locale: 'de' } });
     await renderPage();
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
-    expect(screen.getByText(SWEDISH_DATE)).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
+    expect(screen.getByText(OTHER_DATE)).toBeInTheDocument();
   });
 
   it.each([
     ['a draft', 'draft'],
     ['an archived signup', 'archived'],
   ])('tells a visitor about %s in its language, and nothing else of it', async (_, status) => {
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
     storeSignup({
       status,
       title: 'Secret plans',
       description: 'Not for visitors',
-      settings: { locale: 'sv' },
+      settings: { locale: OTHER_LOCALE },
     });
     await renderPage();
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(swedish(`${status}.title`));
-    expect(screen.getByText(swedish(`${status}.body`))).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(inOther(`${status}.title`));
+    expect(screen.getByText(inOther(`${status}.body`))).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/Secret plans|Not for visitors/);
   });
 
@@ -202,10 +205,10 @@ describe('the public signup page, in its signup’s language', () => {
 
 describe('the organizer’s own text on the public signup page', () => {
   it('tells a draft’s own organizer about it in English, quoting what visitors see', async () => {
-    ship('participant', ['en', 'sv']);
+    ship('participant', ['en', OTHER_LOCALE]);
     signInItsOrganizer();
     vi.mocked(findDraftForOrganizer).mockResolvedValue(ok({ id: 'sig_1' }) as never);
-    storeSignup({ status: 'draft', settings: { locale: 'sv' } });
+    storeSignup({ status: 'draft', settings: { locale: OTHER_LOCALE } });
     await renderPage();
     expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');
     // The organizer's other pages say it with the same words: Your signups
@@ -215,7 +218,7 @@ describe('the organizer’s own text on the public signup page', () => {
     );
     expect(
       screen.getByText(
-        `People who open this link see “${swedish('draft.title')}” until you publish it. Renaming the draft gives it a new link, so share it after you publish.`,
+        `People who open this link see “${inOther('draft.title')}” until you publish it. Renaming the draft gives it a new link, so share it after you publish.`,
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open your draft' })).toHaveAttribute(
@@ -277,25 +280,28 @@ describe('the organizer’s own text on the public signup page', () => {
     },
   );
 
-  it('keeps the organizer strip in English over a Swedish signup, marked so', async () => {
-    ship('participant', ['en', 'sv']);
+  it(`keeps the organizer strip in English over a ${OTHER_LANGUAGE} signup, marked so`, async () => {
+    ship('participant', ['en', OTHER_LOCALE]);
     signInItsOrganizer();
-    storeSignup({ settings: { locale: 'sv' } });
+    storeSignup({ settings: { locale: OTHER_LOCALE } });
     await renderPage();
     const strip = screen.getByRole('navigation', { name: 'Organizer' });
     expect(strip).toHaveAttribute('lang', 'en');
     expect(strip).toHaveTextContent('Your signup. Only organizers see this bar.');
-    expect(screen.getByRole('main')).toHaveAttribute('lang', 'sv');
+    expect(screen.getByRole('main')).toHaveAttribute('lang', OTHER_LOCALE);
   });
 });
 
 describe('the public signup page’s metadata', () => {
   const robots = { index: false, follow: false };
+  // The page writes the site name into its tab title itself, since it shares
+  // its segment with its root layout and so misses the layout's template.
+  const tabTitle = (title: string) => ({ absolute: `${title} · ${INSTANCE_NAME}` });
 
   it('names an English signup’s language for link previews, and nothing else changes', async () => {
     storeSignup({});
     expect(await generateMetadata(params)).toEqual({
-      title: 'Snack duty',
+      title: tabTitle('Snack duty'),
       description: 'Fruit for the team',
       robots,
       openGraph: {
@@ -308,29 +314,29 @@ describe('the public signup page’s metadata', () => {
     });
   });
 
-  it('names a Swedish signup’s language as link previews write it', async () => {
-    ship('participant', ['en', 'sv']);
-    storeSignup({ settings: { locale: 'sv' } });
+  it(`names a ${OTHER_LANGUAGE} signup’s language as link previews write it`, async () => {
+    ship('participant', ['en', OTHER_LOCALE]);
+    storeSignup({ settings: { locale: OTHER_LOCALE } });
     const meta = await generateMetadata(params);
-    expect(meta.openGraph).toMatchObject({ locale: 'sv_SE' });
+    expect(meta.openGraph).toMatchObject({ locale: openGraphLocale(OTHER_LOCALE) });
   });
 
   it('gives a draft only the plain title, as before', async () => {
     storeSignup({ status: 'draft' });
-    expect(await generateMetadata(params)).toEqual({ title: 'Sign up', robots });
+    expect(await generateMetadata(params)).toEqual({ title: tabTitle('Sign up'), robots });
   });
 
-  it('gives a Swedish draft the plain title in Swedish', async () => {
-    ship('participant', ['en', 'sv']);
-    storeSignup({ status: 'draft', settings: { locale: 'sv' } });
-    expect(await generateMetadata(params)).toEqual({ title: swedish('title'), robots });
+  it(`gives a ${OTHER_LANGUAGE} draft the plain title in ${OTHER_LANGUAGE}`, async () => {
+    ship('participant', ['en', OTHER_LOCALE]);
+    storeSignup({ status: 'draft', settings: { locale: OTHER_LOCALE } });
+    expect(await generateMetadata(params)).toEqual({ title: tabTitle(inOther('title')), robots });
   });
 
   it('describes a signup with no description of its own in its language', async () => {
     storeSignup({ description: '' });
     expect((await generateMetadata(params)).description).toBe(`Sign up via ${INSTANCE_NAME}`);
-    ship('participant', ['en', 'sv']);
-    storeSignup({ description: '', settings: { locale: 'sv' } });
-    expect((await generateMetadata(params)).description).toBe(swedish('description'));
+    ship('participant', ['en', OTHER_LOCALE]);
+    storeSignup({ description: '', settings: { locale: OTHER_LOCALE } });
+    expect((await generateMetadata(params)).description).toBe(inOther('description'));
   });
 });

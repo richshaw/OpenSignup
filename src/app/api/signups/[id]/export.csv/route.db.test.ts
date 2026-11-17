@@ -6,7 +6,7 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot, removeCommitment } from '@/services/commitments';
@@ -226,6 +226,7 @@ describe('GET /api/signups/[id]/export.csv (db)', () => {
   );
 
   it('stays in English for a stored language that hasn’t shipped, whatever the browser asks', async () => {
+    shipOnlyEnglish();
     await storeLanguage('sv');
     const [header, , sam] = await download({ 'accept-language': 'sv' });
     expect(header).toBe('Day,What,Name,Email,Status,Spots,Notes,Signed up');
