@@ -20,7 +20,7 @@ const utf8Downloads = {
  * a phone's width, in Chromium, so the screenshots show where longer words
  * wrap.
  */
-const TRANSLATION_SPECS = /translated-(signup|organizer)\.spec\.ts$/;
+const TRANSLATION_SPECS = /(translated-(signup|organizer)|organizer-language)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -45,7 +45,17 @@ export default defineConfig({
     // signup does, and nothing else: it can't make a language anybody's
     // choice. A server you start yourself for these specs needs it too: a
     // spec that finds a seeded signup in English says which value to set.
-    env: { E2E_UNSHIPPED_LOCALES: UNSHIPPED_LOCALES },
+    //
+    // And an AI provider that isn't there, so the server shows Magic
+    // Compose (`magicComposeEnabled`) and its specs run: each one answers
+    // `/api/signups/magic-compose` in the browser (`page.route`), so no
+    // request reaches this address. Nothing listens on port 9, so one that
+    // did would fail at once rather than hang.
+    env: {
+      E2E_UNSHIPPED_LOCALES: UNSHIPPED_LOCALES,
+      LLM_BASE_URL: 'http://127.0.0.1:9/v1',
+      LLM_MODEL: 'e2e-no-model',
+    },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

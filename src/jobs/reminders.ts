@@ -3,10 +3,10 @@ import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { slots } from '@/db/schema/slots';
+import { alreadyRecorded } from '@/lib/activity';
 import { log } from '@/lib/log';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
-import { alreadyRecorded } from '@/email/commitment-row';
 import { sendReminder } from '@/email/send';
 import {
   allOf,

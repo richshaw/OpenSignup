@@ -27,6 +27,8 @@ const TRANSLATED = [
   // The notice a save shows, which takes its text from the page, and a
   // signup's Settings tab, the delete form included.
   'src/components/ui/save-notice.tsx',
+  // The language radios on Account Settings and a signup's Settings tab.
+  'src/components/ui/language-radios.tsx',
   'src/app/(organizer)/app/(chrome)/signups/[id]/settings',
   // A signup's Build tab: the page, and the client components it renders.
   'src/app/(organizer)/app/(chrome)/signups/[id]/build',

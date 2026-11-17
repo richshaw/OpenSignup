@@ -8,7 +8,7 @@ import { ship, shipOnlyEnglish } from './testing/ship';
 const env = vi.hoisted(() => ({ DEFAULT_LOCALE: undefined as string | undefined }));
 vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 
-const { localeOfOrganizer, localeOfSignup, newSignupLocale, signInLocale } =
+const { localeOfOrganizer, localeOfSignup, newSignupLocale, offersLanguageChoice, signInLocale } =
   await import('./locale');
 
 /** Every language with a catalog besides English, each tried in turn. */
@@ -144,6 +144,19 @@ describe.each(OTHER_LANGUAGES)('signInLocale, with %s', (other) => {
     vi.stubEnv('E2E_UNSHIPPED_LOCALES', other);
     env.DEFAULT_LOCALE = other;
     expect(signInLocale()).toBe('en');
+  });
+});
+
+describe.each(OTHER_LANGUAGES)('offersLanguageChoice, with %s', (other) => {
+  it('offers none while only English has shipped to participants', () => {
+    expect(offersLanguageChoice()).toBe(false);
+    ship('organizer', ['en', other]);
+    expect(offersLanguageChoice()).toBe(false);
+  });
+
+  it('offers one once a second language has shipped to participants', () => {
+    ship('participant', ['en', other]);
+    expect(offersLanguageChoice()).toBe(true);
   });
 });
 

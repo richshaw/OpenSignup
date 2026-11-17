@@ -16,6 +16,7 @@ import {
   publishSignupIn,
   type OrganizerIn,
 } from './helpers/organizer-language';
+import { translationShot } from './helpers/translation-shots';
 import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 /**
@@ -115,6 +116,17 @@ for (const stored of STORED) {
   test.describe(`an organizer who stores ${stored ?? 'no language'}`, () => {
     let organizer: OrganizerIn;
 
+    /**
+     * Saves what's on the page for a translation's review when
+     * TRANSLATION_SCREENSHOTS=1 (`pnpm translation:screenshots`), for an
+     * organizer in a language other than English, and does nothing
+     * otherwise. Named `organizer-…`, beside translated-organizer.spec.ts's,
+     * for the screens and states that spec doesn't reach.
+     */
+    const shot = async (page: Page, name: string, options?: { sheet?: boolean }) => {
+      if (stored) await translationShot(page, stored, `organizer-${name}`, options);
+    };
+
     test.beforeAll(async () => {
       organizer = await createOrganizerIn(stored, test.info().project.name);
     });
@@ -196,6 +208,7 @@ for (const stored of STORED) {
       await expect(page.getByText(apps('empty.title'))).toBeVisible();
       await expect(page.getByText(apps('empty.body'))).toBeVisible();
       await expect(page.getByText(apps('footnote', { lifetime }))).toBeVisible();
+      await shot(page, 'connected-apps-empty');
 
       const dates = await connectAppFor(organizer);
       await page.reload();
@@ -213,6 +226,7 @@ for (const stored of STORED) {
       const scopes = messagesIn(locale, 'auth.scopes');
       await expect(app.getByText(scopes('signupsRead'), { exact: true })).toBeVisible();
       await expect(app.getByText(scopes('signupsWrite'), { exact: true })).toBeVisible();
+      await shot(page, 'connected-apps');
 
       await page.goto('/app/settings/connected-apps?disconnected=1');
       await expect(page.getByRole('status')).toHaveText(apps('disconnected', { lifetime }));
@@ -253,6 +267,7 @@ for (const stored of STORED) {
       await expect(page.getByText(consent.markup('disconnect', { link: plain }))).toBeVisible();
       await expect(page.locator('a[href="/app/settings/connected-apps"]')).toBeVisible();
       await expect(page.getByRole('button', { name: consent('switchAccount') })).toBeVisible();
+      await shot(page, 'consent');
 
       // Saying no hands the request back, so it leaves nothing behind.
       await page.getByRole('button', { name: consent('deny') }).click();
@@ -268,6 +283,7 @@ for (const stored of STORED) {
       expect(await languageOf(heading)).toBe(locale);
       await expect(page).toHaveTitle(titled(loadError('tabTitle')));
       await expect(page.getByRole('link', { name: loadError('goToSignups') })).toBeVisible();
+      await shot(page, 'signup-not-found');
     });
 
     test(`sees the strip on their signup’s page in ${locale}`, async ({ page }) => {
@@ -280,6 +296,7 @@ for (const stored of STORED) {
       await expect(nav.getByRole('link', { name: strip('edit') })).toBeVisible();
       // The page under it is the signup's, in the instance's language.
       await expect(page.locator('main')).toHaveAttribute('lang', 'en');
+      await shot(page, 'public-page-strip');
     });
 
     test(`is told about their own draft in ${locale}`, async ({ page }) => {
@@ -288,6 +305,7 @@ for (const stored of STORED) {
       await expect(page.locator('main'), unshippedHint).toHaveAttribute('lang', locale);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(own('title'));
       await expect(page.getByRole('link', { name: own('open') })).toBeVisible();
+      await shot(page, 'public-page-own-draft');
     });
 
     test(`sees the Preview banner in ${locale}`, async ({ page }) => {
@@ -299,6 +317,7 @@ for (const stored of STORED) {
       expect(await languageOf(banner), unshippedHint).toBe(locale);
       // What participants will see stays in the signup's language.
       await expect(page.locator('main')).toHaveAttribute('lang', 'en');
+      await shot(page, 'preview');
     });
 
     test(`sees a draft’s header, tabs and Publish’s check in ${locale}`, async ({ page }) => {
@@ -327,6 +346,7 @@ for (const stored of STORED) {
       const check = page.getByRole('dialog', { name: signup('check.title') });
       await expect(check).toContainText(signup('check.allBlank', { count: 1 }));
       await expect(check.getByRole('button', { name: signup('check.fillIn') })).toBeVisible();
+      await shot(page, 'publish-check', { sheet: true });
       await check.getByRole('button', { name: signup('check.notNow') }).click();
       await expect(check).toBeHidden();
       await expect(onScreen(page.getByText(status('draft'), { exact: true }))).toBeVisible();
@@ -347,6 +367,7 @@ for (const stored of STORED) {
       const open = onScreen(page.getByRole('link', { name: share('chip.open') }));
       const url = await open.getAttribute('href');
       expect(url).toMatch(new RegExp(`/s/${elsewhere.slug}$`));
+      await shot(page, 'build-share-chip');
 
       await onScreen(page.getByRole('button', { name: share('button') })).click();
       const panel = page.getByRole('dialog', { name: share('heading.later') });
@@ -473,6 +494,7 @@ for (const stored of STORED) {
       const asked = page.getByRole('group', { name: question });
       await expect(asked).toBeVisible();
       await expect(asked.getByRole('button', { name: signup('close.notYet') })).toBeVisible();
+      await shot(page, 'close-question');
       await asked.getByRole('button', { name: signup('close.action') }).click();
 
       await expect(onScreen(page.getByText(status('closed'), { exact: true }))).toBeVisible();
@@ -482,6 +504,7 @@ for (const stored of STORED) {
       await expect(
         onScreen(page.getByText(signup('spots.line', { status: 'closed', spots }))),
       ).toBeVisible();
+      await shot(page, 'build-closed');
 
       // Beside Preview on a computer; in the More actions sheet on a phone.
       if (phone) await more.click();
@@ -511,6 +534,7 @@ for (const stored of STORED) {
       const all = page.locator('form').filter({ has: ask });
       await all.getByRole('button', { name: settings('save') }).click();
       await expect(all.getByRole('status')).toHaveText(saveNotice('saved'));
+      await shot(page, 'signup-settings-saved');
 
       const danger = page.getByRole('region', { name: settings('delete.title') });
       await expect(danger.getByText(settings('delete.body'))).toBeVisible();
@@ -518,6 +542,7 @@ for (const stored of STORED) {
       const confirm = danger.getByRole('alertdialog', { name: settings('delete.label') });
       await expect(confirm.getByText(settings('delete.question'))).toBeVisible();
       await expect(confirm.getByRole('button', { name: settings('delete.confirm') })).toBeVisible();
+      await shot(page, 'signup-settings-delete');
       await confirm.getByRole('button', { name: settings('delete.cancel') }).click();
       await expect(danger.getByRole('button', { name: settings('delete.start') })).toBeVisible();
 
@@ -526,6 +551,7 @@ for (const stored of STORED) {
       const refusal = page.getByRole('main').getByRole('alert');
       await expect(refusal).toHaveText(errors('code.forbidden'));
       expect(await languageOf(refusal)).toBe(locale);
+      await shot(page, 'signup-settings-refused');
     });
 
     test(`sees the Responses tab, the remove flow and the CSV’s own words in ${locale}`, async ({
@@ -565,6 +591,7 @@ for (const stored of STORED) {
       await expect(confirm).toHaveAccessibleDescription(
         responses('remove.question', { label, count: 1 }),
       );
+      await shot(page, 'responses-remove');
       await confirm.getByRole('button', { name: responses('remove.keep') }).click();
       await expect(confirm).toHaveCount(0);
       await remove.click();
@@ -577,6 +604,7 @@ for (const stored of STORED) {
           `${responses('summary.signUps', { count: 0 })} · ${responses('summary.removed', { count: 1 })}`,
         ),
       ).toBeVisible();
+      await shot(page, 'responses-removed');
 
       // The CSV's column names and statuses come in the organizer's language,
       // whatever the browser asks for. The signup's own column names stay.
@@ -643,6 +671,7 @@ for (const stored of STORED) {
         );
         expect(await languageOf(alert)).toBe(locale);
         await expect(box).toHaveValue(compose('starters.sports.body'));
+        await shot(page, 'new-signup-compose-limit');
         await page.getByRole('link', { name: compose('skip') }).click();
       } else {
         await page.goto('/app/signups/new?manual=1');
@@ -904,6 +933,7 @@ for (const stored of STORED) {
         warnings('descriptionCut', { max: 2000 }),
       ]);
       expect(await languageOf(box)).toBe(locale);
+      await shot(page, 'build-ai-draft');
 
       await banner.getByRole('button', { name: aiDraft('dismiss') }).click();
       await expect(box).toBeHidden();

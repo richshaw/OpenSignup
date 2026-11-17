@@ -154,21 +154,34 @@ Playwright at the Chromium installed there. The command writes, under
 
 - `<code>/screens/chromium/*.png` and `<code>/screens/chromium-phone/*.png`:
   each participant screen and state `tests/e2e/translated-signup.spec.ts`
-  checks, and the organizer screens `tests/e2e/translated-organizer.spec.ts`
-  goes through (`organizer-…`), at desktop and phone width, for every
-  language with a catalog;
+  checks, and the organizer screens (`organizer-…`) that
+  `tests/e2e/translated-organizer.spec.ts` and `organizer-language.spec.ts`
+  go through, at desktop and phone width, for every language with a catalog;
 - `en/emails/*.html` and `<code>/emails/*.html`, with a `.txt` of each
   that starts with the email's subject: every participant email and the
   sign-in email, from `scripts/lib/email-samples.ts`.
 
 The organizer screens are the ones an organizer goes through to make a
-signup: Your signups, New signup and Magic Compose's first screen, the Build
+signup (Your signups, New signup and Magic Compose's first screen, the Build
 tab, its Fields dialog and a slot's editor, the share panel, Responses and
-account Settings. For organizer text on other screens, take the screens the
-batch changes by hand, at desktop and phone width, from an account that
+account Settings), and the screens and states around them: Publish's check,
+the share chip, closing a signup and a closed one, the banner on a draft
+Magic Compose made, its hourly-limit error (where `LLM_BASE_URL` is set), a
+signup's Settings tab (saved, its delete question and a refusal), Responses'
+remove question and the table after a removal, Connected apps (empty and
+with an app), the consent screen, the Preview banner, the strip on the
+signup's own page, the note on your own draft, and the card for a signup
+that can't be found. For organizer text on other screens, take the screens
+the batch changes by hand, at desktop and phone width, from an account that
 stores the language (as `createOrganizerIn` in
 `tests/e2e/helpers/organizer-language.ts` makes one), and tell the reviewer
 where they are.
+
+To take them with the `run-opensignup` driver, run it with `DRIVER_LOCALE`
+set to the language (`DRIVER_LOCALE=sv-SE node .claude/skills/run-opensignup/driver.mjs`)
+and sign in with an address that has no account yet: its first sign-in
+stores that language. The native date and time boxes don't follow it: they
+keep the browser's own language, so don't count them as checked.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the

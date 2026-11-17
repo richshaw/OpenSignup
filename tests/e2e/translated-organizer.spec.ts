@@ -202,6 +202,10 @@ for (const locale of TEST_LOCALES) {
         onScreen(page.getByText(responses('summary.signUps', { count: 1 }))),
       ).toBeVisible();
       await expect(onScreen(page.getByText('Alex', { exact: true }))).toBeVisible();
+      // The header's counts were drawn before the sign-up and only refresh on
+      // a load, so reload before the screenshot, or it shows 0 beside Alex.
+      await page.reload();
+      await expect(onScreen(page.getByText('Alex', { exact: true }))).toBeVisible();
       await expectPageIn(page);
       await shot(page, 'responses');
 
@@ -224,7 +228,12 @@ for (const locale of TEST_LOCALES) {
       const chrome = say('organizer.chrome');
       const share = say('organizer.share');
       const { build, open, closed } = organizer.signups;
-      for (const id of [build.id, open.id, closed.remembered.signupId]) {
+      // A draft and an open signup have the phone bar; a closed one has none.
+      for (const { id, phoneBar } of [
+        { id: build.id, phoneBar: true },
+        { id: open.id, phoneBar: true },
+        { id: closed.remembered.signupId, phoneBar: false },
+      ]) {
         for (const viewport of [NARROW, PHONE]) {
           const where = `at ${viewport.width}px`;
           await page.setViewportSize(viewport);
@@ -233,6 +242,7 @@ for (const locale of TEST_LOCALES) {
           // The tabs: on a 320px screen the strip scrolls sideways, as it
           // does in English, but each name stays whole.
           const strip = page.getByRole('tablist', { name: signup('tabs.label') });
+          await expect(strip.getByRole('tab'), `the tabs ${where}`).not.toHaveCount(0);
           for (const tab of await strip.getByRole('tab').all()) await expectOneLine(tab, where);
           if (viewport === PHONE) {
             expect(
@@ -256,7 +266,8 @@ for (const locale of TEST_LOCALES) {
           // The bar along the bottom: a draft's Publish and share, or an
           // open signup's count and Share, side by side on one line.
           const bar = page.locator('[data-phone-bar]');
-          if ((await bar.count()) > 0) {
+          await expect(bar, `the phone bar ${where}`).toHaveCount(phoneBar ? 1 : 0);
+          if (phoneBar) {
             await expectOneLine(bar, where);
             for (const button of await bar.getByRole('button').all()) {
               await expectOneLine(button, where);

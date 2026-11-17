@@ -1,5 +1,5 @@
 import { Text } from '@react-email/components';
-import { confirmationSubject } from '../subjects';
+import { subjectOf } from '../subjects';
 import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import type { SlotDetail } from '@/lib/slot-label';
@@ -43,11 +43,7 @@ export function CommitmentConfirmationEmail({
   return (
     <EmailLayout
       locale={locale}
-      preview={confirmationSubject(
-        getServerTranslator(locale, 'email.subject'),
-        signupTitle,
-        slotSummary,
-      )}
+      preview={subjectOf.confirmation({ locale, signupTitle, slotSummary })}
     >
       <EmailHeading>{t('heading')}</EmailHeading>
       <EmailIntro>

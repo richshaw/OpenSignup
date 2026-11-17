@@ -85,6 +85,8 @@ EOF
 
 Screenshots → `/tmp/opensignup-shots/`. Server logs → `/tmp/opensignup-web.log`, `/tmp/opensignup-worker.log`.
 
+The driver reads a few env vars: `OPENSIGNUP_URL` (default `http://localhost:3000`), `OPENSIGNUP_LOG` (the web server's log), `SHOT_DIR` and `CHROMIUM_PATH`. Set `DRIVER_LOCALE` (e.g. `DRIVER_LOCALE=sv-SE`) to check a language in the running app: the browser then sends that `Accept-Language` and reports it as `navigator.language`, and formats `Intl` dates and numbers in it, so a new organizer account stores it (if it has shipped and the site sets no `DEFAULT_LOCALE`). The native date and time boxes don't follow it: they keep the browser's own UI language (`mm/dd/yyyy` here), so it can't check how those look in another language. Unset, the browser's own language (English) is used. Saved sessions keep working either way; an account that already exists keeps the language it stored.
+
 | command                                 | what it does                                                                                                   |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `login <email>`                         | Sign in as an organizer (first time creates the account). Reuses a saved session after that.                   |
