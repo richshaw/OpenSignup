@@ -3,9 +3,8 @@
  * slot-change jobs (`src/jobs/reminders.ts`, `src/jobs/slot-changes.ts`) read
  * about a commitment before emailing its participant.
  */
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, type SQL } from 'drizzle-orm';
 import type { Db } from '@/db/client';
-import { activity, type ActivityEvent } from '@/db/schema/activity';
 import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { signups } from '@/db/schema/signups';
@@ -30,36 +29,6 @@ export async function loadCommitmentRow(db: Db, commitmentId: string, where?: SQ
     .where(and(eq(commitments.id, commitmentId), where))
     .limit(1);
   return row;
-}
-
-/**
- * Whether an `eventType` row is already recorded for this commitment, such as
- * the `commitment.confirmation_sent` or `reminder.sent` that says its email
- * went out. `where`, a condition over `activity`, narrows which rows count.
- */
-export async function alreadyRecorded(
-  db: Db,
-  eventType: ActivityEvent,
-  signupId: string,
-  commitmentId: string,
-  where?: SQL,
-): Promise<boolean> {
-  const [row] = await db
-    .select({ id: activity.id })
-    .from(activity)
-    .where(
-      and(
-        eq(activity.eventType, eventType),
-        // Scoped to the signup as well as the commitment: the row carries
-        // signup_id anyway, and it keeps this off a full scan of every such
-        // event ever recorded even where the expression index is absent.
-        eq(activity.signupId, signupId),
-        sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
-        where,
-      ),
-    )
-    .limit(1);
-  return row !== undefined;
 }
 
 /**

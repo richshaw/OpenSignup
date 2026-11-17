@@ -10,7 +10,7 @@ import {
 import { signups, type Signup } from '@/db/schema/signups';
 import { slots, type Slot } from '@/db/schema/slots';
 import type { CatalogLocale } from '@/i18n/config';
-import { activityActor, recordActivity } from '@/lib/activity';
+import { activityActor, alreadyRecorded, recordActivity } from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
@@ -1123,6 +1123,8 @@ async function readSlotAndSignup(db: Db, slotId: string) {
   return row;
 }
 
+type SlotAndSignup = NonNullable<Awaited<ReturnType<typeof readSlotAndSignup>>>;
+
 /**
  * What the edit page may offer a commitment. `closed` is true when its slot
  * takes no more places (`whyNotTakingPlaces`: the signup or the slot is
@@ -1194,7 +1196,9 @@ const MAX_MOVES_FOLLOWED = 10;
  *
  * Guard-free, like `editLimitsForCommitment`: call it only with a commitment
  * that `getOwnCommitment` has already verified against its edit token. Each
- * read is scoped to its signup, which a move never leaves.
+ * read of the activity log and of commitments is scoped to its signup, which a
+ * move never leaves; the slot is read by id alone, since it comes from a
+ * commitment already checked against that signup.
  */
 export async function cancelledCommitmentState(
   db: Db,
@@ -1236,42 +1240,18 @@ export async function cancelledCommitmentState(
 
   // Only an active commitment can be removed, so after any moves only the
   // last one can have been.
-  const [removed] = await db
-    .select({ id: activity.id })
-    .from(activity)
-    .where(
-      and(
-        eq(activity.eventType, 'commitment.removed'),
-        eq(activity.signupId, commitment.signupId),
-        sql`(${activity.payload}->>'commitmentId') = ${lastId}`,
-      ),
-    )
-    .limit(1);
-  const name = await slotName(db, commitment.signupId, slotId, locale);
+  const removed = await alreadyRecorded(db, 'commitment.removed', commitment.signupId, lastId);
+  const row = await readSlotAndSignup(db, slotId);
+  const name = row
+    ? summarizeSlotValues(await listFieldsForSignup(db, row.signupId), row.values, locale)
+    : '';
   if (removed) return { movedTo: null, removed: true, slotName: name };
   return {
     movedTo: null,
     removed: false,
-    slot: await slotStateAfterCancel(db, slotId),
+    slot: await slotStateAfterCancel(db, slotId, row),
     slotName: name,
   };
-}
-
-/** `Pack away · Sat, Nov 14`: the slot's values in field order, or ''. */
-async function slotName(
-  db: Db,
-  signupId: string,
-  slotId: string,
-  locale: CatalogLocale,
-): Promise<string> {
-  const [slot] = await db
-    .select({ values: slots.values })
-    .from(slots)
-    .where(and(eq(slots.id, slotId), eq(slots.signupId, signupId)))
-    .limit(1);
-  if (!slot) return '';
-  const fields = await listFieldsForSignup(db, signupId);
-  return summarizeSlotValues(fields, slot.values, locale);
 }
 
 /**
@@ -1283,8 +1263,11 @@ async function slotName(
  */
 export type CancelledSlotState = 'open' | 'full' | 'slotClosed' | 'signupClosed';
 
-async function slotStateAfterCancel(db: Db, slotId: string): Promise<CancelledSlotState> {
-  const row = await readSlotAndSignup(db, slotId);
+async function slotStateAfterCancel(
+  db: Db,
+  slotId: string,
+  row: SlotAndSignup | undefined,
+): Promise<CancelledSlotState> {
   // Its signup was deleted since the edit link was checked.
   if (!row) return 'signupClosed';
   if (whyNotTakingPlaces(row.signup, row)) {
