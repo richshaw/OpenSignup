@@ -798,6 +798,154 @@
         "slot_dates.set_must_equal": ["2027-05-29"],
         "rationale": "#635: the {{LANGUAGE}} fallback. Without it the model guesses, most likely English. eval:mcp skips this case, since an assistant isn't told the organizer's language."
       }
+    },
+    {
+      "id": "ev_046_swedish_organizer_knytkalas",
+      "tags": [
+        "i18n",
+        "edge:non_english",
+        "language",
+        "swedish",
+        "field_type:date",
+        "field_type:time",
+        "capacity_not_duplicate_rows"
+      ],
+      "runner": "llm",
+      "organizerLanguage": "sv",
+      "prompt": "Knytkalas för 3B:s familjer lördag 11 december 2027 kl. 11–14 i matsalen! Vi behöver 2 som tar med sallad, 3 som tar med varmrätt, 1 som tar bröd och 1 efterrätt.",
+      "expect": {
+        "behavior": "A Swedish organizer's potluck: one Saturday, Swedish date and 24-hour time, a few dishes with how many of each. The draft is Swedish, column names included, with a date field, 11:00 read from \"kl. 11–14\", and one slot per dish whose capacity is its count.",
+        "language_must_be": "sv",
+        "fields.must_include_field_type": "date",
+        "fields.labels_must_not_match_any": ["item", "date", "time"],
+        "slots.count": 4,
+        "slot_dates.set_must_equal": ["2027-12-11"],
+        "slot_times_or_labels.must_include_starts": ["11:00"],
+        "slots.capacity_for_label": [
+          {
+            "label_match": "sallad",
+            "capacity": 2
+          },
+          {
+            "label_match": "varmrätt",
+            "capacity": 3
+          },
+          {
+            "label_match": "bröd",
+            "capacity": 1
+          },
+          {
+            "label_match": "efterrätt",
+            "capacity": 1
+          }
+        ],
+        "raw_output_must_not_match_patterns": ["[0-9] ?[aApP][mM]\\b", "\"0?2:00\""],
+        "rationale": "#993: no case had an organizer whose language is Swedish, or Swedish dates and times (\"lördag 11 december 2027 kl. 11–14\"). The patterns catch a 12-hour reading of \"14\"."
+      }
+    },
+    {
+      "id": "ev_047_swedish_volunteer_shifts",
+      "tags": [
+        "i18n",
+        "edge:non_english",
+        "language",
+        "swedish",
+        "volunteering",
+        "field_type:time",
+        "capacity_not_duplicate_rows"
+      ],
+      "runner": "llm",
+      "prompt": "Loppis i gympasalen lördag 17 och söndag 18 april 2027, kl 10-16. Vi behöver volontärer i kassan, tre pass på 2 timmar varje dag, två volontärer per pass",
+      "expect": {
+        "behavior": "Swedish volunteer shifts over two days: three 2-hour shifts a day from 10 to 16 is 10:00, 12:00 and 14:00 on each day, one slot per shift with capacity 2, not a row per volunteer. Swedish labels.",
+        "language_must_be": "sv",
+        "fields.labels_must_not_match_any": ["item", "date", "time", "shift"],
+        "slots.count": 6,
+        "slots.all_capacities_equal": 2,
+        "slot_dates.set_must_equal": ["2027-04-17", "2027-04-18"],
+        "slot_times_or_labels.must_include_starts": ["10:00", "12:00", "14:00"],
+        "rationale": "#993: Swedish shift wording (\"tre pass på 2 timmar\", \"två volontärer per pass\") has to become shifts with a capacity, as the English shift cases do. No organizerLanguage, so eval:mcp runs it too."
+      }
+    },
+    {
+      "id": "ev_048_swedish_fika_list_saturday_range",
+      "tags": ["i18n", "edge:non_english", "language", "swedish", "sports", "field_type:date"],
+      "runner": "llm",
+      "prompt": "Fikalista för P12:s hemmamatcher, alla lördagar från 24 april till 29 maj 2027. En familj per lördag tar med fika till kiosken.",
+      "expect": {
+        "behavior": "A Swedish fika rota over a range of Saturdays: one slot per Saturday from 24 April to 29 May 2027, one family each, in Swedish. A pure date list, so no groupBy.",
+        "language_must_be": "sv",
+        "fields.must_include_field_type": "date",
+        "slots.count": 6,
+        "slots.all_capacities_equal": 1,
+        "slot_dates.set_must_equal": [
+          "2027-04-24",
+          "2027-05-01",
+          "2027-05-08",
+          "2027-05-15",
+          "2027-05-22",
+          "2027-05-29"
+        ],
+        "groupBy_should_be_null": true,
+        "rationale": "#993: a Swedish date range (\"alla lördagar från 24 april till 29 maj\") has to expand to every Saturday in it, and only those."
+      }
+    },
+    {
+      "id": "ev_049_swedish_too_vague_asks_in_swedish",
+      "tags": [
+        "i18n",
+        "edge:non_english",
+        "language",
+        "swedish",
+        "questions",
+        "edge:vague",
+        "no_invention"
+      ],
+      "runner": "llm",
+      "organizerLanguage": "sv",
+      "prompt": "Fikalista till klassen",
+      "expect": {
+        "behavior": "A Swedish organizer's name for a list that says what (fika) and nothing else. As with \"Snack sign up\", every slot would be a \"TBD:\" row, so it asks when, not what, and the options read the fika from the prompt in Swedish rather than in English.",
+        "questions.must_ask": true,
+        "questions.topics_must_include": ["when"],
+        "questions.topics_must_not_include": ["what"],
+        "questions.options_count_range": [1, 4],
+        "questions.options_must_not_contain_date_or_number": true,
+        "questions.options_must_mention_any": ["fika", "fikat", "fikabröd"],
+        "questions.options_must_not_mention_any": [
+          "snack",
+          "snacks",
+          "coffee",
+          "treats",
+          "bring",
+          "cake",
+          "cakes"
+        ],
+        "rationale": "#993: the questions flow in Swedish. The options are checked by words rather than language_must_be, because the likely single option (\"Fika\") holds no marker word of any language."
+      }
+    },
+    {
+      "id": "ev_050_english_with_swedish_words_stays_english",
+      "tags": [
+        "i18n",
+        "language",
+        "swedish",
+        "community",
+        "field_type:date",
+        "capacity_not_duplicate_rows"
+      ],
+      "runner": "llm",
+      "organizerLanguage": "sv",
+      "prompt": "Midsommar picnic in the park on Saturday June 26, 2027 from 1pm. Can people bring sill, new potatoes, strawberries and drinks? Two families for each please",
+      "expect": {
+        "behavior": "An English description that only names Swedish things (midsommar, sill), from an organizer whose language is Swedish. The description's language decides, so the draft is English, with the Swedish words kept as items.",
+        "language_must_be": "en",
+        "slots.count": 4,
+        "slots.all_capacities_equal": 2,
+        "slot_dates.set_must_equal": ["2027-06-26"],
+        "slot_values_must_cover_all": ["sill", "potato", "strawberr", "drink"],
+        "rationale": "#993: a few Swedish words must not flip an English description to Swedish, even when the organizer's own language is Swedish. eval:mcp skips it, since an assistant isn't told the organizer's language."
+      }
     }
   ]
 }

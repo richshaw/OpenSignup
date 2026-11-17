@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import { type CatalogLocale, openGraphLocale } from '@/i18n/config';
@@ -12,6 +12,7 @@ import { commitmentEditUrl } from '@/lib/links';
 import { COMMIT_COOKIE_NAME, parseReturningCommits } from '@/lib/returning-participant';
 import { shortenToLimit } from '@/lib/shorten';
 import { INSTANCE_NAME } from '@/lib/site-config';
+import { trimSlugTail } from '@/lib/slug';
 import { recordPublicView, trackAfterResponse } from '@/lib/view-tracker';
 import { getOwnCommitmentsForSignup } from '@/services/commitments';
 import { findDraftForOrganizer } from '@/services/signups';
@@ -30,8 +31,27 @@ type PageParams = { params: Promise<{ slug: string }> };
 // name in itself, the way the template does for every other page.
 const tabTitle = (title: string) => ({ absolute: `${title} · ${INSTANCE_NAME}` });
 
+/**
+ * Sends a link with punctuation after its slug ("…/s/team-snacks-a7vc8.", as
+ * some apps take a sentence's full stop into the link) to the signup's own
+ * address, before anything looks the slug up. Next may hand the slug over
+ * still percent-encoded ("…" as %E2%80%A6), so it's decoded first. A slug
+ * that trims to nothing is left to the not-found page.
+ */
+function redirectPunctuatedSlug(slug: string): void {
+  let decoded = slug;
+  try {
+    decoded = decodeURIComponent(slug);
+  } catch {
+    // A malformed escape: not a slug, so the lookup below finds nothing.
+  }
+  const trimmed = trimSlugTail(decoded);
+  if (trimmed && trimmed !== slug) permanentRedirect(`/s/${trimmed}`);
+}
+
 export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
   const { slug } = await params;
+  redirectPunctuatedSlug(slug);
   const result = await loadPublicSignup(slug);
   // Private share links: keep these out of the search index. They stay
   // crawlable (not robots-disallowed) so the noindex directive is honored.
@@ -91,6 +111,7 @@ async function ownDraft(slug: string): Promise<{ id: string; locale: CatalogLoca
 
 export default async function PublicSignupPage({ params }: PageParams) {
   const { slug } = await params;
+  redirectPunctuatedSlug(slug);
   const result = await loadPublicSignup(slug);
   if (!result.ok) {
     const received = result.error.received;

@@ -712,13 +712,19 @@ pnpm translation:screenshots
 It sets `TRANSLATION_SCREENSHOTS=1`, which makes the email tests write each
 email's HTML and plain text, in English and every other language with a
 catalog, with the subject on the text's first line, and makes
-`tests/e2e/translated-signup.spec.ts` and `translated-organizer.spec.ts` save
-a screenshot of each screen and state they check, in each of those languages,
-on a desktop and at a phone's width (390 pixels). The organizer's are named
-`organizer-…`: Your signups, New signup (and Magic Compose's first screen,
-where the server has an AI set up), the Build tab with its Fields dialog and
-a slot's editor, the share panel, Responses and account Settings. Everything goes to `translation-review/<code>/`, which git
-ignores. Without the flag the tests write nothing, so CI is unaffected. In
+`tests/e2e/translated-signup.spec.ts`, `translated-organizer.spec.ts` and
+`organizer-language.spec.ts` save a screenshot of each screen and state they
+check, in each of those languages, on a desktop and at a phone's width (390
+pixels). The organizer's are named `organizer-…`: Your signups, New signup
+(and Magic Compose's first screen and its hourly-limit error, where the
+server has an AI set up), the Build tab with its Fields dialog, a slot's
+editor, Publish's check, the share chip, closing a signup and a closed one,
+and the banner on a draft Magic Compose made, the share panel, a signup's
+Settings tab (saved, its delete question and a refusal), Responses with its
+remove question and the table after a removal, account Settings, Connected
+apps, the consent screen, the Preview banner, the strip on the signup's own
+page, the note on your own draft, and the card for a signup that can't be
+found. Everything goes to `translation-review/<code>/`, which git ignores. Without the flag the tests write nothing, so CI is unaffected. In
 Claude's cloud container, Playwright's own Chromium isn't installed: add
 `-c .claude/skills/run-opensignup/playwright.container.config.ts`.
 
@@ -731,9 +737,9 @@ site's language, which can't be a language that hasn't shipped. And the spec
 doesn't reach a few rarer states: a cancelled spot whose slot has since filled
 or closed, someone the organizer took off a slot or moved, someone signed up
 for more than one slot, the edit page's errors when cancelling, and copying
-the link. On the organizer's side, the other screens (Connected apps, a
-signup's Settings tab, Magic Compose's later steps, a refusal) have no
-screenshot: take the ones a change touches by hand.
+the link. On the organizer's side, Magic Compose's later steps and the
+refusals other than the Settings tab's have no screenshot: take the ones a
+change touches by hand.
 
 To look at a language in the running app with the `run-opensignup` driver,
 set `DRIVER_LOCALE` (for example `DRIVER_LOCALE=sv-SE`). The driver's browser

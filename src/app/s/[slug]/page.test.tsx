@@ -63,6 +63,9 @@ vi.mock('next/navigation', () => ({
   notFound: () => {
     throw new Error('NEXT_NOT_FOUND');
   },
+  permanentRedirect: (to: string) => {
+    throw new Error(`NEXT_REDIRECT ${to}`);
+  },
   // The commit dialog's.
   useRouter: () => ({ refresh: vi.fn() }),
 }));
@@ -338,5 +341,23 @@ describe('the public signup page’s metadata', () => {
     ship('participant', ['en', OTHER_LOCALE]);
     storeSignup({ description: '', settings: { locale: OTHER_LOCALE } });
     expect((await generateMetadata(params)).description).toBe(inOther('description'));
+  });
+});
+
+describe('a signup link with punctuation after it', () => {
+  const at = (slug: string) => ({ params: Promise.resolve({ slug }) });
+
+  it.each(['snack-duty.', 'snack-duty,', 'snack-duty)', 'snack-duty%E2%80%A6', 'snack-duty…'])(
+    'sends %s to the signup’s own address, page and metadata alike',
+    async (slug) => {
+      storeSignup({});
+      await expect(PublicSignupPage(at(slug))).rejects.toThrow('NEXT_REDIRECT /s/snack-duty');
+      await expect(generateMetadata(at(slug))).rejects.toThrow('NEXT_REDIRECT /s/snack-duty');
+    },
+  );
+
+  it('still says an unknown slug is gone, punctuation and all', async () => {
+    await expect(PublicSignupPage(at('...'))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(PublicSignupPage(at('no-such-signup'))).rejects.toThrow('NEXT_NOT_FOUND');
   });
 });

@@ -519,7 +519,6 @@ async function commitParticipantToSlot(
         status: 'confirmed',
         quantity: data.quantity,
         notes: data.notes ?? '',
-        notesVisibility: 'public',
         editTokenHash: hashToken(editToken),
         idempotencyKeyHash: keyHash,
       })

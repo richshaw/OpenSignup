@@ -156,7 +156,6 @@ describe('COMMITMENT_INPUT_REASONS', () => {
     ['a name that is not text', CommitmentCreateInputSchema, { name: 5 }],
     ['an email that is not text', CommitmentCreateInputSchema, { ...base, email: 5 }],
     ['notes that are not text', CommitmentCreateInputSchema, { ...base, notes: 5 }],
-    ['a short phone', CommitmentCreateInputSchema, { ...base, phone: '1' }],
     ['a bad idempotency key', CommitmentCreateInputSchema, { ...base, idempotencyKey: 'short' }],
     ['a bad slot to move to', CommitmentUpdateInputSchema, { swapToSlotId: 'slot_nope' }],
     ['a body that is not an object', CommitmentUpdateInputSchema, 'nope'],

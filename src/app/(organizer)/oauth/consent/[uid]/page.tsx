@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { loginUrl } from '@/auth/callback-url';
 import { getOrganizerSession } from '@/auth/session';
-import { signOutOrganizer } from '@/auth/sign-out';
+import { switchOrganizer } from '@/auth/sign-out';
 import { CenteredPageFrame } from '@/components/centered-page-frame';
 import type { CatalogLocale } from '@/i18n/config';
 import { localeOfOrganizer } from '@/i18n/locale';
@@ -30,7 +31,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
   const session = await getOrganizerSession();
   const locale = localeOfOrganizer(session);
   if (!isInteractionUid(uid)) return <Unavailable locale={locale} />;
-  if (!session) redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
+  if (!session) redirect(loginUrl(consentPath(uid)));
 
   let ctx: ConsentContext;
   try {
@@ -50,13 +51,13 @@ export default async function ConsentPage({ params }: { params: Promise<{ uid: s
   // workspaces when there is more than one to reach.
   const workspaceCount = session.memberships.length;
 
-  // "/login" would bounce a signed-in organizer straight back to /app, so
-  // switching accounts has to sign this one out first — and keep the
-  // pending consent as the place to come back to. The provider's own
-  // session cookie goes too, so the next organizer's decision is theirs.
+  // Switching accounts signs the current organizer out first (see
+  // switchOrganizer), keeping the pending consent as the place to come back
+  // to. The provider's own session cookie goes too, so the next organizer's
+  // decision is theirs.
   async function switchAccount() {
     'use server';
-    await signOutOrganizer(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
+    await switchOrganizer(consentPath(uid));
   }
 
   return (
