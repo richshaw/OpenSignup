@@ -2,8 +2,8 @@
  * Dev-only: regenerate the static social/share images: `opengraph-image.png`
  * and `twitter-image.png` (Open Graph + Twitter card, 1200×630), committed under
  * `public/`, and `apple-icon.png` (180×180 home-screen icon), under `src/app/`.
- * The share images' size and alt text are also in `SHARE_IMAGE`
- * (src/lib/seo.ts), which `seo.test.ts` checks against the files.
+ * The share images' size and alt text are in `SHARE_IMAGE` (src/lib/seo.ts),
+ * whose size `seo.test.ts` checks against the files.
  *
  * Uses `next/og` (Satori + resvg, both bundled with Next — no browser, no
  * network, no extra deps) to render on-brand layouts to PNG buffers. NOT part
