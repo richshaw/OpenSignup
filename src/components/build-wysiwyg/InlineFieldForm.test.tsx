@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as renderUi, screen, fireEvent } from '@testing-library/react';
 import { InlineFieldForm } from './InlineFieldForm';
 import type { BuildField } from '../build-shared/useBuildState';
+import type { ReactElement } from 'react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { BUILD_TAB_NAMESPACES } from './client-namespaces';
+
+/** Renders `ui` with the Build tab's messages in English, as its page gives them. */
+const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
+const render = (ui: ReactElement) => renderUi(ui, { wrapper });
 
 function makeField(overrides: Partial<BuildField> = {}): BuildField {
   return {
@@ -15,10 +22,14 @@ function makeField(overrides: Partial<BuildField> = {}): BuildField {
   };
 }
 
+/** A new field's defaults, as the Build tab page gives them for an English signup. */
+const DEFAULTS = { name: 'Untitled', firstChoice: 'Option 1' };
+
 describe('InlineFieldForm — create mode', () => {
   it('focuses the name input on mount', () => {
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -33,6 +44,7 @@ describe('InlineFieldForm — create mode', () => {
   it('renders a Back button (parent modal title provides the heading)', () => {
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -46,6 +58,7 @@ describe('InlineFieldForm — create mode', () => {
   it('does not render a delete affordance', () => {
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -59,6 +72,7 @@ describe('InlineFieldForm — create mode', () => {
   it('toggles type via the type buttons', () => {
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -75,6 +89,7 @@ describe('InlineFieldForm — create mode', () => {
     const onSave = vi.fn();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -96,6 +111,7 @@ describe('InlineFieldForm — create mode', () => {
     const onSave = vi.fn();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -107,10 +123,32 @@ describe('InlineFieldForm — create mode', () => {
     expect(onSave.mock.calls[0]![0].name).toBe('Untitled');
   });
 
+  it('names a field saved without a name, and a new list’s option, with its defaults', () => {
+    const onSave = vi.fn();
+    render(
+      <InlineFieldForm
+        defaults={{ name: 'Namnlös', firstChoice: 'Alternativ 1' }}
+        formMode={{ mode: 'create' }}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Field name'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'List' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+    expect(onSave).toHaveBeenCalledWith({
+      name: 'Namnlös',
+      config: { fieldType: 'enum', choices: ['Alternativ 1'] },
+    });
+  });
+
   it('Enter commits the form', () => {
     const onSave = vi.fn();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -129,6 +167,7 @@ describe('InlineFieldForm — create mode', () => {
     const onCancel = vi.fn();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -145,6 +184,7 @@ describe('InlineFieldForm — create mode', () => {
     const onCancel = vi.fn();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -162,6 +202,7 @@ describe('InlineFieldForm — edit mode', () => {
     const field = makeField({ name: 'Subject', config: { fieldType: 'date' } });
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'edit', field }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -178,6 +219,7 @@ describe('InlineFieldForm — edit mode', () => {
     const field = makeField();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'edit', field }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -197,6 +239,7 @@ describe('InlineFieldForm — edit mode', () => {
     const onSave = vi.fn();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'edit', field }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -215,6 +258,7 @@ describe('InlineFieldForm — edit mode', () => {
     const onDelete = vi.fn();
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'edit', field: makeField() }}
         reminderFieldRef={null}
         reminderFieldLabel={null}
@@ -244,6 +288,7 @@ describe('InlineFieldForm — reminder checkbox', () => {
   ) {
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'edit', field }}
         reminderFieldRef={reminder.ref}
         reminderFieldLabel={reminder.label}
@@ -302,6 +347,7 @@ describe('InlineFieldForm — reminder checkbox', () => {
   it('is not rendered in create mode', () => {
     render(
       <InlineFieldForm
+        defaults={DEFAULTS}
         formMode={{ mode: 'create' }}
         reminderFieldRef={null}
         reminderFieldLabel={null}

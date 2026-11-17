@@ -17,8 +17,9 @@ export const slots = pgTable(
     values: jsonb('values').$type<Record<string, unknown>>().notNull().default({}),
     capacity: integer('capacity'), // null = unlimited
     sortOrder: integer('sort_order').notNull().default(0),
-    /** Reserved for v2 payments; kept on row for query simplicity. */
-    priceCents: integer('price_cents'),
+    // price_cents, reserved for payments that were never built, is out of this
+    // schema but still in the database: the build serving during a deploy
+    // selects it, so the migration that drops it comes a release later.
     status: text('status').notNull().default('open'), // open | closed
     /** Denormalized datetime derived from values + signup.settings.reminderFromFieldRef; null if no date field configured. */
     slotAt: timestamp('slot_at', { withTimezone: true }),

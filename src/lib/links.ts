@@ -16,8 +16,13 @@ function absoluteUrl(path: string): string {
   return `${getEnv().NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}${path}`;
 }
 
+/** A signup's public page, as a path: what Your signups shows under its title. */
+export function publicSignupPath(slug: string): string {
+  return `/s/${slug}`;
+}
+
 export function publicSignupUrl(slug: string): string {
-  return absoluteUrl(`/s/${slug}`);
+  return absoluteUrl(publicSignupPath(slug));
 }
 
 /** The organizer's build page for a signup, absolute so an assistant can hand it to a person. */

@@ -13,10 +13,12 @@ type PickerOptionProps = {
    * padding, where a menu's other rows can line up with it.
    */
   icon?: React.ReactNode;
+  /** The label's language, where it isn't the page's: a signup's own words. */
+  lang?: string | undefined;
 };
 
 /** One option in a builder picker's listbox. */
-export function PickerOption({ active, label, onClick, icon }: PickerOptionProps) {
+export function PickerOption({ active, label, onClick, icon, lang }: PickerOptionProps) {
   const checkStyle = icon === undefined;
   return (
     <button
@@ -32,7 +34,9 @@ export function PickerOption({ active, label, onClick, icon }: PickerOptionProps
       }
     >
       {!checkStyle && <span className="inline-flex">{icon}</span>}
-      <span className={checkStyle ? 'flex-1 truncate' : 'flex-1'}>{label}</span>
+      <span className={checkStyle ? 'flex-1 truncate' : 'flex-1'} lang={lang}>
+        {label}
+      </span>
       {checkStyle && (
         <span className="inline-flex w-3 shrink-0">{active && <Check size={11} />}</span>
       )}

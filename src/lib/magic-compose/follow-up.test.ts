@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { buildFollowUpMessages, buildReplyNowMessages, FollowUpSchema } from './follow-up';
 import { buildMessages } from './prompt';
 import type { FollowUp } from './questions';
@@ -111,17 +112,28 @@ describe('FollowUpSchema', () => {
 
 describe('buildFollowUpMessages', () => {
   const user = (followUp: FollowUp, firmly = false) =>
-    buildFollowUpMessages('Bake sale for the PTA', followUp, { firmly, now: NOW })[1]!.content;
+    buildFollowUpMessages('Bake sale for the PTA', followUp, {
+      firmly,
+      now: NOW,
+      fallbackLocale: 'en',
+    })[1]!.content;
 
-  it('keeps the system prompt and puts the description and the answers in one user message', () => {
-    const messages = buildFollowUpMessages(
-      'Bake sale',
-      { what: { picked: ['A'], added: [] } },
-      { now: NOW },
-    );
-    expect(messages.map((m) => m.role)).toEqual(['system', 'user']);
-    expect(messages[0]!.content).toContain('2026-10-24');
-  });
+  it.each([false, true])(
+    'keeps the first call’s system prompt, with its date and fallback language, and puts the description and the answers in one user message (firmly: %s)',
+    (firmly) => {
+      const messages = buildFollowUpMessages(
+        'Bake sale',
+        { what: { picked: ['A'], added: [] } },
+        { firmly, now: NOW, fallbackLocale: OTHER_LOCALE },
+      );
+      expect(messages.map((m) => m.role)).toEqual(['system', 'user']);
+      expect(messages[0]).toEqual(
+        buildMessages('x', { now: NOW, fallbackLocale: OTHER_LOCALE })[0],
+      );
+      expect(messages[0]!.content).toContain('2026-10-24');
+      expect(messages[0]!.content).toContain(`write in ${OTHER_LANGUAGE}.`);
+    },
+  );
 
   it('lists every answer under its label, the organizer’s words quoted', () => {
     expect(
@@ -180,8 +192,12 @@ describe('buildFollowUpMessages', () => {
 
 describe('buildReplyNowMessages', () => {
   it('sends the description again with the firm line, under the same system prompt', () => {
-    const messages = buildReplyNowMessages('Bake sale for the PTA', { now: NOW });
-    expect(messages[0]).toEqual(buildMessages('x', NOW)[0]);
+    const messages = buildReplyNowMessages('Bake sale for the PTA', {
+      now: NOW,
+      fallbackLocale: OTHER_LOCALE,
+    });
+    expect(messages[0]).toEqual(buildMessages('x', { now: NOW, fallbackLocale: OTHER_LOCALE })[0]);
+    expect(messages[0]!.content).toContain(`write in ${OTHER_LANGUAGE}.`);
     expect(messages[1]).toEqual({
       role: 'user',
       content:

@@ -2,7 +2,10 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { ShareQrCode } from './ShareQrCode';
+import { shareText } from './share-text';
 
 // The real encoder, unless a test makes it fail.
 const encoder = vi.hoisted(() => ({ fails: false }));
@@ -59,15 +62,24 @@ afterEach(() => {
   encoder.fails = false;
 });
 
+/** The QR code's words in English, for the signup the tests show. */
+const TEXT = shareText(getTestTranslator('organizer.share'), ' Bake sale helpers ').panel.qr;
+
 const NAME = 'QR code for the sign-up link to Bake sale helpers';
 
 function renderQr(variant: 'desktop' | 'phone') {
   return render(
-    <ShareQrCode signupId="sig_1" title=" Bake sale helpers " url={LINK} variant={variant} />,
+    <ShareQrCode
+      text={TEXT}
+      signupId="sig_1"
+      title=" Bake sale helpers "
+      url={LINK}
+      variant={variant}
+    />,
   );
 }
 
-describe('<ShareQrCode /> on a computer', () => {
+describe('<ShareQrCode text={TEXT} /> on a computer', () => {
   it('shows the code, named for the signup, and a Download named after it', () => {
     giveCanvas();
     renderQr('desktop');
@@ -119,7 +131,7 @@ describe('<ShareQrCode /> on a computer', () => {
     // Too long for two lines at 20px a character, so the second ends in "…".
     const title =
       'מתנדבים ליריד הספרים של בית הספר, הקמה, מכירה ופירוק בשבת בבוקר, ואחר כך ניקיון האולם וסידור הכיסאות';
-    render(<ShareQrCode signupId="sig_1" title={title} url={LINK} variant="desktop" />);
+    render(<ShareQrCode text={TEXT} signupId="sig_1" title={title} url={LINK} variant="desktop" />);
     fireEvent.click(screen.getByRole('link', { name: 'Download QR code' }));
     restore();
     const drawn = ctx.fillText.mock.calls.map(([text]) => text as string);
@@ -129,7 +141,7 @@ describe('<ShareQrCode /> on a computer', () => {
   });
 });
 
-describe('<ShareQrCode /> on a phone', () => {
+describe('<ShareQrCode text={TEXT} /> on a phone', () => {
   /** Where the phone can share a file, what it was asked to share. */
   function giveFileSharing(share: (data: ShareData) => Promise<void>) {
     Object.defineProperty(navigator, 'canShare', {
@@ -290,7 +302,7 @@ describe('<ShareQrCode /> on a phone', () => {
   });
 });
 
-describe('<ShareQrCode /> where it can’t be drawn', () => {
+describe('<ShareQrCode text={TEXT} /> where it can’t be drawn', () => {
   it('is never there where the browser has no canvas to draw on', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     const { container } = renderQr('phone');
@@ -328,3 +340,34 @@ describe('<ShareQrCode /> where it can’t be drawn', () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  '<ShareQrCode /> in %s',
+  (locale) => {
+    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale').panel.qr;
+    const words = (key: string) => `organizer.share.qr.${key} in ${locale}`;
+
+    it('takes its words on a computer from the catalog in that language', () => {
+      giveCanvas();
+      render(
+        <ShareQrCode text={text} signupId="sig_1" title="Bake sale" url={LINK} variant="desktop" />,
+      );
+      expect(screen.getByRole('img', { name: words('alt') })).toBeInTheDocument();
+      expect(screen.getByText(words('lead'))).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: words('downloadLabel') })).toHaveTextContent(
+        words('download'),
+      );
+    });
+
+    it('takes its words on a phone from the catalog in that language', () => {
+      giveCanvas();
+      render(
+        <ShareQrCode text={text} signupId="sig_1" title="Bake sale" url={LINK} variant="phone" />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: words('show') }));
+      expect(screen.getByRole('button', { name: words('hide') })).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: words('alt') })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: words('save') })).toBeInTheDocument();
+    });
+  },
+);

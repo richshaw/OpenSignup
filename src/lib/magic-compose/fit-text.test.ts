@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@/schemas/signups';
+import { warningSentence } from './draft-warnings';
 import { fitDraftText } from './fit-text';
 
 const draft = {
@@ -18,6 +19,9 @@ describe('fitDraftText', () => {
     expect(description.length).toBeLessThanOrEqual(DESCRIPTION_MAX_LENGTH);
     expect(description.endsWith('…')).toBe(true);
     expect(warnings).toEqual([
+      { code: 'text_cut', field: 'description', max: DESCRIPTION_MAX_LENGTH },
+    ]);
+    expect(warnings.map(warningSentence)).toEqual([
       "The AI's description was longer than 2,000 characters, so the end was cut off. Check it below.",
     ]);
   });
@@ -29,7 +33,8 @@ describe('fitDraftText', () => {
     const title = (value as { title: string }).title;
     expect(title.length).toBeLessThanOrEqual(TITLE_MAX_LENGTH);
     expect(title.endsWith('…')).toBe(true);
-    expect(warnings).toEqual([
+    expect(warnings).toEqual([{ code: 'text_cut', field: 'title', max: TITLE_MAX_LENGTH }]);
+    expect(warnings.map(warningSentence)).toEqual([
       "The AI's title was longer than 120 characters, so the end was cut off. Check it below.",
     ]);
   });

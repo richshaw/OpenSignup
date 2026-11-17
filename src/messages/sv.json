@@ -1,0 +1,998 @@
+{
+  "common": {
+    "footer": {
+      "license": "{instance} · AGPL-3.0",
+      "label": "Sidfot",
+      "help": "Hjälp",
+      "privacy": "Integritetspolicy",
+      "terms": "Villkor",
+      "cookies": "Cookies",
+      "source": "Källkod",
+      "contact": "Kontakt"
+    }
+  },
+  "participant": {
+    "signupPage": {
+      "title": "Anmälan",
+      "description": "Anmäl dig via {instance}",
+      "draft": {
+        "title": "Den här anmälningslistan är inte klar ännu",
+        "body": "Arrangören har inte publicerat den ännu. Länken börjar fungera när det är gjort, så titta in igen senare."
+      },
+      "archived": {
+        "title": "Den här anmälningslistan är inte längre tillgänglig",
+        "body": "Arrangören har arkiverat anmälningslistan. Kontakta arrangören om du behöver en ny länk."
+      }
+    },
+    "signupView": {
+      "closedBanner": {
+        "title": "Anmälan är stängd",
+        "body": "Den här anmälningslistan tar inte längre emot anmälningar.",
+        "keepsYours": "Inga fler kan anmäla sig, men {count, plural, one {din anmälan finns kvar} other {dina anmälningar finns kvar}}."
+      },
+      "signedUp": "{count, plural, =1 {<b>Du är anmäld:</b> <slot>{name}</slot>} other {<b>Du har</b> <slot>{count, number} anmälningar</slot>}}",
+      "editOrCancel": "Ändra eller avboka",
+      "manage": "Hantera",
+      "untitledSlot": "Pass utan namn",
+      "edit": "Ändra",
+      "editFor": "Ändra din anmälan till {slot}",
+      "full": "Fullt",
+      "closed": "Stängt"
+    },
+    "slot": {
+      "noValue": "(utan {label})",
+      "left": "{left, number} kvar",
+      "leftOf": "{left, number} av {capacity, number} platser kvar",
+      "signedUp": "{count, plural, one {{count, number} anmäld} other {{count, number} anmälda}}"
+    },
+    "fields": {
+      "name": "Ditt namn",
+      "email": "E-post",
+      "emailOptional": "E-post (valfritt)",
+      "notes": "Kommentar (valfritt)",
+      "spots": "Platser"
+    },
+    "defaults": {
+      "what": "Vad",
+      "date": "Datum",
+      "untitledField": "Namnlös",
+      "firstChoice": "Alternativ 1"
+    },
+    "dialog": {
+      "signUp": "Anmäl dig",
+      "signUpFor": "Anmäl dig till {slot}",
+      "close": "Stäng",
+      "cancel": "Avbryt",
+      "confirm": "Bekräfta",
+      "signingUp": "Skickar anmälan…",
+      "didYouMean": "Menade du <suggestion>{email}</suggestion>?",
+      "emailHelp": "Vi mejlar dig en länk för att ändra eller avboka{reminder, select, yes {, och en påminnelse innan det är dags} other {}}. Utan e-post behöver du spara länken som visas när du har anmält dig.",
+      "notesPlaceholder": "Allergier, önskemål m.m.",
+      "seeAlternatives": "Visa alternativ",
+      "unreachable": {
+        "message": "Det gick inte att nå servern.",
+        "suggestion": "Kontrollera anslutningen och försök igen."
+      },
+      "unreadable": {
+        "message": "Något gick fel.",
+        "suggestion": "Tryck på Bekräfta igen."
+      },
+      "youreIn": "Du är anmäld.",
+      "savedEmailed": "Din anmälan till <b>{slot}</b> är sparad, och vi har mejlat länken till <email>{address}</email>. Spara den som bokmärke, så kan du ändra eller avboka senare:",
+      "savedNotEmailed": "Din anmälan till <b>{slot}</b> är sparad. <b>Spara länken nu: vi mejlar den inte, och bara den här webbläsaren kommer ihåg den.</b>{calendar, select, yes { Lägger du till anmälan i kalendern, sparas länken där också.} other {}}",
+      "addToCalendar": "Lägg till i kalendern",
+      "calendarTitle": "{title} – {slot}",
+      "calendarDescription": "Ändra eller avboka: {url}",
+      "saveYourLink": "Spara din länk",
+      "shareText": "Min anmälan till {slot} – med den här länken går den att ändra eller avboka, så dela inte länken med någon.",
+      "copyLink": "Kopiera länk",
+      "linkCopied": "Länk kopierad",
+      "copied": "Länken är kopierad.",
+      "copyFailed": "Det gick inte att kopiera länken. Markera den ovan och kopiera den själv.",
+      "done": "Klart"
+    },
+    "errors": {
+      "capacity": {
+        "filledUp": "Tyvärr, det blev precis fullt.",
+        "pickAnother": "Välj något annat.",
+        "onlyLeft": "Det finns bara {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}} kvar, och du valde {requested, number}.",
+        "askForOne": "Välj 1 i stället.",
+        "askForOrFewer": "Välj {remaining, number} eller färre.",
+        "full": "Det är fullt, så du kan inte lägga till fler platser.",
+        "atMost": "Du kan ha högst {remaining, plural, one {{remaining, number} plats} other {{remaining, number} platser}}, och du valde {requested, number}.",
+        "keepYourOne": "Behåll den plats du har."
+      },
+      "keepNumber": "Behåll det antal du har.",
+      "closed": {
+        "join": "Det går inte längre att anmäla sig till det här.",
+        "reload": "Ladda om sidan för att se vad som fortfarande är ledigt.",
+        "change": "Du kan inte lägga till fler platser nu."
+      },
+      "conflict": {
+        "message": "Du är redan anmäld till det här.",
+        "suggestion": "Använd länken i bekräftelsemejlet för att ändra eller avboka.",
+        "change": "Din anmälan går inte att ändra längre."
+      },
+      "gone": {
+        "message": "Tyvärr, det här finns inte längre.",
+        "suggestion": "Ladda om sidan för att se vad som har ändrats."
+      },
+      "name": "Skriv ditt namn, högst {max, number} tecken.",
+      "email": {
+        "required": "Den här anmälningslistan kräver nu en e-postadress.",
+        "addIt": "Fyll i din e-postadress och försök igen.",
+        "invalid": "E-postadressen ser inte rätt ut.",
+        "check": "Kontrollera den och försök igen."
+      },
+      "notes": "Korta kommentaren till högst {max, number} tecken.",
+      "quantity": "Ange antalet platser som ett heltal från 1 till {max, number}.",
+      "input": "Kontrollera det du har fyllt i och försök igen.",
+      "rateLimit": {
+        "message": "För många försök på kort tid.",
+        "wait": "Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
+        "waitAWhile": "Försök igen om några minuter."
+      },
+      "failed": {
+        "join": "Något gick fel, så du är inte anmäld än.",
+        "save": "Något gick fel, så dina ändringar sparades inte.",
+        "cancel": "Något gick fel, så din anmälan avbokades inte.",
+        "tryAgain": "Försök igen."
+      }
+    },
+    "gonePage": {
+      "signup": {
+        "title": "Tyvärr, den här anmälningslistan är inte längre tillgänglig",
+        "body": "Kontakta arrangören för att få veta vad som har ändrats, eller för att be om en ny länk."
+      },
+      "editLink": {
+        "title": "Tyvärr, den här länken fungerar inte",
+        "body": "Din anmälan kanske inte finns kvar, eller så är länken ofullständig. Kontakta arrangören för att få veta vad som har ändrats. Om du fick ett bekräftelsemejl kan du också prova länken i mejlet igen."
+      }
+    },
+    "editPage": {
+      "title": "Din anmälan",
+      "back": "← Tillbaka till anmälningslistan",
+      "editingAs": "Du är anmäld som {name}.",
+      "editingAsWithEmail": "Du är anmäld som {name} ({email}).",
+      "closedBanner": {
+        "title": "Stängt för nya anmälningar",
+        "body": "Du kan inte lägga till fler platser nu, men du kan fortfarande ändra dina uppgifter, minska antalet platser eller avboka."
+      }
+    },
+    "editForm": {
+      "spotsMax": "Du kan ha högst {max, plural, one {{max, number} plats} other {{max, number} platser}}.",
+      "save": "Spara",
+      "saving": "Sparar…",
+      "saved": "Sparat.",
+      "saveUnreachable": "Det gick inte att nå servern. Kontrollera anslutningen och tryck på Spara igen.",
+      "saveUnreadable": "Något gick fel. Tryck på Spara igen.",
+      "cancel": "Avboka",
+      "confirmCancel": "Bekräfta avbokning",
+      "cancelQuestion": "Vill du avboka din anmälan?",
+      "keep": "Behåll",
+      "yesCancel": "Ja, avboka",
+      "cancelling": "Avbokar…",
+      "cancelUnreachable": "Det gick inte att nå servern. Kontrollera anslutningen och tryck på Avboka igen.",
+      "cancelUnreadable": "Något gick fel. Tryck på Avboka igen."
+    },
+    "cancelledPage": {
+      "title": "Din anmälan är avbokad",
+      "open": "Det finns fortfarande plats om du vill anmäla dig igen.",
+      "full": "Det har blivit fullt sedan du avbokade.",
+      "slotClosed": "Passet är stängt.",
+      "signupClosed": "Anmälningslistan är stängd.",
+      "removed": {
+        "title": "Arrangören har tagit bort dig från passet",
+        "body": "Om du tror att det är ett misstag kan du kontakta arrangören."
+      },
+      "moved": {
+        "title": "Din anmälan har flyttats till ett annat pass",
+        "body": "Du är fortfarande anmäld. Använd länken nedan för att se eller ändra din anmälan.",
+        "link": "Visa din anmälan"
+      },
+      "back": "Tillbaka till anmälningslistan"
+    },
+    "unsubscribe": {
+      "title": "Påminnelsemejl",
+      "incomplete": {
+        "title": "Länken är ofullständig",
+        "body": "Länken för att stänga av påminnelser fungerar bara om den är komplett. Öppna den direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
+      },
+      "invalid": {
+        "title": "Länken är inte giltig",
+        "body": "Länken kan vara ofullständig, eller så har anmälningslistan tagits bort. Öppna länken direkt från påminnelsemejlet, eller svara på mejlet och be arrangören att sluta skicka påminnelser."
+      },
+      "confirm": {
+        "title": "Vill du stänga av påminnelserna?",
+        "body": "Då får du inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid. Det gäller bara den här anmälningslistan, och din anmälan påverkas inte.",
+        "bodyWithEmail": "Då får {email} inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid. Det gäller bara den här anmälningslistan, och din anmälan påverkas inte."
+      },
+      "stop": "Stäng av dem",
+      "keep": "Behåll dem",
+      "turnOffFailed": "Vi kunde inte stänga av dina påminnelser. Försök igen.",
+      "turnedOff": {
+        "title": "Du har stängt av påminnelserna",
+        "body": "Du får inga fler påminnelser om <b>{title}</b> och inga mejl när arrangören ändrar datum eller tid. Din anmälan påverkas inte – vill du också avboka, gör du det via länken i bekräftelsemejlet."
+      },
+      "areOff": {
+        "title": "Påminnelserna är avstängda",
+        "body": "Påminnelserna om <b>{title}</b> är avstängda. Du får inga påminnelser och inga mejl när arrangören ändrar datum eller tid.",
+        "bodyWithEmail": "Påminnelserna om <b>{title}</b> är avstängda för {email}. Du får inga påminnelser och inga mejl när arrangören ändrar datum eller tid."
+      },
+      "turnBackOn": "Slå på påminnelserna igen",
+      "turnOnFailed": "Vi kunde inte slå på dina påminnelser igen. Försök en gång till.",
+      "turnedOn": {
+        "title": "Påminnelserna är påslagna igen",
+        "body": "Du får påminnelser om <b>{title}</b> igen, och mejl när datum eller tid ändras. Du kan stänga av dem när som helst via länken i något av mejlen.",
+        "bodyWithEmail": "Du får påminnelser om <b>{title}</b> igen, och mejl när datum eller tid ändras. Vi skickar dem till {email}. Du kan stänga av dem när som helst via länken i något av mejlen."
+      },
+      "back": "Tillbaka till anmälningslistan"
+    },
+    "share": {
+      "signUp": "Anmäl dig här, inget konto behövs: {url}",
+      "spotsOpen": "{count, plural, one {{count, number, ::group-off} ledig plats} other {{count, number, ::group-off} lediga platser}}",
+      "spotsLeft": "{count, plural, one {{count, number, ::group-off} plats kvar} other {{count, number, ::group-off} platser kvar}}",
+      "dayAndTime": "{day} kl. {time}",
+      "dayRange": "{first} – {last}",
+      "twoDays": "{first} och {second}",
+      "threeDays": "{first}, {second} och {third}"
+    }
+  },
+  "email": {
+    "subject": {
+      "signedUp": "Du är anmäld: {title}",
+      "reminder": "Påminnelse: {title}",
+      "timeChanged": "Ny tid: {title}",
+      "withSlot": "{subject} · {slot}"
+    },
+    "common": {
+      "manage": "Visa eller ändra din anmälan",
+      "notes": "<b>Din kommentar:</b> {notes}",
+      "stillConfirmed": "Du får fortfarande en bekräftelse om du anmäler dig till något nytt."
+    },
+    "slotDetails": {
+      "line": "<b>{label}:</b> {value}",
+      "spots": "Antal platser"
+    },
+    "confirmation": {
+      "heading": "Du är anmäld",
+      "intro": "Tack {name}, du har anmält dig till <b>{title}</b>.",
+      "keep": "Spara det här mejlet. Med knappen ovan kan du ändra eller avboka senare, utan att behöva något lösenord. Alla som har länken kan ändra din anmälan, så dela inte mejlet med någon.{reminder, select, yes { Vi skickar också en påminnelse {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}.} other {}}"
+    },
+    "reminder": {
+      "heading": "Snart dags",
+      "intro": "Hej {name}, det här är en påminnelse om att du har anmält dig till <b>{title}</b>.",
+      "changed": {
+        "heading": "Tiden har ändrats",
+        "intro": "Hej {name}, arrangören av <b>{title}</b> har flyttat din anmälan till en ny tid sedan vi mejlade dig senast. Här är de nya uppgifterna."
+      },
+      "keep": "Behöver du ändra eller avboka? Använd knappen ovan. Den öppnar din anmälan direkt, utan lösenord. Dela inte mejlet med någon: alla som har länken kan ändra din anmälan.",
+      "stop": "Stäng av påminnelser om {title}"
+    },
+    "slotChanged": {
+      "heading": "Tiden har ändrats",
+      "intro": "Hej {name}, arrangören av <b>{title}</b> har flyttat din anmälan till ett nytt datum eller en ny tid. Här är de nya uppgifterna.",
+      "keep": "Passar inte den nya tiden? Använd knappen ovan för att ändra eller avboka. Den öppnar din anmälan direkt, utan lösenord. Dela inte mejlet med någon: alla som har länken kan ändra din anmälan.",
+      "stop": "Stäng av påminnelser och uppdateringar om {title}"
+    }
+  },
+  "organizer": {
+    "errors": {
+      "code": {
+        "forbidden": "Du har inte behörighet att göra ändringar.",
+        "unauthorized": "Logga in igen för att spara.",
+        "conflict": "Ladda om sidan för att se de senaste ändringarna.",
+        "capacity_full": "Passet är fullt.",
+        "closed": "Den här anmälningslistan är stängd.",
+        "not_found": "Finns inte längre.",
+        "invalid_input": "Vissa värden godkändes inte.",
+        "rate_limited": "Vänta en stund och försök igen.",
+        "already_consumed": "Har redan använts.",
+        "internal": "Det gick inte att spara."
+      },
+      "titleTooShort": "Titeln måste ha minst {min, number} tecken.",
+      "tooManySignups": "Du har skapat många anmälningslistor den senaste timmen. Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
+      "disconnectFailed": "Det gick inte att koppla från. Försök igen."
+    },
+    "signupSettings": {
+      "signupForm": {
+        "title": "Anmälningsformulär",
+        "askForEmail": "Be om en e-postadress",
+        "required": "Obligatoriskt",
+        "optional": "Valfritt",
+        "requiredHelp": "Alla får ett mejl med sin länk för att ändra eller avboka.",
+        "optionalHelp": "Deltagarna kan lämna e-postfältet tomt. Då får de inga mejl, inte ens påminnelser, så de behöver spara sin länk. Om de tappar bort den kan de anmäla sig igen, och du kan ta bort den gamla anmälan på fliken Anmälningar."
+      },
+      "language": {
+        "title": "Språk",
+        "legend": "Anmälningslistans språk",
+        "help": "Det här språket används för knappar, meddelanden och datum på anmälningslistans sida och i mejlen till deltagarna. Skriv titeln och passen på samma språk. De som redan är anmälda ser också anmälningslistan på det nya språket."
+      },
+      "save": "Spara",
+      "saving": "Sparar…",
+      "delete": {
+        "title": "Radera den här anmälningslistan",
+        "body": "Om du raderar anmälningslistan försvinner den från dina anmälningslistor, och den offentliga länken slutar fungera direkt.",
+        "start": "Radera anmälningslistan",
+        "label": "Bekräfta att anmälningslistan ska raderas",
+        "question": "Anmälningslistan kommer att raderas.",
+        "confirm": "Ja, radera anmälningslistan",
+        "deleting": "Raderar…",
+        "cancel": "Avbryt"
+      }
+    },
+    "saveNotice": {
+      "saved": "Sparat"
+    },
+    "build": {
+      "rail": {
+        "editing": "Redigerar",
+        "fields": "Fält ({count, number})",
+        "saving": "Sparar…"
+      },
+      "sheet": {
+        "titlePlaceholder": "Namnlös anmälningslista",
+        "titleLabel": "Anmälningslistans titel",
+        "descriptionPlaceholder": "Lägg till en kort beskrivning för deltagarna",
+        "descriptionLabel": "Anmälningslistans beskrivning",
+        "addDate": "Lägg till datum"
+      },
+      "group": {
+        "header": "Grupprubrik – {heading}",
+        "renameFailed": "Ändringen sparades inte, så rubriken är som förut. Försök igen.",
+        "addSlot": "Lägg till ett pass"
+      },
+      "empty": {
+        "date": "Ange datum",
+        "time": "Ange tid",
+        "named": "Ange {label}",
+        "other": "Ange ett värde"
+      },
+      "slot": {
+        "untitled": "Pass",
+        "row": "Ändra {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}, {count}",
+        "edit": "Ändra {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "duplicate": "Duplicera {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "delete": "Radera {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "editing": "Du ändrar {kind, select, time {passet kl. {name}} named {passet – {name}} other {passet}}",
+        "taken": "{taken, plural, one {{taken, number} upptagen} other {{taken, number} upptagna}}",
+        "takenOf": "{taken, plural, one {{taken, number} av {capacity, number} upptagen} other {{taken, number} av {capacity, number} upptagna}}"
+      },
+      "editor": {
+        "title": "Ändra pass",
+        "duplicate": "Duplicera",
+        "delete": "Radera",
+        "done": "Klart",
+        "signedUp": "{taken, plural, one {{taken, number} person är anmäld till det här passet.} other {{taken, number} personer är anmälda till det här passet.}} {reminders, select, on {Om du ändrar datum eller tid får {taken, plural, one {personen} other {de}} ett mejl om det.} other {Påminnelserna är avstängda, så {taken, plural, one {personen} other {de}} får inget mejl om du ändrar datum eller tid.}}",
+        "value": "Värde för {field}",
+        "spots": "Platser",
+        "noLimit": "Obegränsat",
+        "spotsHelp": "Hur många platser passet har. Lämna tomt för obegränsat antal.",
+        "noTime": "Ingen tid"
+      },
+      "placeholder": {
+        "text": "t.ex. Ta med servetter",
+        "date": "ÅÅÅÅ-MM-DD",
+        "number": "t.ex. 12"
+      },
+      "fieldType": {
+        "text": "Kort text",
+        "date": "Datum",
+        "time": "Tid",
+        "number": "Tal",
+        "enum": "Lista"
+      },
+      "list": {
+        "choose": "Välj…",
+        "empty": "Inga alternativ ännu.",
+        "newItem": "Skriv ett nytt alternativ",
+        "newItemLabel": "Namn på det nya alternativet",
+        "count": "{length, number}/{max, number}{atMax, select, yes { · max} other {}}",
+        "add": "Lägg till",
+        "maxLength": "Högst {max, number} tecken",
+        "full": "En lista rymmer högst {max, number} alternativ.",
+        "addToList": "Lägg till i listan"
+      },
+      "fields": {
+        "label": "Fält",
+        "title": "Fält · {count, number}",
+        "editTitle": "Ändra fält",
+        "newTitle": "Nytt fält",
+        "close": "Stäng",
+        "groupBy": "Gruppera passen efter",
+        "noGroup": "Gruppera inte",
+        "reorder": "Dra för att flytta",
+        "add": "Lägg till fält",
+        "empty": "Inga fält ännu – lägg till ett för att komma igång.",
+        "reminder": "Påminnelser skickas {hours, plural, =24 {dagen före} one {# timme före} other {# timmar före}} det här datumet",
+        "typeCount": "{type} · {count, number}",
+        "delete": "Radera {field}"
+      },
+      "fieldForm": {
+        "backLabel": "Tillbaka till fälten",
+        "back": "Tillbaka",
+        "name": "Namn",
+        "namePlaceholder": "t.ex. Lärare, Ämne, Sak",
+        "nameLabel": "Fältets namn",
+        "type": "Typ",
+        "reminder": "Skicka ett påminnelsemejl före det här datumet",
+        "reminderHelp": "Skickas {hours, plural, =24 {dagen innan} one {# timme innan} other {# timmar innan}}. Ett datumfält per anmälningslista styr påminnelserna, och deltagarna kan stänga av sina påminnelser.",
+        "reminderTaken": "<field>{label}</field> är redan påminnelsefältet för den här anmälningslistan. Stäng av påminnelsen där om du vill använda det här fältet i stället.",
+        "remove": "Ta bort fält",
+        "cancel": "Avbryt",
+        "save": "Spara",
+        "add": "Lägg till fält"
+      },
+      "refusal": {
+        "dateTooEarly": "Datum kan inte vara före år {year, number, ::group-off}.",
+        "slotsMoved": "Passen har ändrats i ett annat fönster, så flytten sparades inte. Dra passet igen.",
+        "fieldsMoved": "Fälten har ändrats i ett annat fönster, så flytten sparades inte. Dra fältet igen.",
+        "capacityBelowTaken": "{taken, plural, one {{taken, number} plats är redan upptagen. Ge passet minst {taken, number} plats.} other {{taken, number} platser är redan upptagna. Ge passet minst {taken, number} platser.}}",
+        "invalidatesSlotValues": "Vissa pass har värden som inte fungerar med den här ändringen. Ändra dem först."
+      }
+    },
+    "responses": {
+      "summary": {
+        "signUps": "{count, plural, one {{count, number} anmälan} other {{count, number} anmälningar}}",
+        "cancelled": "{count, plural, one {{count, number} avbokad} other {{count, number} avbokade}}",
+        "removed": "{count, plural, one {{count, number} borttagen} other {{count, number} borttagna}}"
+      },
+      "downloadCsv": "Ladda ned CSV",
+      "empty": {
+        "draft": "Ingen har anmält sig ännu. Det går att anmäla sig när du har publicerat och delat anmälningslistan.",
+        "open": "Ingen har anmält sig ännu. Dela den offentliga länken för att börja ta emot anmälningar.",
+        "closed": "Ingen anmälde sig.",
+        "archived": "Ingen anmälde sig. Det går inte att anmäla sig nu."
+      },
+      "table": {
+        "name": "Namn",
+        "email": "E-post",
+        "slot": "Pass",
+        "spots": "Antal platser",
+        "status": "Status",
+        "actions": "Åtgärder",
+        "noEmail": "Ingen e-postadress",
+        "spotsAfterCount": "{count, plural, one {plats} other {platser}}"
+      },
+      "status": {
+        "confirmed": "bekräftad",
+        "tentative": "preliminär",
+        "waitlist": "väntelista",
+        "cancelled": "avbokad",
+        "noShow": "uteblev",
+        "removed": "borttagen",
+        "moved": "flyttad"
+      },
+      "remove": {
+        "button": "Ta bort",
+        "label": "Ta bort {name} från {slot}",
+        "labelNoSlot": "Ta bort {name} från det här passet",
+        "question": "{label}? {count, plural, one {Platsen blir ledig för någon annan.} other {De {count, number} platserna blir lediga för andra.}} Personen får inget mejl om det.",
+        "dialogLabel": "Bekräfta borttagning",
+        "keep": "Behåll",
+        "confirm": "Ja, ta bort",
+        "removing": "Tar bort…",
+        "refusal": {
+          "notFound": "Den här personen finns inte längre med på anmälningslistan. Ladda om sidan för att se de senaste ändringarna.",
+          "failed": "Det gick inte att ta bort personen. Försök igen."
+        }
+      },
+      "csv": {
+        "name": "Namn",
+        "email": "E-post",
+        "status": "Status",
+        "spots": "Antal platser",
+        "notes": "Kommentar",
+        "signedUp": "Anmäld"
+      }
+    },
+    "newSignup": {
+      "title": "Ny anmälningslista",
+      "intro": "Du kan lägga till pass när anmälningslistan har skapats. Inget syns förrän du publicerar den.",
+      "titleLabel": "Titel",
+      "titlePlaceholder": "Mellanmål – vårsäsongen",
+      "descriptionLabel": "Beskrivning (valfritt)",
+      "descriptionPlaceholder": "Ett stycke som visas överst på anmälningslistans sida.",
+      "cancel": "Avbryt",
+      "creating": "Skapar…",
+      "create": "Skapa lista"
+    },
+    "compose": {
+      "eyebrow": "Ny anmälningslista",
+      "heading": "Vad ska du ordna?",
+      "intro": "<strong>Skriv vad deltagarna ska anmäla sig till, när och hur många du behöver till varje sak.</strong> Vi gör om det till en titel, en kort beskrivning och pass som du kan ändra.",
+      "describe": "Beskriv din anmälningslista",
+      "placeholder": "T.ex. Mellanmål till barnens fotbollslag. 6 matcher på lördagar från 25 april, två familjer per match, inga nötter tack.",
+      "count": "{count, number} / {max, number} tecken",
+      "countOver": "{count, number} / {max, number} tecken. Korta beskrivningen med {over, number} tecken för att kunna skapa ett utkast.",
+      "skip": "Hoppa över, fyll i själv",
+      "draft": "Skapa utkast",
+      "examples": "Eller utgå från ett exempel",
+      "loaded": "Ifyllt",
+      "tryThis": "Prova det här",
+      "starters": {
+        "sports": {
+          "label": "Idrottslag",
+          "blurb": "Schema för mellanmål, fika eller samåkning under en hel säsong",
+          "body": "Mellanmål till vårt fotbollslag. Vi har 6 matcher på lördagar, med start nästa lördag. Två familjer tar med mellanmål och dricka till varje match. Inga nötter, tack."
+        },
+        "classroom": {
+          "label": "Klass eller skola",
+          "blurb": "Knytkalas, utvecklingssamtal, insamlingar, arbetsdagar",
+          "body": "Sommaravslutning med knytkalas för klass 3, sista fredagen i månaden kl. 17. 20 familjer tar med var sin rätt: vi behöver 5 familjer som tar med varmrätt, 5 tillbehör, 5 efterrätt och 5 dricka."
+        },
+        "community": {
+          "label": "Volontärpass",
+          "blurb": "Pass för volontärer, förberedelser inför evenemang eller uppgifter man turas om med",
+          "body": "Volontärer till vårens bokmarknad. Torsdag och fredag nästa vecka, tre pass på 2 timmar varje dag (9–11, 11–13 och 13–15). 2 volontärer per pass."
+        }
+      },
+      "tips": {
+        "heading": "Tips för ett bättre utkast",
+        "dates": {
+          "title": "Nämn datum",
+          "body": "Ett intervall som ”lördagar från 25 april till 30 maj” gör att vi kan skapa ett pass per datum."
+        },
+        "howMany": {
+          "title": "Skriv hur många",
+          "body": "”Två familjer per match” eller ”sex volontärer per pass”, så att vi kan ange antalet platser."
+        },
+        "gotchas": {
+          "title": "Nämn det viktiga",
+          "body": "Allergier, mötesplats, vad som gäller om någon uteblir. Allt som deltagarna bör veta."
+        }
+      },
+      "steps": {
+        "label": "Förlopp",
+        "read": "Läser din beskrivning",
+        "title": "Skriver en titel",
+        "desc": "Skriver en kort beskrivning",
+        "fields": "Väljer fält för varje pass",
+        "slots": "Skapar pass",
+        "check": "Snyggar till",
+        "details": "Några detaljer",
+        "readShort": "Läst",
+        "draftShort": "Utkast"
+      },
+      "drafting": {
+        "readingTitle": "Läser din beskrivning",
+        "readingBody": "Du får ett utkast, eller några snabba frågor om det behövs mer underlag.",
+        "draftingTitle": "Skapar ditt utkast",
+        "draftingBody": "Du kan ändra allt när det är klart.",
+        "cancel": "Avbryt",
+        "liveReading": "Läser · live",
+        "liveDrafting": "Skriver · live",
+        "title": "Titel",
+        "description": "Beskrivning",
+        "fields": "Fält",
+        "slots": "Pass",
+        "shown": "{shown, number} av {total, number}",
+        "more": "+{count, number} till"
+      },
+      "youWrote": {
+        "label": "Din beskrivning",
+        "heading": "Du skrev",
+        "quoted": "”{text}”"
+      },
+      "draftingFrom": {
+        "label": "Underlag för utkastet",
+        "allAnswered": "Alla besvarade",
+        "oneBlank": "En obesvarad",
+        "twoBlank": "Två obesvarade",
+        "what": "Vad",
+        "whatBlank": "Lämnades tomt. Utkastet får platshållare för passen, som du kan fylla i senare.",
+        "when": "När",
+        "whenBlank": "Inte bestämt. Utkastet får platshållare för datumen, som du kan fylla i senare.",
+        "noLimit": "Obegränsat",
+        "people": "{count, plural, one {{count, number} person} other {{count, number} personer}}",
+        "dayAndTimes": "{day} · {times}"
+      },
+      "errors": {
+        "questionsUnavailable": "Det gick inte att visa frågorna. Ladda om sidan och försök igen – kopiera din beskrivning först om du vill behålla den.",
+        "slow": "AI-utkastet tar längre tid än väntat. Försök igen eller förenkla beskrivningen.",
+        "slowWithAnswers": "AI-utkastet tar längre tid än väntat. Försök igen.",
+        "hourlyLimit": "Du har använt alla AI-utkast för den här timmen. Försök igen om {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}, eller <link>fyll i anmälningslistan själv</link>.",
+        "busy": "AI-tjänsten är upptagen just nu. Försök igen {minutes, plural, =1 {om en minut} other {om {minutes, number} minuter}}.",
+        "askedAgain": "Det gick inte att skapa ett utkast av det här. Försök igen, eller fyll i anmälningslistan själv.",
+        "askedAgainWithAnswers": "Det gick inte att skapa ett utkast av de här svaren. Lägg till lite mer, eller fyll i anmälningslistan själv.",
+        "draftInvalid": "AI-utkastet hade inte den form som väntades – försök igen eller ändra beskrivningen",
+        "timeout": "AI-utkastet tog för lång tid. Prova med en enklare beskrivning.",
+        "timeoutWithAnswers": "AI-utkastet tog för lång tid. Försök igen.",
+        "apiKey": "AI-leverantören godkände inte API-nyckeln. En administratör behöver kontrollera LLM_API_KEY.",
+        "unavailable": "AI-leverantören är inte tillgänglig just nu (HTTP {status, number, ::group-off}). Försök igen.",
+        "providerError": "AI-leverantören svarade med ett fel. Försök igen.",
+        "providerErrorStatus": "AI-leverantören svarade med ett fel (HTTP {status, number, ::group-off}). Försök igen.",
+        "malformed": "AI-leverantören skickade ett svar som inte gick att läsa. Försök igen.",
+        "shape": "AI-leverantören skickade ett svar i en oväntad form. Försök igen.",
+        "failed": "AI-utkastet misslyckades (HTTP {status, number, ::group-off}). Försök igen.",
+        "cancelled": "Begäran avbröts.",
+        "offline": "Det gick inte att nå servern. Kontrollera anslutningen och försök igen.",
+        "unexpected": "Servern skickade ett oväntat svar. Försök igen.",
+        "unknown": "Något gick fel när utkastet skapades. Försök igen."
+      },
+      "questions": {
+        "back": "Tillbaka",
+        "heading": "Först några detaljer",
+        "intro": "Välj det som passar. Det du hoppar över blir en platshållare som du kan fylla i senare.",
+        "fillInByHand": "Fyll i själv i stället",
+        "what": {
+          "ask": "Vad ska deltagarna anmäla sig till?",
+          "askHint": "Välj en eller flera, eller lägg till egna.",
+          "told": "Vad deltagarna anmäler sig till",
+          "toldHint": "Från din beskrivning. Ta bort det som inte passar, eller lägg till egna.",
+          "remove": "Ta bort {item}",
+          "full": "Du kan ha högst {max, number}. Ta bort en för att lägga till en ny.",
+          "addLabel": "Skriv en egen och tryck på Enter",
+          "addYourOwn": "Lägg till egen",
+          "addAnother": "Lägg till fler",
+          "add": "Lägg till"
+        },
+        "when": {
+          "ask": "När är det?",
+          "oneDay": "En dag",
+          "several": "Flera dagar",
+          "notDecided": "Inte bestämt",
+          "date": "Datum",
+          "starts": "Börjar",
+          "ends": "Slutar",
+          "noTime": "Ingen tid",
+          "whichDays": "Vilka dagar?",
+          "whichDaysPlaceholder": "Vilka dagar? Till exempel: varje lördag i maj, 9–11",
+          "notDecidedHint": "Utkastet får platshållare för datumen, som du kan fylla i senare."
+        },
+        "howMany": {
+          "ask": "Hur många personer behöver du?",
+          "hint": "Till varje sak ovan. Lämna en ruta tom för obegränsat antal.",
+          "pickFirst": "Välj eller lägg till något ovan först.",
+          "fewer": "Färre personer till {item}",
+          "people": "Personer till {item}",
+          "noLimit": "Obegränsat",
+          "more": "Fler personer till {item}"
+        },
+        "problems": {
+          "noDate": "Ange ett datum, eller lämna tiderna tomma.",
+          "year": "Kontrollera årtalet i datumet.",
+          "timeOrder": "Sluttiden måste vara efter starttiden.",
+          "wholeNumbers": "Ange antalet personer i hela tal."
+        }
+      },
+      "answers": {
+        "what": "Vad: {items}",
+        "item": "{item} ({count, number})",
+        "itemNoLimit": "{item} (obegränsat)",
+        "when": "När: {when}",
+        "dayAndTimes": "{day}, {times}",
+        "fromTo": "{from}–{to}",
+        "from": "från {from}",
+        "until": "till {to}"
+      }
+    },
+    "aiDraft": {
+      "title": "Här är ditt utkast med {fields, number} fält och {slots, number} pass",
+      "body": "Ändra det du vill nedan och publicera när du är klar.",
+      "dismiss": "Dölj",
+      "warnings": {
+        "heading": "Några saker att dubbelkolla",
+        "valuesBlanked": "{count, plural, one {{count, number} värde passade inte i sitt fält och lämnades tomt. Fyll i det nedan.} other {{count, number} värden passade inte i sina fält och lämnades tomma. Fyll i dem nedan.}}",
+        "enumFieldsToText": "{count, plural, one {Fältet {fields} hade ingen fast lista med alternativ, så det ändrades till fritext.} other {Fälten {fields} hade ingen fast lista med alternativ, så de ändrades till fritext.}}",
+        "duplicateFields": "{count, plural, one {AI:n försökte lägga till {count, number} fält två gånger, så dubbletten togs bort.} other {AI:n försökte lägga till {count, number} fält två gånger, så dubbletterna togs bort.}}",
+        "strayValues": "{count, plural, one {{count, number} värde hörde inte till något fält och ignorerades.} other {{count, number} värden hörde inte till något fält och ignorerades.}}",
+        "titleCut": "Titeln som AI:n skrev var längre än {max, number} tecken, så slutet klipptes bort. Kontrollera den nedan.",
+        "descriptionCut": "Beskrivningen som AI:n skrev var längre än {max, number} tecken, så slutet klipptes bort. Kontrollera den nedan."
+      }
+    },
+    "publicPage": {
+      "strip": {
+        "label": "Arrangör",
+        "note": "<b>Din anmälningslista.</b> Bara arrangörer ser det här.",
+        "responses": "Se anmälningar",
+        "edit": "Ändra anmälningslistan"
+      },
+      "ownDraft": {
+        "title": "Bara du kan se det här utkastet",
+        "body": "Den som öppnar den här länken ser ”{title}” tills du publicerar utkastet. Byter du namn på utkastet får det en ny länk, så dela länken först när du har publicerat.",
+        "open": "Öppna ditt utkast"
+      }
+    },
+    "preview": {
+      "title": "Förhandsgranskning",
+      "body": "{status, select, draft {Så här ser det ut för andra när du har publicerat. Inga anmälningar sparas.} closed {Den här anmälningslistan är stängd. Sidan nedan visar vad besökarna ser.} archived {Den här anmälningslistan är arkiverad och syns inte för deltagarna.} other {Den här anmälningslistan är öppen. Sidan nedan visar vad besökarna ser.}}",
+      "signUpDisabled": "{status, select, draft {Förhandsgranskning: publicera så att andra kan anmäla sig} other {Förhandsgranskning: andra anmäler sig via den offentliga länken}}"
+    },
+    "chrome": {
+      "tabTitle": "Översikt",
+      "breadcrumb": "Du är här",
+      "home": "OpenSignup",
+      "help": "Hjälp",
+      "account": "Konto",
+      "settings": "Inställningar",
+      "signOut": "Logga ut"
+    },
+    "crumbs": {
+      "settings": "Inställningar",
+      "connectedApps": "Anslutna appar",
+      "newSignup": "Ny lista",
+      "edit": "Ändra"
+    },
+    "dashboard": {
+      "title": "Dina anmälningslistor",
+      "none": "Inga anmälningslistor ännu. Skapa en nedan.",
+      "total": "{count, number} totalt",
+      "newSignup": "Ny lista",
+      "emptyPitch": "Samordna fika, samåkning, knytkalas, volontärpass eller något helt annat.",
+      "createFirst": "Skapa din första anmälningslista",
+      "draftOnlyYou": "Bara du kan se det här utkastet",
+      "noWorkspace": {
+        "title": "Välkommen till OpenSignup",
+        "body": "Din arbetsyta är inte färdig ännu. Logga ut och logga in igen för att göra den klar."
+      }
+    },
+    "loadError": {
+      "tabTitle": "Anmälningslistan hittades inte",
+      "notFound": {
+        "title": "Vi hittar inte den här anmälningslistan",
+        "body": "Den kan ha tagits bort, eller så hör den till ett annat konto. Du är inloggad som <account>{email}</account>."
+      },
+      "failed": {
+        "title": "Vi kunde inte öppna den här anmälningslistan",
+        "body": "Något gick fel hos oss. Ladda om sidan för att försöka igen."
+      },
+      "goToSignups": "Gå till dina anmälningslistor",
+      "switchAccount": "Logga in med en annan e-postadress"
+    },
+    "status": {
+      "draft": "utkast",
+      "open": "öppen",
+      "closed": "stängd",
+      "archived": "arkiverad"
+    },
+    "signup": {
+      "draftLine": "Bara du kan se det här utkastet tills du publicerar det.",
+      "preview": "Förhandsgranska",
+      "moreActions": "Fler åtgärder",
+      "closeSheet": "Stäng",
+      "spots": {
+        "taken": "{taken, plural, one {{taken, number} plats är upptagen} other {{taken, number} platser är upptagna}}",
+        "takenOf": "{taken, number} av {total, plural, one {{total, number} plats} other {{total, number} platser}} är {taken, plural, one {upptagen} other {upptagna}}",
+        "line": "{status, select, closed {Stängd · {spots}} archived {Arkiverad · {spots}} other {{spots}}}"
+      },
+      "publish": {
+        "label": "Publicera och dela",
+        "checking": "Kontrollerar…",
+        "ready": "Publicera och dela när du är redo.",
+        "unsaved": "En ändring sparades inte. Rätta den och publicera sedan."
+      },
+      "check": {
+        "title": "Inget att anmäla sig till ännu",
+        "noSlots": "Det finns inga pass ännu. Lägg till ett och publicera sedan.",
+        "noFields": "Lägg till ett fält som säger vad deltagarna anmäler sig till och publicera sedan.",
+        "allBlank": "{count, plural, =1 {Passet är tomt.} other {Alla pass är tomma.}} Skriv vad deltagarna anmäler sig till och publicera sedan.",
+        "addSlot": "Lägg till ett pass",
+        "fillIn": "Fyll i passet",
+        "notNow": "Inte nu"
+      },
+      "close": {
+        "action": "Stäng anmälan",
+        "notYet": "Inte än",
+        "closing": "Stänger…",
+        "question": "{standing} Det går inte att anmäla sig förrän du öppnar anmälan igen.{kept, select, yes { Alla som redan är anmälda behåller sin plats.} other {}}",
+        "standing": {
+          "nobody": "Ingen har anmält sig ännu.",
+          "taken": "{taken, plural, one {{taken, number} plats är upptagen.} other {{taken, number} platser är upptagna.}}",
+          "allTaken": "Alla platser är upptagna.",
+          "noneOpen": "Inga platser är lediga.",
+          "open": "{open, plural, one {{open, number} plats är fortfarande ledig.} other {{open, number} platser är fortfarande lediga.}}",
+          "openOf": "{open, plural, one {{open, number} av {total, number} platser är fortfarande ledig.} other {{open, number} av {total, number} platser är fortfarande lediga.}}"
+        }
+      },
+      "closed": {
+        "title": "Anmälan är stängd",
+        "body": "Det går inte att anmäla sig nu. Alla som redan är anmälda behåller sin plats.",
+        "dismiss": "Dölj"
+      },
+      "reopen": {
+        "action": "Öppna anmälan igen",
+        "reopening": "Öppnar igen…"
+      },
+      "announce": {
+        "closed": "Stängd. Det går inte att anmäla sig nu.",
+        "reopened": "Öppen igen. Nu går det att anmäla sig."
+      },
+      "tabs": {
+        "label": "Delar av anmälningslistan",
+        "build": "Bygg",
+        "responses": "Anmälningar",
+        "settings": "Inställningar"
+      },
+      "refusal": {
+        "gone": "Den här anmälningslistan finns inte längre.",
+        "changed": "Den här anmälningslistan har ändrats sedan sidan laddades. Ladda om sidan för att se den senaste versionen.",
+        "addSlotToPublish": "Lägg till ett pass innan du publicerar.",
+        "addSlotToReopen": "Lägg till ett pass innan du öppnar anmälan igen.",
+        "publishFailed": "Det gick inte att publicera. Försök igen.",
+        "closeFailed": "Det gick inte att stänga anmälan. Försök igen.",
+        "reopenFailed": "Det gick inte att öppna anmälan igen. Försök en gång till."
+      }
+    },
+    "share": {
+      "button": "Dela",
+      "close": "Stäng",
+      "heading": {
+        "firstTime": "Dags att skicka länken",
+        "later": "Dela länken"
+      },
+      "published": "Publicerad",
+      "announce": "Publicerad. Alla som har länken kan anmäla sig nu.",
+      "lead": {
+        "firstTime": "Alla som har länken kan anmäla sig. Ingen har den förrän du skickar den.",
+        "desktop": "Skicka länken via mejl eller i en gruppchatt. Alla som har den kan anmäla sig.",
+        "phone": "Skicka länken i en gruppchatt, via sms eller via mejl. Alla som har den kan anmäla sig."
+      },
+      "linkField": "Offentlig länk",
+      "copyLink": "Kopiera länk",
+      "copied": "Kopierat",
+      "linkCopied": "Länken är kopierad",
+      "messageCopied": "Meddelandet är kopierat",
+      "linkRefused": "Det gick inte att kopiera. Markera länken och kopiera den.",
+      "messageRefused": "Det gick inte att kopiera. Markera meddelandet och kopiera det.",
+      "messageLabel": "Ett meddelande att skicka med länken",
+      "copyMessage": "Kopiera texten",
+      "emailIt": "Mejla det",
+      "shareMenu": "Dela…",
+      "shareMenuHint": "Öppnar telefonens delningsmeny, med meddelandet och länken.",
+      "shareMenuSent": "Skickat via telefonens delningsmeny.",
+      "unavailable": "Det gick inte att ladda de andra sätten att dela. Ladda om sidan för att försöka igen.",
+      "qr": {
+        "alt": "QR-kod för anmälningslänken till {title}",
+        "lead": "En QR-kod för en affisch eller ett anmälningsbord.",
+        "download": "Ladda ned",
+        "downloadLabel": "Ladda ned QR-koden",
+        "show": "QR-kod",
+        "hide": "Dölj QR-kod",
+        "save": "Spara bilden",
+        "saved": "Sparat",
+        "savedNotice": "QR-koden är sparad"
+      },
+      "chip": {
+        "label": "Offentlig länk",
+        "copy": "Kopiera den offentliga länken",
+        "copyTip": "Kopiera",
+        "open": "Öppna den offentliga sidan",
+        "openTip": "Öppna",
+        "copied": "Länken är kopierad"
+      }
+    },
+    "settings": {
+      "title": "Inställningar",
+      "signedInAs": "Inloggad som <account>{email}</account>.",
+      "connectedApps": {
+        "title": "Anslutna appar",
+        "description": "AI-assistenter och andra appar som du har gett åtkomst till ditt konto, och hur du kopplar från dem."
+      },
+      "language": {
+        "legend": "Språk",
+        "help": "Appen och dina nya anmälningslistor använder det här språket. Vill du byta språk för en enskild anmälningslista gör du det under fliken Inställningar för just den.",
+        "save": "Spara",
+        "toSwitch": "{count, plural, one {{count, number} av dina anmälningslistor är öppen och är inte på <language>{name}</language> ännu.} other {{count, number} av dina anmälningslistor är öppna och är inte på <language>{name}</language> ännu.}}",
+        "switch": "{count, plural, one {Byt den till <language>{name}</language>} other {Byt dem till <language>{name}</language>}}",
+        "switchNote": "Bara det som OpenSignup själv skriver byts: knappar, meddelanden, datum och mejl. Titlar, pass och fält som du har skrivit ändras inte. De som redan är anmälda ser också det nya språket.",
+        "switched": "Sparat. {count, plural, one {{count, number} av dina anmälningslistor är öppen, och den är på <language>{name}</language> nu.} other {{count, number} av dina anmälningslistor är öppna, och alla är på <language>{name}</language> nu.}}"
+      }
+    },
+    "connectedApps": {
+      "title": "Anslutna appar",
+      "intro": "Appar och AI-assistenter som du har gett åtkomst till ditt konto. Var och en agerar i ditt namn, i alla arbetsytor du är med i, med de behörigheter du har godkänt.",
+      "disconnected": "Appen är frånkopplad. Den kan inte längre få ny åtkomst, och åtkomst som den fortfarande har upphör inom {lifetime}.",
+      "empty": {
+        "title": "Inga anslutna appar",
+        "body": "När du ansluter en AI-assistent som Claude eller ChatGPT till ditt konto visas den på den här sidan."
+      },
+      "dates": "Godkänd {approved}{used, select, yes { · senast använd {lastUsed}} other { · inte använd ännu}}{expiring, select, yes { · går ut {expires} om den inte förnyas} other {}}",
+      "disconnect": "Koppla från",
+      "disconnecting": "Kopplar från…",
+      "footnote": "När du kopplar från en app slutar den direkt att få ny åtkomst. Åtkomst som den redan har går ut av sig själv inom {lifetime} och kan inte avbrytas tidigare."
+    }
+  },
+  "auth": {
+    "tabTitle": "Logga in",
+    "heading": "Logga in på OpenSignup",
+    "login": {
+      "intro": "Ange din e-postadress så mejlar vi dig en inloggningslänk. Inget lösenord behövs.",
+      "introWithProviders": "Fortsätt med en av tjänsterna nedan, eller få en inloggningslänk via mejl. Inget lösenord behövs.",
+      "linkInvalid": "Inloggningslänken gäller inte längre. Den kan redan ha använts eller ha gått ut. Begär en ny nedan.",
+      "failed": "Något gick fel. Försök igen.",
+      "continueWith": "Fortsätt med {provider}",
+      "or": "eller"
+    },
+    "form": {
+      "email": "E-post",
+      "emailPlaceholder": "du@example.com",
+      "send": "Skicka inloggningslänk",
+      "sending": "Skickar…",
+      "sent": "Skickad – kolla din e-post",
+      "sentTo": "Länken har skickats till {email}. Kolla din inkorg.",
+      "sendAgain": "Skicka igen",
+      "tryAgain": "Försök igen",
+      "errors": {
+        "invalidEmail": "Det ser inte ut som en giltig e-postadress.",
+        "sendFailed": "Det gick inte att skicka. Försök igen.",
+        "rateLimited": "För många inloggningslänkar har begärts. Du kan behöva vänta upp till en timme. Om vi redan har mejlat dig en länk kan du använda den."
+      }
+    },
+    "code": {
+      "label": "Öppnade du mejlet på en annan enhet?",
+      "hint": "Skriv in den sexsiffriga koden från mejlet för att logga in här i stället.",
+      "submit": "Logga in med kod",
+      "checking": "Kontrollerar…",
+      "errors": {
+        "noEmail": "Begär en ny länk först.",
+        "rateLimited": "För många försök. Vänta några minuter, eller klicka på länken i mejlet.",
+        "expired": "Koden har gått ut. Begär en ny länk.",
+        "wrong": "Koden stämmer inte. Kontrollera mejlet och försök igen.",
+        "failed": "Något gick fel. Försök igen."
+      }
+    },
+    "check": {
+      "tabTitle": "Kolla din e-post",
+      "heading": "Kolla din e-post",
+      "body": "Vi har skickat en inloggningslänk till din inkorg. Klicka på den för att fortsätta. Länken går ut om {duration}. Den här sidan går vidare automatiskt när du har loggat in."
+    },
+    "confirm": {
+      "bodyAs": "Klicka på knappen nedan för att logga in som <strong>{email}</strong>.",
+      "body": "Klicka på knappen nedan för att logga in.",
+      "signIn": "Logga in →",
+      "signingIn": "Loggar in…",
+      "differentEmail": "Använd en annan e-postadress"
+    },
+    "email": {
+      "subject": "Logga in på OpenSignup",
+      "preview": "Logga in på OpenSignup som {email}",
+      "heading": "Logga in på OpenSignup",
+      "intro": "Klicka på knappen nedan för att logga in som <b>{email}</b>. Länken går ut om {duration}.",
+      "signIn": "Logga in",
+      "code": "Läser du det här på en annan enhet? Skriv i stället in den här koden i fönstret där du började logga in. Koden gäller i {duration}:",
+      "copyUrl": "Eller kopiera den här länken:"
+    },
+    "consent": {
+      "tabTitle": "Anslut en app",
+      "request": "Begäran om anslutning",
+      "heading": "Vill du tillåta <host>{domain}</host> att använda ditt konto på {instance}?",
+      "fromNamedApp": "<strong>{name}</strong> från <strong>{domain}</strong> vill ansluta till ditt konto. Tillåt det bara om du litar på {domain}.",
+      "fromApp": "En app från <strong>{domain}</strong> vill ansluta till ditt konto. Tillåt det bara om du litar på {domain}.",
+      "setUpBySite": "<strong>{name}</strong> har lagts till av dem som driver den här webbplatsen.",
+      "permissions": "Appen kommer att kunna",
+      "sensitive": "Deltagarna har gett de här uppgifterna till dig, inte till den här appen. Tillåt bara om du känner dig trygg med att {domain} hanterar dem.",
+      "actsAs": "{workspaces, select, many {Appen agerar i ditt namn (<strong>{email}</strong>) i alla arbetsytor du är med i och kan inte göra något som du inte kan göra själv.} other {Appen agerar i ditt namn (<strong>{email}</strong>) och kan inte göra något som du inte kan göra själv.}}",
+      "allow": "Tillåt",
+      "allowing": "Ansluter…",
+      "deny": "Tillåt inte",
+      "denying": "Avböjer…",
+      "disconnect": "Du kan koppla från appen när som helst på sidan <link>Anslutna appar</link>.",
+      "notYou": "Är det inte du?",
+      "switchAccount": "Logga in som någon annan",
+      "expired": {
+        "heading": "Den här begäran om anslutning har gått ut",
+        "body": "En begäran om anslutning gäller bara i några minuter, och bara i den webbläsare där den startades. Inget har anslutits. Gå tillbaka till appen och börja om.",
+        "dashboard": "Gå till översikten"
+      },
+      "decision": {
+        "tooManyAttempts": "För många anslutningsförsök. Vänta {wait} och försök igen.",
+        "failed": "Något gick fel när ditt beslut skulle sparas. Inget har anslutits."
+      }
+    },
+    "scopes": {
+      "signupsRead": "Se dina anmälningslistor och deras pass",
+      "signupsWrite": "Skapa och ändra anmälningslistor",
+      "commitmentsRead": "Se vilka som har anmält sig, inklusive deras namn och e-postadresser",
+      "offlineAccess": "Förbli ansluten utan att du behöver logga in igen"
+    },
+    "oauthErrors": {
+      "tabTitle": "Anslutningen misslyckades",
+      "heading": "Anslutningen kunde inte slutföras",
+      "intro": "Appen som skickade dig hit gjorde en begäran som vi inte kunde godta.",
+      "noDescription": "Begäran kunde inte slutföras.",
+      "nothingConnected": "Inget har anslutits till ditt konto. Stäng det här fönstret och försök igen från appen, eller <home>gå till startsidan</home>.",
+      "tooManyRequests": "För många försök. Vänta {wait} och försök igen."
+    }
+  }
+}

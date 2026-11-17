@@ -1,10 +1,12 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Editable } from './Editable';
 import { EnumPicker } from './EnumPicker';
 import { WysiwygSlot } from './WysiwygSlot';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
+import { useSignupLanguage } from './signup-language';
 import { FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
@@ -72,12 +74,14 @@ export function WysiwygGroup({
   renameFailed = false,
   reorder,
 }: WysiwygGroupProps) {
+  const t = useTranslations('organizer.build');
+  const { locale } = useSignupLanguage();
   const showHeader = groupField !== null;
   const display = groupField
-    ? prettyHeader(group.rawValue, groupField.config.fieldType, groupField.name)
+    ? prettyHeader(t, group.rawValue, groupField.config.fieldType, locale, groupField.name)
     : '';
   const placeholder = groupField
-    ? emptyHeaderCopy(groupField.config.fieldType, groupField.name)
+    ? emptyHeaderCopy(t, groupField.config.fieldType, groupField.name)
     : '';
 
   return (
@@ -94,7 +98,7 @@ export function WysiwygGroup({
           />
           {renameFailed && (
             <p role="alert" className="ml-1.5 mt-1 text-[11px] text-danger">
-              That change didn&rsquo;t save, so this heading is back to what it was. Try again.
+              {t('group.renameFailed')}
             </p>
           )}
         </div>
@@ -134,7 +138,7 @@ export function WysiwygGroup({
           }
         >
           <Plus size={12} />
-          Add a slot
+          {t('group.addSlot')}
         </button>
       </div>
     </div>
@@ -163,7 +167,9 @@ function GroupHeader({
   onRenameGroup,
   onAddEnumOption,
 }: GroupHeaderProps) {
-  const ariaLabel = `Group header \u2014 ${display}`;
+  const t = useTranslations('organizer.build.group');
+  const { lang } = useSignupLanguage();
+  const ariaLabel = t('header', { heading: display });
   const rename = (next: string) => onRenameGroup(group.key, next);
 
   if (groupField.config.fieldType === 'enum') {
@@ -174,6 +180,7 @@ function GroupHeader({
         options={groupField.config.choices}
         placeholder={placeholder}
         ariaLabel={ariaLabel}
+        lang={lang}
         onChange={(next) => {
           if (next !== group.rawValue) rename(next);
         }}
@@ -195,6 +202,7 @@ function GroupHeader({
       }}
       placeholder={placeholder}
       ariaLabel={ariaLabel}
+      lang={lang}
       className={`${HEADER_CLASSES} inline-block`}
       {...(isDate ? { input: FIELD_VALUE_INPUTS.date } : {})}
       {...(groupField.config.fieldType === 'text'

@@ -1,9 +1,17 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { activityActor, recordActivity, recordActivityBestEffort } from '@/lib/activity';
+import { type CatalogLocale, SHIPPED, type SignupLocaleSource, isShipped } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
+import { localeOfSignup } from '@/i18n/locale';
+import {
+  activityActor,
+  recordActivities,
+  recordActivity,
+  recordActivityBestEffort,
+} from '@/lib/activity';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
@@ -11,13 +19,14 @@ import { parseInputSafe } from '@/lib/parse';
 import type { PublishCheck } from '@/lib/publish-check';
 import {
   requireOrganizer,
+  requireOrganizerId,
   requireWorkspaceAccess,
   requireWorkspaceWrite,
   type Actor,
 } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import { chooseAnchorRef } from '@/lib/reminder-fields';
-import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
+import { defaultTemplate, type SignupTemplate } from '@/lib/signup-templates';
 import { slugBase, toSlug } from '@/lib/slug';
 import {
   type SlotFieldDefinition,
@@ -28,6 +37,7 @@ import {
   type SignupSettings,
   type SignupStatus,
   type StoredSignupSettings,
+  SIGNUP_INPUT_REASONS,
   SignupCreateInputSchema,
   SignupUpdateInputSchema,
   WORKSPACE_LIST_LIMIT,
@@ -37,8 +47,10 @@ import { listFieldsForSignup, rebuildSlotAt, validateSlotValues } from './slot-f
 import { committedBySlot } from './commitments';
 import {
   getSignupRowForOrganizer,
+  lockOrganizersSignupsForWrite,
   lockSlotsForSignup,
   readLiveSignup,
+  readOrganizersSignups,
   withSignupWriteLock,
 } from './locks';
 import { insertSlots, listSlotsForSignup } from './slots';
@@ -62,6 +74,40 @@ function checkGroupByRefs(
   );
 }
 
+/**
+ * A signup's language must be one that has shipped to participants, since its
+ * pages and emails follow it. Only a language the caller sends is checked: a
+ * stored one can leave the list later, and the row must stay editable. It is
+ * checked as sent, because the settings schema reads any value leniently.
+ * `field` is where the caller's input holds it: `settings.locale` over REST,
+ * `locale` in the AI assistant's `create_signup`, which checks it before
+ * anything is charged or created.
+ */
+export function checkSignupLocale(
+  sent: unknown,
+  field = 'settings.locale',
+): Result<CatalogLocale | undefined, ServiceError> {
+  if (sent === undefined || isShipped('participant', sent)) return ok(sent);
+  return err(unshippedSignupLocale(sent, { field, canLeaveOut: true }));
+}
+
+/**
+ * The refusal for a language that hasn't shipped to participants, where a
+ * signup's language or an organizer's own is stored. `canLeaveOut` is for the
+ * one place a language is optional (`checkSignupLocale`), whose suggestion
+ * says so.
+ */
+export function unshippedSignupLocale(
+  received: unknown,
+  { field = 'locale', canLeaveOut = false }: { field?: string; canLeaveOut?: boolean } = {},
+): ServiceError {
+  return serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
+    field,
+    received,
+    suggestion: `${canLeaveOut ? 'leave it out, or ' : ''}use one of: ${SHIPPED.participant.join(', ')}`,
+  });
+}
+
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -71,21 +117,37 @@ export interface SignupWithSlots extends SignupRow {
   fields: SlotFieldDefinition[];
 }
 
+/**
+ * Create a draft signup, with the template's fields and slots, in one
+ * transaction. Its language is the `settings.locale` in `rawInput`, refused
+ * unless it has shipped to participants; the route decides it (the one its
+ * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
+ * says which step chose it, for `signup.created`; a language with none was
+ * sent by the caller (`api`). Without `opts.template` it starts from
+ * `defaultTemplate`, its columns named in the language its participants will
+ * get (`localeOfSignup`).
+ */
 export async function createSignup(
   db: Db,
   actor: Actor,
   workspaceId: string,
   rawInput: unknown,
-  opts: { template?: SignupTemplate } = {},
+  opts: { template?: SignupTemplate; localeSource?: SignupLocaleSource } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
 
-  const input = parseInputSafe(SignupCreateInputSchema, rawInput);
+  const input = parseInputSafe(SignupCreateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
   if (!input.ok) return input;
   const data = input.value;
 
-  const template = opts.template ?? DEFAULT_TEMPLATE;
+  // A language that hasn't shipped reads as the instance's here; it's
+  // refused below, so its names never reach a row.
+  const template =
+    opts.template ??
+    defaultTemplate(
+      getServerTranslator(localeOfSignup(data.settings.locale), 'participant.defaults'),
+    );
 
   const parsedFields: SlotFieldInput[] = [];
   const seenRefs = new Set<string>();
@@ -152,6 +214,10 @@ export async function createSignup(
   if (!anchor.ok) return anchor;
   const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
   if (!grouping.ok) return grouping;
+  const locale = checkSignupLocale(
+    isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined,
+  );
+  if (!locale.ok) return locale;
   const settings: SignupSettings =
     anchor.value === null
       ? data.settings
@@ -213,6 +279,9 @@ export async function createSignup(
         templateId: template.id,
         fieldsAdded: template.fields.length,
         slotsAdded: template.slots.length,
+        ...(settings.locale === undefined
+          ? {}
+          : { locale: settings.locale, localeSource: opts.localeSource ?? 'api' }),
       },
     });
     return inserted;
@@ -264,12 +333,13 @@ export async function updateSignup(
   // which is the one thing "only the settings you pass change" promises.
   return withSignupWriteLock(db, actor, signupId, async (tx, row) => {
     const prevSettings = row.settings;
-    // Only a group-by the caller sent is checked: a row saved with a stale ref
-    // must not make every unrelated settings save fail.
-    const sentGroupBy =
-      isObject(rawInput) &&
-      isObject(rawInput.settings) &&
-      rawInput.settings.groupByFieldRefs != null;
+    // Only a group-by or language the caller sent is checked: a row saved with
+    // a stale ref, or a language that has since left the list, must not make
+    // every unrelated settings save fail.
+    const sent: Record<string, unknown> =
+      isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings : {};
+    const sentGroupBy = sent.groupByFieldRefs != null;
+    const sentLocale = sent.locale != null;
     if (isObject(rawInput) && isObject(rawInput.settings)) {
       // The anchor stays out of the merge, so below it is only ever what the
       // caller sent.
@@ -279,7 +349,7 @@ export async function updateSignup(
       rawInput = { ...rawInput, settings: merged };
     }
 
-    const input = parseInputSafe(SignupUpdateInputSchema, rawInput);
+    const input = parseInputSafe(SignupUpdateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
     if (!input.ok) return input;
     const data = input.value;
 
@@ -303,6 +373,10 @@ export async function updateSignup(
       if (sentGroupBy) {
         const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fields);
         if (!grouping.ok) return grouping;
+      }
+      if (sentLocale) {
+        const locale = checkSignupLocale(sent.locale);
+        if (!locale.ok) return locale;
       }
       mergedSettings =
         anchor.value === null
@@ -352,6 +426,117 @@ export async function updateSignup(
       payload: { changed: slug !== undefined ? [...Object.keys(data), 'slug'] : Object.keys(data) },
     });
     return ok(updated);
+  });
+}
+
+/**
+ * The workspaces `actor` may change signups in: each one they belong to that
+ * `requireWorkspaceWrite` clears them for, so not one where they only view.
+ */
+function writableWorkspaceIds(actor: Actor): string[] {
+  requireOrganizer(actor);
+  return actor.workspaceIds.filter((workspaceId) => {
+    try {
+      requireWorkspaceWrite(actor, workspaceId);
+      return true;
+    } catch (e) {
+      if (e instanceof ServiceException) return false;
+      throw e;
+    }
+  });
+}
+
+/**
+ * "Your open signups", as `setOpenSignupsLocale` takes them: the ones the
+ * acting organizer made, never another member's in a shared workspace; open,
+ * so people can sign up now (not a draft, a closed or an archived one); not
+ * deleted; and in a workspace they may change.
+ */
+function ownOpenSignups(actor: Actor) {
+  const organizerId = requireOrganizerId(actor);
+  return { organizerId, workspaceIds: writableWorkspaceIds(actor), status: 'open' as const };
+}
+
+/**
+ * Those of `rows` whose participants get another language than `locale`, as
+ * `localeOfSignup` reads it.
+ */
+function notIn<T extends { settings: StoredSignupSettings }>(
+  rows: readonly T[],
+  locale: CatalogLocale,
+): T[] {
+  return rows.filter((row) => localeOfSignup(row.settings.locale) !== locale);
+}
+
+/**
+ * The acting organizer's open signups, as `setOpenSignupsLocale` takes them:
+ * how many there are (`open`), and the ids of those it would change to
+ * `locale` (`toSwitch`, none when every one is in it already). So a page can
+ * offer the change, with its count, only when there's something to change,
+ * and say afterwards how many use the language, from what's stored. One read,
+ * without a lock: what changes is decided again, under one, when the change
+ * is made.
+ */
+export async function openSignupsToSwitch(
+  db: Queryable,
+  actor: Actor,
+  locale: CatalogLocale,
+): Promise<Result<{ open: number; toSwitch: string[] }, ServiceError>> {
+  const which = ownOpenSignups(actor);
+  if (which.workspaceIds.length === 0) return ok({ open: 0, toSwitch: [] });
+  const rows = await readOrganizersSignups(db, which);
+  return ok({ open: rows.length, toSwitch: notIn(rows, locale).map((row) => row.id) });
+}
+
+/**
+ * Puts the acting organizer's open signups in `locale` (#639): account
+ * Settings' "Switch them to Svenska". Which signups count is
+ * `ownOpenSignups`'s to say. One whose participants already get `locale`
+ * (`localeOfSignup`) is left as it is, as is one with no language of its own
+ * that reads as `locale` through the instance's. One whose language was chosen
+ * on its Settings tab changes like the rest: the row can't tell a choice from
+ * the language it started in (#627 stores the organizer's on each new
+ * signup), and the button counts all of them.
+ *
+ * `locale` must have shipped to participants, as for `updateSignup`; anything
+ * else is `invalid_input` on `locale` and changes nothing. The signups are
+ * locked and changed in one transaction, in one update however many there
+ * are, and each gets the `signup.updated` row a save on its Settings tab
+ * writes. Returns the language and the ids of the signups it changed.
+ */
+export async function setOpenSignupsLocale(
+  db: Db,
+  actor: Actor,
+  locale: unknown,
+): Promise<Result<{ locale: CatalogLocale; signupIds: string[] }, ServiceError>> {
+  const which = ownOpenSignups(actor);
+  if (!isShipped('participant', locale)) return err(unshippedSignupLocale(locale));
+  if (which.workspaceIds.length === 0) return ok({ locale, signupIds: [] });
+
+  return db.transaction(async (tx) => {
+    const changing = notIn(await lockOrganizersSignupsForWrite(tx, which), locale);
+    const signupIds = changing.map((row) => row.id);
+    if (signupIds.length === 0) return ok({ locale, signupIds });
+
+    await tx
+      .update(signups)
+      .set({
+        settings: sql`${signups.settings} || jsonb_build_object('locale', ${locale}::text)`,
+        updatedAt: new Date(),
+      })
+      .where(and(inArray(signups.id, signupIds), inArray(signups.workspaceId, which.workspaceIds)));
+    const by = activityActor(actor);
+    await recordActivities(
+      tx,
+      changing.map((row) => ({
+        signupId: row.id,
+        workspaceId: row.workspaceId,
+        actor: by,
+        eventType: 'signup.updated' as const,
+        payload: { changed: ['settings'] },
+      })),
+    );
+    return ok({ locale, signupIds });
   });
 }
 
@@ -536,6 +721,7 @@ async function transitionStatus(
           received: row.status,
           expected: from,
           suggestion: `call the correct transition for status=${row.status}`,
+          details: { reason: 'status_changed' },
         }),
       );
     }
@@ -553,6 +739,7 @@ async function transitionStatus(
           serviceError('conflict', `${verb} requires at least one slot`, {
             field: 'slots',
             suggestion: `add a slot before ${doing}`,
+            details: { reason: 'no_slots' },
           }),
         );
       }
@@ -634,22 +821,27 @@ const signupSummaryColumns = {
   closesAt: signups.closesAt,
   createdAt: signups.createdAt,
   updatedAt: signups.updatedAt,
+  locale: sql<string | null>`${signups.settings}->>'locale'`,
 };
 
-/** A signup as a list shows it: no description, settings, theme or tags. */
-export type SignupSummary = Pick<SignupRow, keyof typeof signupSummaryColumns>;
+/** A signup as a list shows it: no description, settings or tags. */
+export type SignupSummary = Pick<
+  SignupRow,
+  'id' | 'slug' | 'title' | 'status' | 'closesAt' | 'createdAt' | 'updatedAt'
+>;
 
 /**
  * The same rows as listSignupsForWorkspace, reading only the columns a list
  * shows, so up to WORKSPACE_LIST_LIMIT long descriptions aren't read from Postgres and thrown
- * away.
+ * away. Of the settings, only `locale`, as stored, so Your signups can mark
+ * each title with its signup's language (`localeOfSignup`) in the same statement.
  */
 export async function listSignupSummariesForWorkspace(
   db: Db,
   actor: Actor,
   workspaceId: string,
   filter: { status?: SignupStatus } = {},
-): Promise<Result<SignupSummary[], ServiceError>> {
+): Promise<Result<(SignupSummary & { locale: string | null })[], ServiceError>> {
   requireWorkspaceAccess(actor, workspaceId);
   const rows = await db
     .select(signupSummaryColumns)
@@ -660,12 +852,36 @@ export async function listSignupSummariesForWorkspace(
   return ok(rows);
 }
 
+/**
+ * The signup at `slug` as stored, or null when no live signup has that slug.
+ * One statement. It skips a deleted signup but returns a draft or an archived
+ * one, so a page can say which it is. No policy guard, like `getPublicSignup`:
+ * anyone with the link may ask. So the whole row, server-only columns and
+ * all, is for server code to decide with; what a visitor gets goes through
+ * `getPublicSignup` (and `toPublicSignup` for the API).
+ */
+export async function getSignupRowBySlug(db: Queryable, slug: string): Promise<SignupRow | null> {
+  const [row] = await db
+    .select()
+    .from(signups)
+    .where(and(eq(signups.slug, slug), isNull(signups.deletedAt)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * The signup a public page shows, with its slots, fields and spots taken. A
+ * draft, an archived signup and one that's deleted or never existed are all
+ * `not_found`; the first two carry `received`, so the page can say which.
+ * Takes the slug, or what `getSignupRowBySlug` already returned for it (null
+ * for none), so a request that has read the row doesn't read it again.
+ */
 export async function getPublicSignup(
   db: Db,
-  slug: string,
+  slugOrRow: string | SignupRow | null,
 ): Promise<Result<SignupWithSlots & { committedBySlot: Record<string, number> }, ServiceError>> {
-  const found = await db.select().from(signups).where(eq(signups.slug, slug)).limit(1);
-  const row = found[0];
+  const row = typeof slugOrRow === 'string' ? await getSignupRowBySlug(db, slugOrRow) : slugOrRow;
+  // Checked again for a row read some other way.
   if (!row || row.deletedAt) return err(serviceError('not_found', 'signup not found'));
   if (row.status === 'draft') {
     return err(serviceError('not_found', 'signup not yet published', { received: 'draft' }));

@@ -5,6 +5,7 @@ import { connectTestClient } from '../testing/client';
 import { signupRow, unitContext } from '../testing/fixtures';
 import { getSignup, listSignups } from './signups-read';
 import { listWorkspaces } from './workspaces';
+import { CATALOG_LOCALES } from '@/i18n/config';
 
 const READ_TOOLS = [listWorkspaces, listSignups, getSignup];
 
@@ -195,6 +196,24 @@ describe('read tools', () => {
       sendReminders: true,
       requireEmail: false,
     });
+  });
+
+  // As stored, like every setting it shows: a language that hasn't shipped
+  // (participants get the instance's) is shown as it is, and none as none.
+  it.each(CATALOG_LOCALES)('get_signup shows a stored language as stored: %s', async (locale) => {
+    getSignupForOrganizer.mockResolvedValueOnce(
+      ok({
+        ...row,
+        settings: { groupByFieldRefs: [], locale },
+        fields: [],
+        slots: [],
+        committedBySlot: {},
+      }),
+    );
+    const client = await connectTestClient(ctx, READ_TOOLS);
+    const r = await client.callTool({ name: 'get_signup', arguments: { signupId: 'sig_1' } });
+    const body = r.structuredContent as { signup: { settings: Record<string, unknown> } };
+    expect(body.signup.settings).toEqual({ groupByFieldRefs: [], locale });
   });
 
   it('get_signup names the links it returns', () => {

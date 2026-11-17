@@ -1,12 +1,14 @@
 import type { Db } from '@/db/client';
+import type { CatalogLocale, SignupLocaleSource } from '@/i18n/config';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { log } from '@/lib/log';
 import type { Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
 import type { SignupTemplate } from '@/lib/signup-templates';
 import { createSignup } from '@/services/signups';
+import type { DraftWarning } from './draft-warnings';
 import type { MagicComposeDraft } from './prompt';
-import { buildWarnings, magicComposeToTemplate, type DroppedSummary } from './to-template';
+import { draftWarnings, magicComposeToTemplate, type DroppedSummary } from './to-template';
 
 type SignupRow = Extract<Awaited<ReturnType<typeof createSignup>>, { ok: true }>['value'];
 
@@ -14,8 +16,8 @@ export interface PersistedDraft {
   signup: SignupRow;
   template: SignupTemplate;
   groupByFieldRefs: string[];
-  /** Plain sentences about what the conversion adjusted or dropped; empty when nothing was. */
-  warnings: string[];
+  /** What the conversion adjusted or dropped, as codes (`DraftWarning`); empty when nothing was. */
+  warnings: DraftWarning[];
 }
 
 /**
@@ -30,19 +32,29 @@ export interface PersistedDraft {
  * the organizer to fix in the builder. A tool call is a deliberate,
  * retryable request, so the tool refuses with `invalid_input` and creates
  * nothing — otherwise a corrected retry would make a second signup.
+ *
+ * `locale` is the language the signup starts in and the step that chose it,
+ * as the caller decided (`newSignupLocale`, or `api` for one a caller sent).
+ * It goes into the signup's settings, where `createSignup` refuses one that
+ * hasn't shipped. Without it the signup stores no language.
  */
 export async function persistDraft(
   db: Db,
   actor: Actor,
   workspaceId: string,
   draft: MagicComposeDraft,
-  opts: { templateId?: string; strict?: boolean; logContext?: Record<string, unknown> } = {},
+  opts: {
+    templateId?: string;
+    strict?: boolean;
+    logContext?: Record<string, unknown>;
+    locale?: { locale: CatalogLocale; source: SignupLocaleSource };
+  } = {},
 ): Promise<Result<PersistedDraft, ServiceError>> {
   const { template, groupByFieldRefs, dropped } = magicComposeToTemplate(
     draft,
     opts.templateId ? { templateId: opts.templateId } : {},
   );
-  const warnings = buildWarnings(dropped);
+  const warnings = draftWarnings(dropped);
   if (opts.strict) {
     const valuelessFields = fieldsWithNoValue(template, dropped);
     if (warnings.length > 0 || valuelessFields.length > 0) {
@@ -73,9 +85,12 @@ export async function persistDraft(
       title: draft.title,
       description: draft.description,
       visibility: 'unlisted',
-      settings: groupByFieldRefs.length > 0 ? { groupByFieldRefs } : {},
+      settings: {
+        ...(groupByFieldRefs.length > 0 ? { groupByFieldRefs } : {}),
+        ...(opts.locale ? { locale: opts.locale.locale } : {}),
+      },
     },
-    { template },
+    { template, localeSource: opts.locale?.source },
   );
   if (!created.ok) return created;
   return ok({ signup: created.value, template, groupByFieldRefs, warnings });

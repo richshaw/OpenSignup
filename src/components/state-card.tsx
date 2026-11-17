@@ -3,9 +3,10 @@ import type { ReactNode } from 'react';
 /**
  * The centred card a page shows in place of its content when there is
  * nothing to show: a participant's signup that isn't available
- * (`SignupStateMessage`), or an organizer's signup that can't be opened
- * (`SignupLoadError`). One card, so the two can't drift. `detail`, a line
- * under the title, names the slot when there is one; `children` are the
+ * (`SignupStateMessage`), an organizer's signup that can't be opened
+ * (`SignupLoadError`), or an address no page matches (the site's 404,
+ * `src/app/global-not-found.tsx`). One card, so they can't drift. `detail`, a
+ * line under the title, names the slot when there is one; `children` are the
  * actions under the body. Lines are balanced, so a heading never leaves one
  * word on a line of its own.
  */

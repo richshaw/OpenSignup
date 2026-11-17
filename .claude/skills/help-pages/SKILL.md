@@ -12,14 +12,15 @@ with the product:
 | file                                          | what it is                                                              |
 | --------------------------------------------- | ----------------------------------------------------------------------- |
 | `src/help/articles/<slug>.tsx`                | the article                                                             |
-| `src/help/articles/<slug>.ui.ts`              | every on-screen name the article prints (buttons, boxes, messages)      |
+| `src/help/articles/<slug>.ui.ts`              | every on-screen name the article prints, and its key in `en.json`       |
 | `tests/e2e/help/<slug>.spec.ts`               | the walkthrough: clicks through the article's steps by those same names |
 | `public/help/<slug>/*.png`                    | screenshots, taken by the walkthrough                                   |
 | `src/help/articles.ts`, `src/help/bodies.tsx` | where it's registered                                                   |
 
 Three things keep an article true, and your job is to keep all three working:
 facts the code decides are **imported**, not typed (`REMINDER_LEAD_HOURS`);
-the **walkthrough** fails when a named control is renamed or moved; and
+the **walkthrough** fails when a named control is renamed or moved (and
+`src/help/ui-names.test.ts` when its message in `en.json` is reworded); and
 `src/help/articles.test.tsx` fails on the style rules a machine can check.
 None of them can tell whether a sentence is true, which is why every change
 ends with a fact-check against the code.
@@ -83,7 +84,9 @@ the plain `pnpm test:e2e` / `pnpm help:screenshots` work.
 
 4. **Update the name list first, then the article, then the walkthrough.**
    `<slug>.ui.ts` is the single place a name lives; the article prints
-   `<Ui>{UI.x}</Ui>` and the walkthrough finds `UI.x`. Rewrite the steps that
+   `<Ui>{UI.x}</Ui>` and the walkthrough finds `UI.x`. Beside it,
+   `FROM_CATALOG.x` is the key of its message in `src/messages/en.json`, and
+   `src/help/ui-names.test.ts` checks the two still agree. Rewrite the steps that
    changed, and make the walkthrough check the new behaviour, not just that the
    button exists. Re-take the screenshots whose screens changed ("Screenshots"
    below).

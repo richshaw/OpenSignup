@@ -1,8 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { GONE_PAGE } from '@/app/s/[slug]/gone-message';
+import { gonePage } from '@/app/s/[slug]/gone-message';
+import { getTestTranslator } from '@/i18n/testing/translator';
 import { loadSeed } from './helpers/fixtures';
 
 const seed = loadSeed();
+// The pages' English, from the catalog.
+const GONE_PAGE = gonePage(getTestTranslator('participant.gonePage'));
 
 const editLink = (slug: string, id: string, token?: string) =>
   `/s/${slug}/c/${id}${token === undefined ? '' : `?token=${token}`}`;
@@ -37,6 +40,9 @@ test.describe('signup not found', () => {
       expect(response?.status()).toBe(404);
       await expect(page.getByRole('heading', { level: 1, name: copy.title })).toBeVisible();
       await expect(page.getByText(copy.body)).toBeVisible();
+      // In the language of the signup the path names, which src/middleware.ts
+      // copies for it: English, as none of these stores another.
+      await expect(page.getByRole('main')).toHaveAttribute('lang', 'en');
       // Not Next's default page, and nothing from the deleted signup.
       await expect(page.getByText('This page could not be found')).toHaveCount(0);
       await expect(page.getByText('Removed Potluck')).toHaveCount(0);
