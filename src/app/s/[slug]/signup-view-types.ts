@@ -1,3 +1,4 @@
+import type { SignupStatus } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SlotStatus } from '@/schemas/slots';
 
@@ -27,4 +28,16 @@ export interface SignupViewField {
   ref: string;
   label: string;
   fieldType: SlotFieldDefinition['fieldType'];
+}
+
+export interface SignupViewSignup {
+  title: string;
+  description: string;
+  status: SignupStatus;
+  /** Whether the sign-up form asks for the email; true when left out. Only
+   *  the live page's form reads it. */
+  requireEmail?: boolean;
+  /** The signup's `sendReminders` setting; false when left out, so nothing
+   *  promises a reminder. Only the live page's form reads it. */
+  sendReminders?: boolean;
 }
