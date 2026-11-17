@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
 
@@ -143,6 +143,7 @@ describe("unsubscribe page — the signup's language", () => {
   });
 
   it("stays English for a stored language that hasn't shipped", async () => {
+    shipOnlyEnglish();
     previewReminderOptOut.mockResolvedValue(ok({ ...optedInTarget, signupLocale: OTHER_LOCALE }));
     expect(await mainLang({ p: 'par_1', token: 'tok' })).toBe('en');
   });

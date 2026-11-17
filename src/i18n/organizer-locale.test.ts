@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { CATALOG_LOCALES, type CatalogLocale, resolveLocale } from './config';
 import { newOrganizerLocale } from './organizer-locale';
 import { accountLanguageTable } from './testing/account-language-table';
-import { ship } from './testing/ship';
+import { ship, shipOnlyEnglish } from './testing/ship';
 
 /** Every language with a catalog besides English, each tried in turn. */
 const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
@@ -31,6 +31,8 @@ describe('the decision table in docs/translating.md (“An organizer’s languag
 });
 
 describe('newOrganizerLocale while only English has shipped', () => {
+  beforeEach(shipOnlyEnglish);
+
   it.each<[string, string | null]>([
     ['an English browser', 'en'],
     ['a regional English browser', 'en-GB'],

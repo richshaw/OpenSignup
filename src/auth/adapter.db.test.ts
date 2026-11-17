@@ -6,7 +6,7 @@ import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { accountLanguageTable } from '@/i18n/testing/account-language-table';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { SignupAdapter } from './adapter';
 
@@ -127,6 +127,8 @@ describe('SignupAdapter.createUser and the decision table in docs/translating.md
 });
 
 describe('SignupAdapter.createUser while only English has shipped (db)', () => {
+  beforeEach(shipOnlyEnglish);
+
   it.each<[string, string | null]>([
     ['an English browser', 'en'],
     ['a regional English browser', 'en-GB'],

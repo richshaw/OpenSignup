@@ -17,6 +17,7 @@ import {
   type OrganizerIn,
 } from './helpers/organizer-language';
 import { translationShot } from './helpers/translation-shots';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 /**
  * The organizer app follows the language stored on the organizer's account
@@ -109,7 +110,7 @@ function connectionRequest(scope: string): string {
 for (const stored of STORED) {
   const locale = stored ?? 'en';
   const unshippedHint = stored
-    ? `the organizer app isn’t in ${stored}: start the server with E2E_UNSHIPPED_LOCALES=${stored}`
+    ? `the organizer app isn’t in ${stored}: ${howToShow(stored)}`
     : 'an organizer with no language stored gets English';
 
   test.describe(`an organizer who stores ${stored ?? 'no language'}`, () => {
@@ -119,7 +120,8 @@ for (const stored of STORED) {
      * Saves what's on the page for a translation's review when
      * TRANSLATION_SCREENSHOTS=1 (`pnpm translation:screenshots`), for an
      * organizer in a language other than English, and does nothing
-     * otherwise. Named `organizer-…`, beside the participant screens.
+     * otherwise. Named `organizer-…`, beside translated-organizer.spec.ts's,
+     * for the screens and states that spec doesn't reach.
      */
     const shot = async (page: Page, name: string, options?: { sheet?: boolean }) => {
       if (stored) await translationShot(page, stored, `organizer-${name}`, options);
@@ -149,7 +151,6 @@ for (const stored of STORED) {
       await expect(page).toHaveTitle(titled(dashboard('title')));
       await expect(page.getByText(dashboard('total', { count: 2 }))).toBeVisible();
       await expect(page.getByText(dashboard('draftOnlyYou'))).toBeVisible();
-      await shot(page, 'your-signups');
 
       await page.goto('/app/settings');
       const here = trail.locator('[aria-current="page"]');
@@ -195,7 +196,6 @@ for (const stored of STORED) {
       ).toBeVisible();
       const card = page.getByRole('link', { name: settings('connectedApps.title') });
       await expect(card).toContainText(settings('connectedApps.description'));
-      await shot(page, 'settings');
 
       // Over a client-side navigation, which re-renders the page but not the
       // layout, so the page works out the language itself.
@@ -339,7 +339,6 @@ for (const stored of STORED) {
           tabs.getByRole('tab', { name: startsWith(signup(`tabs.${tab}`)) }),
         ).toBeVisible();
       }
-      await shot(page, 'build-draft');
 
       // Its one slot, the one a new signup starts with, is empty, so Publish's
       // check stops it, and publishes nothing.
@@ -398,7 +397,6 @@ for (const stored of STORED) {
         await expect(panel.getByRole('button', { name: share('copyMessage') })).toBeVisible();
         await expect(panel.getByRole('link', { name: share('emailIt') })).toBeVisible();
       }
-      await shot(page, 'share-panel', { sheet: true });
       await panel.getByRole('button', { name: share('close') }).click();
       await expect(panel).toBeHidden();
     });
@@ -583,7 +581,6 @@ for (const stored of STORED) {
       await expect(
         row.getByRole('cell', { name: responses('status.confirmed'), exact: true }),
       ).toBeVisible();
-      await shot(page, 'responses');
 
       // Remove, its question, Keep, then Yes.
       const label = responses('remove.label', { name: who, slot: 'Cookies' });
@@ -654,7 +651,6 @@ for (const stored of STORED) {
           .click();
         await expect(box).toHaveValue(compose('starters.sports.body'));
         await expect(page.getByText(compose('loaded'))).toBeVisible();
-        await shot(page, 'new-signup-compose');
         // The hour's AI drafts used up, as the route answers it.
         await page.route('**/api/signups/magic-compose', (route) =>
           route.fulfill({
@@ -696,7 +692,6 @@ for (const stored of STORED) {
       );
       await expect(page.getByRole('link', { name: newSignup('cancel') })).toBeVisible();
       await expect(page.getByRole('button', { name: newSignup('create') })).toBeVisible();
-      await shot(page, 'new-signup');
       expect(hydration).toEqual([]);
     });
 

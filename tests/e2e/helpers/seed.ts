@@ -67,7 +67,8 @@ export interface SeedData {
   optionalEmailSlotLabel: string;
   /**
    * In each test language (`TEST_LOCALES`): an open signup, a draft for its
-   * Build tab, and a closed and an archived signup. See makeSignupsIn.
+   * Build tab, and a closed and an archived signup (see makeSignupsIn), and
+   * an organizer whose account stores the language (see makeOrganizerIn).
    */
   languages: Record<TestLocale, LanguageSeed>;
 }
@@ -234,13 +235,34 @@ interface BuildSeed {
 }
 
 /** A test language's signups: see makeSignupsIn. */
-interface LanguageSeed {
+interface LanguageSignups {
   /** Published, with sign-ups on it. */
   open: OpenSeed;
   /** A draft, for its Build tab. */
   build: BuildSeed;
   closed: ClosedSeed;
   archived: ArchivedSeed;
+}
+
+/**
+ * An organizer whose account stores a test language, signed in through a
+ * session of their own, with signups of their own in it: see makeOrganizerIn.
+ */
+interface OrganizerSeed {
+  id: string;
+  email: string;
+  sessionToken: string;
+  /**
+   * Made as the language's test signups are (makeSignupsIn), in their own
+   * workspace, so Your signups shows one in each state, and Responses people
+   * on the open one.
+   */
+  signups: LanguageSignups;
+}
+
+/** A test language's signups, and its organizer. */
+interface LanguageSeed extends LanguageSignups {
+  organizer: OrganizerSeed;
 }
 
 /** Removes an e2e organizer and its data. Workspace delete cascades signups →
@@ -266,6 +288,7 @@ async function insertOrganizer(
   email: string,
   workspaceSlug: string,
   names: { organizer: string; workspace: string },
+  locale: TestLocale | null = null,
 ): Promise<{ organizerId: string; workspaceId: string }> {
   const organizerId = makeId('org');
   const workspaceId = makeId('ws');
@@ -275,6 +298,7 @@ async function insertOrganizer(
       email,
       name: names.organizer,
       defaultWorkspaceId: workspaceId,
+      locale,
     });
     await tx.insert(workspaces).values({
       id: workspaceId,
@@ -697,12 +721,56 @@ async function makeSignupsIn(
   actor: Actor,
   workspaceId: string,
   locale: TestLocale,
-): Promise<LanguageSeed> {
+): Promise<LanguageSignups> {
   const text = ORGANIZER_TEXT[locale] ?? ANY_LANGUAGE;
   const open = await makeOpenSignupIn(db, actor, workspaceId, locale, text);
   const build = await makeBuildSignupIn(db, actor, workspaceId, locale, text);
   const { closed, archived } = await makeClosedAndArchivedIn(db, actor, workspaceId, locale, text);
   return { open, build, closed, archived };
+}
+
+/**
+ * An organizer whose account stores `locale`, for the specs that check the
+ * organizer app in it (tests/e2e/translated-organizer.spec.ts), signed in
+ * through a session of their own, with a signup of their own in each state
+ * (makeSignupsIn). A language that hasn't shipped can't be saved on an
+ * account (`updateOrganizerLocale` refuses it), so it's written into the row,
+ * and the organizer app shows it only on a server started with it in
+ * `E2E_UNSHIPPED_LOCALES` (`localeOfOrganizer` in src/i18n/locale.ts), as
+ * playwright.config.ts starts it. Nothing signs this session out.
+ */
+async function makeOrganizerIn(db: Db, locale: TestLocale): Promise<OrganizerSeed> {
+  const email = `organizer-${locale}@example.test`;
+  const workspaceSlug = `e2e-organizer-${locale}`;
+  await removeOrganizer(db, email, workspaceSlug);
+  const { organizerId, workspaceId } = await insertOrganizer(
+    db,
+    email,
+    workspaceSlug,
+    // Names, not words the no-English check looks for
+    // (tests/e2e/helpers/no-english.ts).
+    { organizer: 'Kim', workspace: 'Kim' },
+    locale,
+  );
+  const sessionToken = randomBytes(32).toString('hex');
+  await db.insert(sessions).values({
+    sessionToken,
+    userId: organizerId,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  });
+  const actor: Actor = {
+    kind: 'organizer',
+    id: organizerId,
+    email,
+    workspaceIds: [workspaceId],
+    workspaceRoles: { [workspaceId]: 'owner' },
+  };
+  return {
+    id: organizerId,
+    email,
+    sessionToken,
+    signups: await makeSignupsIn(db, actor, workspaceId, locale),
+  };
 }
 
 export async function seedE2E(): Promise<SeedData> {
@@ -785,7 +853,10 @@ export async function seedE2E(): Promise<SeedData> {
 
   const languages = {} as Record<TestLocale, LanguageSeed>;
   for (const locale of TEST_LOCALES) {
-    languages[locale] = await makeSignupsIn(db, actor, workspaceId, locale);
+    languages[locale] = {
+      ...(await makeSignupsIn(db, actor, workspaceId, locale)),
+      organizer: await makeOrganizerIn(db, locale),
+    };
   }
 
   // Draft signup for the organizer publish flow.

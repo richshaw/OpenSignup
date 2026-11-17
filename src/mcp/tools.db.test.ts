@@ -8,7 +8,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { errorEnvelope } from '@/lib/api-response';
 import { makeId } from '@/lib/ids';
 import { TITLE_MAX_LENGTH } from '@/lib/signup-limits';
@@ -530,6 +530,8 @@ describe('signup write tools on Postgres', () => {
 });
 
 describe('create_signup and the signup’s language on Postgres', () => {
+  beforeEach(shipOnlyEnglish);
+
   afterEach(async () => {
     instance.defaultLocale = undefined;
     await db.update(organizers).set({ locale: null }).where(eq(organizers.id, organizerId));
@@ -668,6 +670,8 @@ describe('create_signup and the signup’s language on Postgres', () => {
 });
 
 describe('update_signup and the signup’s language on Postgres', () => {
+  beforeEach(shipOnlyEnglish);
+
   async function createVia(client: Awaited<ReturnType<typeof connectTestClient>>) {
     const created = await client.callTool({
       name: 'create_signup',

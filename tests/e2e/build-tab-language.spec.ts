@@ -9,8 +9,7 @@ import { datedSignupIn, type DatedSignup } from './helpers/dated-signup';
 import { loadSeed } from './helpers/fixtures';
 import { messagesIn } from './helpers/languages';
 import { createOrganizerIn, type OrganizerIn } from './helpers/organizer-language';
-import { translationShot } from './helpers/translation-shots';
-import { UNSHIPPED_LOCALES } from './helpers/unshipped-locales';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 const seed = loadSeed();
 
@@ -107,10 +106,9 @@ for (const locale of TEST_LOCALES) {
       test(`hydrates with no mismatch, and sorts its groups in ${language}`, async ({ page }) => {
         const errors = watchForHydrationErrors(page);
         await openBuildTab(page, build.id);
-        expect(
-          await groupHeadings(page),
-          `groups in English order: start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`,
-        ).toEqual(groups);
+        expect(await groupHeadings(page), `groups in English order: ${howToShow(locale)}`).toEqual(
+          groups,
+        );
         expect(errors).toEqual([]);
         // The tab's own words are its organizer's, who stores no language.
         expect(await languageOf(page.getByRole('button', { name: /^Fields/ }))).toBe('en');
@@ -194,7 +192,7 @@ for (const locale of TEST_LOCALES) {
       await expect(fields).toBeVisible();
       expect(
         await languageOf(fields),
-        `the organizer app isn’t in ${locale}: start the server with E2E_UNSHIPPED_LOCALES=${locale}`,
+        `the organizer app isn’t in ${locale}: ${howToShow(locale)}`,
       ).toBe(locale);
       await expect(page.getByText(t('rail.editing'), { exact: true })).toBeVisible();
       const count = t('slot.takenOf', { taken: 0, capacity: 5 });
@@ -230,18 +228,7 @@ for (const signupLocale of CATALOG_LOCALES) {
   test.describe(`a signup in ${signupLocale}, built by an organizer in ${organizerLocale}`, () => {
     let organizer: OrganizerIn;
     let signup: DatedSignup;
-    const unshippedHint = `start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`;
-
-    /**
-     * Saves what's on the page for a translation's review when
-     * TRANSLATION_SCREENSHOTS=1 (`pnpm translation:screenshots`), where the
-     * organizer's language isn't English, and does nothing otherwise.
-     */
-    const shot = async (page: Page, name: string, options?: { sheet?: boolean }) => {
-      if (organizerLocale !== 'en') {
-        await translationShot(page, organizerLocale, `organizer-${name}`, options);
-      }
-    };
+    const unshippedHint = howToShow(signupLocale === 'en' ? organizerLocale : signupLocale);
 
     test.beforeAll(async () => {
       organizer = await createOrganizerIn(
@@ -279,7 +266,6 @@ for (const signupLocale of CATALOG_LOCALES) {
       }
       const fields = page.getByRole('button', { name: t('rail.fields', { count: 3 }) });
       expect(await languageOf(fields), unshippedHint).toBe(organizerLocale);
-      await shot(page, 'build');
 
       // A slot's editor: its fields' names are the signup's, and so are the
       // times to choose from.
@@ -296,7 +282,6 @@ for (const signupLocale of CATALOG_LOCALES) {
       expect(await languageOf(editor.getByRole('button', { name: t('editor.done') }))).toBe(
         organizerLocale,
       );
-      await shot(page, 'build-slot-editor');
       await editor.getByRole('button', { name: t('editor.done') }).click();
 
       // The Fields dialog, in the organizer's language, its fields' names in
@@ -312,7 +297,6 @@ for (const signupLocale of CATALOG_LOCALES) {
           }),
         ).toHaveAttribute('lang', signupLocale);
       }
-      await shot(page, 'build-fields', { sheet: true });
       expect(errors).toEqual([]);
     });
 

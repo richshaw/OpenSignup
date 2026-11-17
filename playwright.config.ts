@@ -20,7 +20,7 @@ const utf8Downloads = {
  * a phone's width, in Chromium, so the screenshots show where longer words
  * wrap.
  */
-const TRANSLATION_SPECS = /(translated-signup|organizer-language|build-tab-language)\.spec\.ts$/;
+const TRANSLATION_SPECS = /(translated-(signup|organizer)|organizer-language)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: './tests/e2e',

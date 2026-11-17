@@ -132,11 +132,12 @@ it should list nothing you meant to do. If you changed `en.json`, run
 `pnpm build` (or `pnpm dev`) once so `src/messages/en.d.json.ts` is rewritten,
 and commit it.
 
-For labels in fixed boxes, also run the layout spec on the built app (below):
-`tests/e2e/slot-row-layout.spec.ts`, which measures every language with a
-catalog. The other e2e specs pick the language up too; run
-`tests/e2e/translated-signup.spec.ts` once the participant namespaces are
-done, since it fails on English left on a page.
+For labels in fixed boxes, also run the layout specs on the built app (below):
+`tests/e2e/slot-row-layout.spec.ts` and `tests/e2e/translated-organizer.spec.ts`,
+which measure every language with a catalog. The other e2e specs pick the
+language up too; run `tests/e2e/translated-signup.spec.ts` once the
+participant namespaces are done, and `translated-organizer.spec.ts` once the
+organizer ones are, since both fail on English left on a page.
 
 ## 3. Have a different model review it in context
 
@@ -153,22 +154,28 @@ Playwright at the Chromium installed there. The command writes, under
 
 - `<code>/screens/chromium/*.png` and `<code>/screens/chromium-phone/*.png`:
   each participant screen and state `tests/e2e/translated-signup.spec.ts`
-  checks, and each organizer screen (`organizer-*.png`) the organizer-language
-  and Build tab specs check for an account that stores the language, at
-  desktop and phone width, for every language with a catalog;
+  checks, and the organizer screens (`organizer-…`) that
+  `tests/e2e/translated-organizer.spec.ts` and `organizer-language.spec.ts`
+  go through, at desktop and phone width, for every language with a catalog;
 - `en/emails/*.html` and `<code>/emails/*.html`, with a `.txt` of each
   that starts with the email's subject: every participant email and the
   sign-in email, from `scripts/lib/email-samples.ts`.
 
-The organizer screens are Your signups, New signup (the form, and Magic
-Compose where `LLM_BASE_URL` is set), the Build tab (a draft, Publish's check, a closed signup, an AI draft,
-the slot editor and the Fields dialog), the share chip and panel, a signup's
-Settings tab, Responses and its remove flow, the Preview banner, the strip on
-the signup's own page, account Settings, Connected apps and the consent
-screen. For an organizer screen a batch changes that isn't among them, take it
-by hand at desktop and phone width, from an account that stores the language
-(as `createOrganizerIn` in `tests/e2e/helpers/organizer-language.ts` makes
-one), and tell the reviewer where it is.
+The organizer screens are the ones an organizer goes through to make a
+signup (Your signups, New signup and Magic Compose's first screen, the Build
+tab, its Fields dialog and a slot's editor, the share panel, Responses and
+account Settings), and the screens and states around them: Publish's check,
+the share chip, closing a signup and a closed one, the banner on a draft
+Magic Compose made, its hourly-limit error (where `LLM_BASE_URL` is set), a
+signup's Settings tab (saved, its delete question and a refusal), Responses'
+remove question and the table after a removal, Connected apps (empty and
+with an app), the consent screen, the Preview banner, the strip on the
+signup's own page, the note on your own draft, and the card for a signup
+that can't be found. For organizer text on other screens, take the screens
+the batch changes by hand, at desktop and phone width, from an account that
+stores the language (as `createOrganizerIn` in
+`tests/e2e/helpers/organizer-language.ts` makes one), and tell the reviewer
+where they are.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the
@@ -209,7 +216,7 @@ and in the same pull request runs this skill for every language in `SHIPPED`
 (`src/i18n/config.ts`), for the audience whose namespaces it changed: until
 each changed message is translated again and
 marked, the catalog check fails it as stale. For a language with a catalog
-that hasn't shipped yet (Swedish today), do it too, so the language stays
+that hasn't shipped yet (none today), do it too, so the language stays
 ready to launch. A one-line change still gets the review; give the reviewer
 just the changed keys and the screens they show on.
 

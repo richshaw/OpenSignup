@@ -4,7 +4,8 @@ import { NOT_FOUND_PAGE } from '@/app/not-found-message';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import { loadSeed } from './helpers/fixtures';
-import { gotoIn, messagesIn } from './helpers/languages';
+import { escaped, gotoIn, messagesIn } from './helpers/languages';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 const seed = loadSeed();
 
@@ -270,4 +271,71 @@ test.describe('accessibility', () => {
       })),
     ).toEqual([]);
   });
+
+  // The organizer app for an organizer whose account stores each test
+  // language, with its signups in it: the language is on <html> and the
+  // app's wrapper, and longer words go in the same boxes.
+  for (const locale of TEST_LOCALES) {
+    const { organizer } = seed.languages[locale];
+    const language = englishName(locale);
+    const unshippedHint = `the organizer app isn’t in ${locale}: ${howToShow(locale)}`;
+
+    test(`Your signups in ${language} has no WCAG A/AA violations`, async ({ page, context }) => {
+      await loginAsSeededOrganizer(context, { sessionToken: organizer.sessionToken });
+      await page.goto('/app');
+      await expect(page.getByRole('heading', { level: 1 }), unshippedHint).toHaveText(
+        messagesIn(locale, 'organizer.dashboard')('title'),
+      );
+
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+
+      expect(
+        results.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          nodes: v.nodes.map((n) => n.target),
+        })),
+      ).toEqual([]);
+    });
+
+    test(`the Build tab in ${language}, and with a slot’s editor open, has no WCAG A/AA violations`, async ({
+      page,
+      context,
+    }) => {
+      const build = messagesIn(locale, 'organizer.build');
+      await loginAsSeededOrganizer(context, { sessionToken: organizer.sessionToken });
+      await page.goto(`/app/signups/${organizer.signups.build.id}/build`);
+      // The Fields dialog opens only once the page has hydrated, by when a
+      // click on a slot opens its editor.
+      const fields = new RegExp(`^${escaped(build('fields.label'))}`);
+      await page.getByRole('button', { name: fields }).locator('visible=true').click();
+      await expect(page.getByRole('dialog'), unshippedHint).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+
+      const expectNoViolations = async (where: string) => {
+        const results = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+
+        expect(
+          results.violations.map((v) => ({
+            id: v.id,
+            impact: v.impact,
+            nodes: v.nodes.map((n) => n.target),
+          })),
+          where,
+        ).toEqual([]);
+      };
+
+      await expectNoViolations('the Build tab');
+      await page.locator('[data-slot-row]').first().click();
+      await expect(
+        page.locator('[data-slot-editor]').getByRole('button', { name: build('editor.done') }),
+      ).toBeVisible();
+      await expectNoViolations('the Build tab with a slot’s editor open');
+    });
+  }
 });

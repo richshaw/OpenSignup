@@ -7,7 +7,8 @@ export type TestLocale = Exclude<CatalogLocale, 'en'>;
  * The languages the tests check translations in: every language with a
  * catalog (`CATALOG_LOCALES`) but English, in that list's order. A language
  * joins these by getting its catalog, and with it the e2e specs on a signup
- * in it (tests/e2e/translated-signup.spec.ts and the specs beside it), its
+ * in it (tests/e2e/translated-signup.spec.ts and the specs beside it) and on
+ * an organizer who stores it (tests/e2e/translated-organizer.spec.ts), its
  * translation screenshots and email samples, and the layout checks: nothing
  * else is written for it (docs/translating.md, "Adding a language").
  */

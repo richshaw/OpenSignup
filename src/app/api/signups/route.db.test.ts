@@ -9,7 +9,7 @@ import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { OTHER_LANGUAGE, OTHER_LOCALE, withRegion } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { RateLimits } from '@/lib/rate-limit';
@@ -237,6 +237,8 @@ describe('POST /api/signups chooses the new signup’s language (db)', () => {
   }
 
   describe('while only English has shipped', () => {
+    beforeEach(shipOnlyEnglish);
+
     it('stores no language, and records none, whatever the organizer’s steps say', async () => {
       route.locale = 'en';
       route.instanceDefault = 'en';

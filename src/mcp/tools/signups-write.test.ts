@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SHIPPED } from '@/i18n/config';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
 import { err, ok } from '@/lib/result';
@@ -16,6 +17,13 @@ import {
   reopenSignupTool,
   updateSignupTool,
 } from './signups-write';
+
+/**
+ * The languages signups take, as the tool descriptions list them. The tools
+ * build their descriptions once, when they load, so this is read then too:
+ * before any test ships a language or calls `shipOnlyEnglish`.
+ */
+const SIGNUP_LANGUAGES = SHIPPED.participant.join(', ');
 
 const WRITE_TOOLS = [
   createSignupTool,
@@ -100,6 +108,9 @@ beforeEach(() => {
 
 describe('create_signup', () => {
   it('converts the draft, meters the organizer, and creates everything in one call', async () => {
+    // From before any launch, so the signup stores no language: the block
+    // on the signup's language below covers what it stores once one has.
+    shipOnlyEnglish();
     svc.createSignup.mockResolvedValueOnce(ok(row));
     svc.getSignupForOrganizer.mockResolvedValueOnce(ok(created));
     const client = await connectTestClient(ctx, WRITE_TOOLS);
@@ -275,6 +286,8 @@ describe('create_signup', () => {
 });
 
 describe('create_signup and the signup’s language', () => {
+  beforeEach(shipOnlyEnglish);
+
   afterEach(() => {
     instance.defaultLocale = undefined;
   });
@@ -306,12 +319,11 @@ describe('create_signup and the signup’s language', () => {
     const tool = tools.find((t) => t.name === 'create_signup');
     expect(tool?.inputSchema.properties?.locale).toEqual({
       type: 'string',
-      description:
-        "A language code, one of: en. Defaults to the organizer's language for new signups.",
+      description: `A language code, one of: ${SIGNUP_LANGUAGES}. Defaults to the organizer's language for new signups.`,
     });
     expect(tool?.inputSchema.required).not.toContain('locale');
     expect(tool?.description).toContain('locale sets the language');
-    expect(tool?.description).toContain('one of: en.');
+    expect(tool?.description).toContain(`one of: ${SIGNUP_LANGUAGES}.`);
   });
 
   it('stores a language the assistant sends, as sent by the caller', async () => {
@@ -512,7 +524,9 @@ describe('update_signup', () => {
       | { properties?: Record<string, { type?: unknown; description?: string }> }
       | undefined;
     expect(settings?.properties?.locale?.type).toEqual(['string', 'null']);
-    expect(settings?.properties?.locale?.description).toContain('as a language code, one of: en.');
+    expect(settings?.properties?.locale?.description).toContain(
+      `as a language code, one of: ${SIGNUP_LANGUAGES}.`,
+    );
     expect(settings?.properties?.locale?.description).toContain('null removes it');
   });
 

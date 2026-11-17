@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { CATALOG_LOCALES, isShipped, languageName } from '@/i18n/config';
+import { CATALOG_LOCALES, isShipped, languageName, languageNameInSentence } from '@/i18n/config';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { sentConfirmation } from './helpers/confirmation-email';
 import {
@@ -8,6 +8,7 @@ import {
   messagesIn,
   publishForParticipants,
 } from './helpers/organizer-language';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 /** `text` as a regular expression that matches only itself. */
 const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -25,11 +26,14 @@ const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * spec writes it into the account's row and the new signup's, and the server
  * shows it with it in `E2E_UNSHIPPED_LOCALES`, as playwright.config.ts starts
  * it. Once it ships, the spec chooses it in account Settings and checks the
- * signup starts in it, with nothing written.
+ * signup starts in it, with nothing written. Then it presses the two other
+ * language controls: the signup's own, on its Settings tab, and the button in
+ * account Settings that switches the organizer's open signups to their
+ * language. Neither shows before the language ships.
  */
 for (const locale of CATALOG_LOCALES.filter((other) => other !== 'en')) {
   const launched = isShipped('participant', locale);
-  const unshippedHint = `nothing is in ${locale}: start the server with E2E_UNSHIPPED_LOCALES=${locale}`;
+  const unshippedHint = `nothing is in ${locale}: ${howToShow(locale)}`;
 
   test(`an organizer who sets their language to ${locale} gets it everywhere, and so do participants`, async ({
     page,
@@ -138,5 +142,37 @@ for (const locale of CATALOG_LOCALES.filter((other) => other !== 'en')) {
     await expect(
       row.getByText(responses('status.confirmed')).locator('visible=true'),
     ).toBeVisible();
+    if (!launched) return;
+
+    // The signup's own language, back to English on its Settings tab: its
+    // page follows.
+    const saved = messagesIn(locale, 'organizer.saveNotice')('saved');
+    await page.goto(`/app/signups/${signupId}/settings`);
+    const ownLanguage = page.getByRole('region', { name: signupSettings('language.title') });
+    // The tab's one form, whose Save says Saved beside it.
+    const tab = page.locator('form').filter({ has: ownLanguage });
+    await ownLanguage.getByRole('radio', { name: languageName('en') }).check();
+    await tab.getByRole('button', { name: signupSettings('save'), exact: true }).click();
+    await expect(tab.getByRole('status')).toHaveText(saved);
+    await page.goto(`/s/${slug}`);
+    await expect(page.locator('main')).toHaveAttribute('lang', 'en');
+
+    // Account Settings offers to switch the organizer's open signups that
+    // aren't in their language: this one, and the open signup their account
+    // was made with, which started in English, as everything did before they
+    // chose. Both follow, and the draft doesn't count.
+    const account = messagesIn(locale, 'organizer.settings');
+    const named = {
+      count: 2,
+      name: languageNameInSentence(locale, locale),
+      language: (chunks: string) => chunks,
+    };
+    await page.goto('/app/settings');
+    await page.getByRole('button', { name: account.markup('language.switch', named) }).click();
+    await expect(page.getByRole('status')).toHaveText(account.markup('language.switched', named));
+    for (const switched of [slug, organizer.open.slug]) {
+      await page.goto(`/s/${switched}`);
+      await expect(page.locator('main')).toHaveAttribute('lang', locale);
+    }
   });
 }
