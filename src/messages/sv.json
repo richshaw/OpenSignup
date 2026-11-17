@@ -710,8 +710,7 @@
     "crumbs": {
       "settings": "Inställningar",
       "connectedApps": "Anslutna appar",
-      "newSignup": "Ny lista",
-      "edit": "Ändra"
+      "newSignup": "Ny lista"
     },
     "dashboard": {
       "title": "Dina anmälningslistor",

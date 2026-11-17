@@ -201,7 +201,6 @@
   "organizer.crumbs.settings": "Settings",
   "organizer.crumbs.connectedApps": "Connected apps",
   "organizer.crumbs.newSignup": "New signup",
-  "organizer.crumbs.edit": "Edit",
   "organizer.dashboard.title": "Your signups",
   "organizer.dashboard.none": "No signups yet. Start one below.",
   "organizer.dashboard.total": "{count, number, ::group-off} total",

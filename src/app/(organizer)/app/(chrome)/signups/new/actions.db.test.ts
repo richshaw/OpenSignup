@@ -124,7 +124,7 @@ describe('createSignupAction (db)', () => {
     const answer = await submit('Snack duty');
     const rows = await created();
     expect(rows).toHaveLength(1);
-    expect(answer).toEqual({ redirect: `/app/signups/${rows[0]!.id}` });
+    expect(answer).toEqual({ redirect: `/app/signups/${rows[0]!.id}/build` });
     const [charged] = await db.select({ count: rateLimits.count }).from(rateLimits).where(bucket);
     expect(charged?.count).toBe(1);
   });
