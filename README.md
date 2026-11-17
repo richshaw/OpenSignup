@@ -27,6 +27,7 @@ Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Made for s
 - **Slots, not forms.** Each signup has its own fields (text, date, time, number, or a list of choices). Slots stop taking people when they're full, and participants can get a reminder email the day before.
 - **Self-hostable.** One Docker Compose file runs everything. The only outside service you need is email.
 - **Works with AI assistants.** Organizers can connect Claude, ChatGPT, or any MCP client to create and manage signups. See [`docs/connect-ai-assistant.md`](docs/connect-ai-assistant.md).
+- **In English and Swedish.** Each organizer picks their own language, and each signup has one, for its page and its emails. The home, help and legal pages are English. To add a language, see [`docs/translating.md`](docs/translating.md).
 
 ## Run it locally
 
@@ -119,6 +120,15 @@ These values are built into the app, so they must be set when you build it. Sett
 - **`docker build`**: pass each one as `--build-arg NEXT_PUBLIC_INSTANCE_NAME=…`, and `NEXT_PUBLIC_APP_URL` the same way.
 - **Fly.io**: copy the template (`cp fly.example.toml fly.toml`) and set your values under `[build.args]`. Git ignores `fly.toml`, so your settings stay out of the repository. `fly secrets` only apply when the app starts, so they do not work here.
 - **Local development** (`pnpm dev`): put them in `.env.local`. Next.js reads it each time it starts.
+
+`DEFAULT_LOCALE` sets your instance's language, for an instance that serves one language community. It accepts `en` and `sv`. Any other value stops the app: the reminder worker exits at startup, and every page that needs the database fails with an "Invalid environment" error. Set to `sv`, it puts everything that has no language of its own in Swedish at once: every signup that stores none, which includes every signup made before signups had a language, and every organizer whose account stores none, with the sign-in pages and the sign-in email. So an instance that set `sv` before Swedish shipped turns Swedish with the upgrade that ships it. While it's set, a new account stores no language and follows it until its organizer chooses another in account Settings. Left unset, a new account stores its browser's top language if it has shipped and isn't English (so Swedish, today), and everything with none stored is in English. Each new signup stores the language it starts in, so a later change to `DEFAULT_LOCALE` moves only the signups made before that release. Give the web app and the reminder worker the same value, or a signup's pages and its reminders can be in different languages; Docker Compose gives both the same `.env`. The table in [docs/translating.md](docs/translating.md#an-organizers-language) shows each case.
+
+Unlike the values above, `DEFAULT_LOCALE` is read when the app starts, so changing it needs a restart, not a rebuild:
+
+- **Docker Compose**: put it in `.env`.
+- **Fly.io**: put it under `[env]` in `fly.toml`, or set it with `fly secrets set DEFAULT_LOCALE=…`.
+- **Other container hosts**: pass it when the container starts, for example with `docker run -e DEFAULT_LOCALE=…`.
+- **Local development** (`pnpm dev`): put it in `.env.local`.
 
 To link pages of your own from the footer of every page, list them in `src/lib/footer-links.ts`. This one is a code change, not an environment variable. The file holds only that list, so your copy merges cleanly when you update.
 

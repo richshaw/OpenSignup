@@ -1,3 +1,4 @@
+import { languageName, SHIPPED } from '@/i18n/config';
 import { SLOT_CHANGE_DELAY } from '@/lib/lifetimes';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { INSTANCE_NAME } from '@/lib/site-config';
@@ -10,12 +11,17 @@ export { UI };
 // A sign-up newer than this isn't picked up yet (src/jobs/reminders.ts).
 const SETTLE = REMINDER_SETTLE_HOURS === 1 ? 'an hour' : `${REMINDER_SETTLE_HOURS} hours`;
 
+// A language besides English that signups can be in, to show how the choice
+// names each one: in its own words, as Svenska for Swedish.
+const OTHER_LANGUAGE = SHIPPED.participant.find((locale) => locale !== 'en');
+
 export function CreateAndPublishASignup() {
   return (
     <>
       <p>
         A signup is a page where people choose something to do or bring. Each thing they can choose
-        is a slot. By the end, you&apos;ll have a published signup and a link to send to people.
+        is a slot. By the end, your signup will be open for people to sign up, and you&apos;ll have
+        a link to send them.
       </p>
       <p>People who sign up don&apos;t need an account. All they need is the link.</p>
 
@@ -196,12 +202,12 @@ export function CreateAndPublishASignup() {
               choose the copy button.
             </p>
             <p>
-              Next to the link, you can see how many spots are taken. On a phone, that&apos;s beside{' '}
-              <Ui>{UI.share}</Ui>.
+              Your signup is marked <Ui>{UI.open}</Ui> at the top of the page. Next to the link, you
+              can see how many spots are taken. On a phone, that&apos;s beside <Ui>{UI.share}</Ui>.
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/published.png"
-              alt="The top of a published signup, marked open, with the public link, its copy button and how many spots are taken."
+              alt="The top of a signup marked open, with the public link, its copy button and how many spots are taken."
               width={605}
               height={110}
             />
@@ -295,9 +301,9 @@ export function CreateAndPublishASignup() {
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/email-setting.png"
-              alt="The Sign-up form settings, with Optional chosen for Ask for an email address, and Saved next to the Save button."
+              alt="The Settings tab, with Optional chosen for Ask for an email address, the signup's language below it, and Saved next to the Save button."
               width={672}
-              height={250}
+              height={411}
             />
           </Step>
         </Steps>
@@ -310,6 +316,55 @@ export function CreateAndPublishASignup() {
         <p>
           You can switch back to <Ui>{UI.emailRequired}</Ui> later. Only people who sign up after
           that are asked for an email address. Anyone who signed up without one keeps their spot.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold tracking-tight">Change your signup&apos;s language</h2>
+        <p>
+          Your signup&apos;s page and the emails people get from it use one language for the words{' '}
+          {INSTANCE_NAME} writes: buttons, messages and dates. Your title, slots and fields stay as
+          you typed them, so write them in the same language.
+        </p>
+        <p>
+          A new signup starts in your own language, which your own screens use too. To see or change
+          it, choose your email address at the top of any page in your account, or{' '}
+          <Ui>{UI.account}</Ui> on a phone. It&apos;s under <Ui>{UI.language}</Ui>.
+        </p>
+        <p>To change one signup&apos;s language:</p>
+        <Steps>
+          <Step>
+            <p>
+              Under your signup&apos;s title, choose the <Ui>{UI.settings}</Ui> tab.
+            </p>
+          </Step>
+          <Step>
+            <p>
+              Under <Ui>{UI.signupLanguage}</Ui>, choose a language.
+              {OTHER_LANGUAGE ? (
+                <>
+                  {' '}
+                  Each one is written in its own words, like {languageName(OTHER_LANGUAGE)} for{' '}
+                  {languageName(OTHER_LANGUAGE, 'en')}.
+                </>
+              ) : null}
+            </p>
+          </Step>
+          <Step>
+            <p>
+              Choose <Ui>{UI.save}</Ui>. You&apos;ll see <Ui>{UI.saved}</Ui>.
+            </p>
+            <Screenshot
+              src="/help/create-and-publish-a-signup/signup-language.png"
+              alt={`The Settings tab, with ${languageName(OTHER_LANGUAGE ?? 'en')} chosen under Signup language, and Saved next to the Save button.`}
+              width={672}
+              height={371}
+            />
+          </Step>
+        </Steps>
+        <p>
+          People who already signed up see the new language too: on the signup page, and in the
+          emails they get from then on.
         </p>
       </section>
     </>

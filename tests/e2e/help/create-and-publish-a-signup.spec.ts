@@ -7,7 +7,9 @@
  */
 import { expect, test } from '@playwright/test';
 import { UI } from '@/help/articles/create-and-publish-a-signup.ui';
+import { languageName, SHIPPED } from '@/i18n/config';
 import { loginAsSeededOrganizer } from '../helpers/auth';
+import { loadSeed } from '../helpers/fixtures';
 import { helpElementShot } from '../helpers/help-shots';
 import { createPublishedSignup } from '../helpers/signups';
 
@@ -210,6 +212,9 @@ test.describe('help: create and publish your first signup', () => {
     await expect(page.getByRole('dialog')).toBeHidden();
 
     await expect(header.getByText(UI.publicLink, { exact: true })).toBeVisible();
+    // Marked open at the top of the page, where it said draft.
+    const pill = header.getByText(UI.open, { exact: true });
+    await expect(pill).toBeVisible();
     // Next to the link, how many spots are taken: none of the two slots' four.
     const count = header.getByText('0 of 4 spots taken', { exact: true });
     await expect(count).toBeVisible();
@@ -226,7 +231,6 @@ test.describe('help: create and publish your first signup', () => {
       // is too wide to read once it is scaled into the article's column.
       const chip = header.getByRole('button', { name: UI.copyPublicLink }).locator('..');
       const title = header.getByRole('heading', { level: 1 });
-      const pill = header.getByText('open', { exact: true });
       const boxes = await Promise.all([title, pill, chip, count].map((l) => l.boundingBox()));
       if (boxes.some((b) => !b)) throw new Error('title, status, link or count not on screen');
       const [t, st, c, n] = boxes as [
@@ -277,8 +281,11 @@ test.describe('help: create and publish your first signup', () => {
 
     await page.goto(`/app/signups/${signup.id}/build`);
     await page.getByRole('tab', { name: UI.settings }).click();
-    const form = page.getByRole('region', { name: UI.signupForm });
-    const ask = form.getByRole('group', { name: UI.askForEmail });
+    const ask = page
+      .getByRole('region', { name: UI.signupForm })
+      .getByRole('group', { name: UI.askForEmail });
+    // The tab's settings are one form, with one Save under them all.
+    const form = page.locator('form').filter({ has: ask });
     // "A signup asks people for their email unless you make it optional."
     await expect(ask.getByRole('radio', { name: UI.emailRequired })).toBeChecked();
     await ask.getByRole('radio', { name: UI.emailOptional }).check();
@@ -323,6 +330,52 @@ test.describe('help: create and publish your first signup', () => {
     await expect(next.getByLabel('Email', { exact: true })).toHaveJSProperty('required', true);
     await expect(next.getByLabel(UI.emailBoxOptional)).toHaveCount(0);
     await next.close();
+  });
+
+  test('a signup’s language can be changed, and its page follows', async ({
+    page,
+    context,
+    browser,
+    isMobile,
+  }) => {
+    test.skip(isMobile, 'the same steps on a phone; the desktop run takes the picture');
+    // The article's example: a language besides English signups can be in.
+    const other = SHIPPED.participant.find((locale) => locale !== 'en');
+    test.skip(!other, 'only English has shipped, so there is no other language to choose');
+    await loginAsSeededOrganizer(context);
+    const signup = await createPublishedSignup(page.request, {
+      title: `Language ${Date.now()}`,
+      slot: { values: { what: 'Fruit and water', date: '2030-04-06' }, capacity: 2 },
+    });
+
+    // "To see or change it, choose your email address at the top of any page.
+    // It's under Language."
+    await page.goto(`/app/signups/${signup.id}/build`);
+    await page.getByRole('link', { name: loadSeed().organizerEmail, exact: true }).click();
+    const mine = page.getByRole('group', { name: UI.language, exact: true });
+    // The seeded organizer stores none, and the site sets none: English.
+    await expect(mine.getByRole('radio', { name: languageName('en') })).toBeChecked();
+
+    // "A new signup starts in your own language": this one is in English.
+    await page.goto(`/app/signups/${signup.id}/settings`);
+    const choice = page.getByRole('group', { name: UI.signupLanguage });
+    const form = page.locator('form').filter({ has: choice });
+    await expect(choice.getByRole('radio', { name: languageName('en') })).toBeChecked();
+    // "Each one is written in its own words."
+    await choice.getByRole('radio', { name: languageName(other!) }).check();
+    await form.getByRole('button', { name: UI.save }).click();
+    await expect(form.getByRole('status')).toHaveText(UI.saved);
+    await expect(choice.getByRole('radio', { name: languageName(other!) })).toBeChecked();
+    await helpElementShot(page, SLUG, form, 'signup-language');
+
+    // The signup page is in it now, and the tab stays in the organizer's.
+    expect(await form.evaluate((element) => element.closest('[lang]')?.getAttribute('lang'))).toBe(
+      'en',
+    );
+    const visitor = await browser.newPage();
+    await visitor.goto(`/s/${signup.slug}`);
+    await expect(visitor.locator('main')).toHaveAttribute('lang', other!);
+    await visitor.close();
   });
 
   test.describe('on a phone', () => {
@@ -426,15 +479,25 @@ test.describe('help: create and publish your first signup', () => {
       await page.keyboard.press('Escape');
       await expect(sheet).toBeHidden();
 
-      // The link is at the top now, and Share, beside the count, is where
-      // Publish and share was, with the focus back on it.
+      // The signup is marked open and the link is at the top now, and Share,
+      // beside the count, is where Publish and share was, with the focus back
+      // on it.
       await expect(
         page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
       ).toBeVisible();
+      await expect(page.getByText(UI.open, { exact: true }).locator('visible=true')).toBeVisible();
       await expect(publish).toHaveCount(0);
       const bar = page.locator('[data-phone-bar]');
       await expect(bar.getByText('0 of 1 spot taken', { exact: true })).toBeVisible();
       await expect(bar.getByRole('button', { name: UI.share, exact: true })).toBeFocused();
+    });
+
+    // "… or Account on a phone. It's under Language."
+    test('your own language is behind Account', async ({ page, context }) => {
+      await loginAsSeededOrganizer(context);
+      await page.goto('/app');
+      await page.getByRole('link', { name: UI.account, exact: true }).click();
+      await expect(page.getByRole('group', { name: UI.language, exact: true })).toBeVisible();
     });
   });
 });

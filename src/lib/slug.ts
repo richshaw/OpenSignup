@@ -37,3 +37,13 @@ export function toSlug(input: string, opts: SlugOptions = {}): string {
   if (!suffix) return base;
   return `${base}-${randomSuffix()}`;
 }
+
+/**
+ * The slug with any punctuation typed straight after a pasted link taken off
+ * its end ("…/s/team-snacks-a7vc8." reads as "team-snacks-a7vc8"). A slug only
+ * holds a-z, 0-9 and "-" (`toSlug`), so nothing else at its end can be part
+ * of one. Only the end: a stray character in the middle is left as it is.
+ */
+export function trimSlugTail(slug: string): string {
+  return slug.replace(/[^a-z0-9-]+$/, '');
+}

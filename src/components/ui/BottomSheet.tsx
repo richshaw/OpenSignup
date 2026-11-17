@@ -14,6 +14,12 @@ type BottomSheetProps = {
    */
   title?: ReactNode;
   /**
+   * The name of the close ✕ beside the title, such as "Close", in the page's
+   * language. A prop rather than a translation hook, because organizer pages
+   * use the sheet too, and they have no messages provider.
+   */
+  closeLabel: string;
+  /**
    * A line above the title that says where its subject sits, such as a slot's
    * date and time. Hidden from assistive tech, so it is for a sighted reader
    * only: put anything a screen reader needs in the title's `sr-only` part.
@@ -73,6 +79,7 @@ export function BottomSheet({
   open,
   onClose,
   title,
+  closeLabel,
   eyebrow,
   description,
   descriptionId,
@@ -137,7 +144,7 @@ export function BottomSheet({
                 ) : null}
               </div>
               <Dialog.Close
-                aria-label="Close"
+                aria-label={closeLabel}
                 disabled={busy}
                 className="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-soft hover:bg-surface-raised disabled:opacity-50 disabled:hover:bg-transparent"
               >

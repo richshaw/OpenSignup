@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 
 const run = promisify(execFile);
 
@@ -52,10 +53,41 @@ describe('email templates under the worker toolchain', () => {
       ['exec', 'tsx', ...flags, 'scripts/render-email-templates.ts'],
       { cwd: repoRoot },
     );
-    expect(stdout).toContain('ok magic-link');
-    expect(stdout).toContain('ok commitment-confirmation');
-    expect(stdout).toContain('ok reminder');
-    expect(stdout).toContain('ok slot-changed');
+    // Each participant email and the sign-in email in English and in every
+    // test language, from the catalogs the worker loads: a catalog missing
+    // from its path fails the run. A message missing from a test language's
+    // catalog comes out in English, in the email and in what it must say
+    // alike, as it would be sent; the catalog check (src/i18n/catalogs.test.ts)
+    // requires every message once the language ships.
+    const participantEmails = [
+      'commitment-confirmation',
+      'reminder',
+      'reminder-changed',
+      'slot-changed',
+    ];
+    expect(stdout.trim().split('\n')).toEqual([
+      'ok magic-link',
+      ...participantEmails.map((name) => `ok ${name}`),
+      ...TEST_LOCALES.flatMap((locale) => [
+        ...participantEmails.map((name) => `ok ${name}-${locale}`),
+        `ok magic-link-${locale}`,
+      ]),
+    ]);
+  }, 60_000);
+
+  it('translates under the flags the worker script uses', async () => {
+    // Emails take their text from the catalogs, so the translator and
+    // src/i18n/server.ts have to load in the worker, which has no Next.
+    const flags = workerScript().split(/\s+/).slice(1, -1);
+    const { stdout } = await run('pnpm', ['exec', 'tsx', ...flags, 'scripts/render-messages.ts'], {
+      cwd: repoRoot,
+    });
+    expect(stdout).toContain('ok translator Help | Example · AGPL-3.0');
+    // The subjects the worker sends, in English as they always were and in
+    // Swedish, each checked against its exact text in the script.
+    expect(stdout).toContain(
+      "ok subjects Reminder: Pat's {bake} sale · Sat, May 2 · 1:00\u00a0PM | Time changed: Bake sale",
+    );
   }, 60_000);
 
   it('previews emails under the flags the worker script uses', () => {

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -7,14 +7,19 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
+import { getTranslator } from '@/i18n/translator';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
-import { DEFAULT_TEMPLATE, type SignupTemplate } from '@/lib/signup-templates';
+import type { SignupTemplate } from '@/lib/signup-templates';
 import { listFieldsForSignup } from '@/services/slot-fields';
 import { addSlot, deleteSlot } from '@/services/slots';
 import { settle, untilServiceBlockedOn, whileSigningUp } from '@/services/testing/locks';
 import { commitToSlot, committedBySlot } from '@/services/commitments';
 import { getSignupRowForOrganizer } from '@/services/locks';
+import { requiresEmail } from '@/schemas/signups';
 import {
   archiveSignup,
   closeSignup,
@@ -23,6 +28,7 @@ import {
   findDraftForOrganizer,
   getPublicSignup,
   getSignupForOrganizer,
+  getSignupRowBySlug,
   listSignupSummariesForWorkspace,
   listSignupsForWorkspace,
   publishSignup,
@@ -30,6 +36,14 @@ import {
   reopenSignup,
   updateSignup,
 } from '@/services/signups';
+
+// The instance's DEFAULT_LOCALE as a test sets it (getEnv() parses the
+// environment once): unset unless a test sets it.
+const instance = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
+vi.mock('@/i18n/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/i18n/server')>()),
+  instanceDefaultLocale: () => instance.defaultLocale,
+}));
 
 interface Fixture {
   db: Db;
@@ -151,7 +165,7 @@ describe('signups service (db)', () => {
       }
     });
 
-    it('applies DEFAULT_TEMPLATE when no opts.template is supplied', async () => {
+    it('applies the default template when no opts.template is supplied', async () => {
       const r = await createSignup(
         fx.db,
         fx.actor,
@@ -164,8 +178,10 @@ describe('signups service (db)', () => {
       const fields = await listFieldsForSignup(fx.db, r.value.id);
       expect(fields).toHaveLength(2);
       const byRef = Object.fromEntries(fields.map((f) => [f.ref, f]));
+      expect(byRef.what?.label).toBe('What');
       expect(byRef.what?.fieldType).toBe('text');
       expect(byRef.what?.sortOrder).toBe(0);
+      expect(byRef.date?.label).toBe('Date');
       expect(byRef.date?.fieldType).toBe('date');
       expect(byRef.date?.sortOrder).toBe(1);
 
@@ -179,7 +195,7 @@ describe('signups service (db)', () => {
       const created = acts.find((a) => a.eventType === 'signup.created');
       expect(created).toBeDefined();
       const payload = created!.payload as Record<string, unknown>;
-      expect(payload.templateId).toBe(DEFAULT_TEMPLATE.id);
+      expect(payload.templateId).toBe('default');
       expect(payload.fieldsAdded).toBe(2);
       expect(payload.slotsAdded).toBe(1);
       expect('title' in payload).toBe(false);
@@ -426,6 +442,146 @@ describe('signups service (db)', () => {
         .where(eq(signups.workspaceId, fx.workspaceId));
       expect(after.length).toBe(beforeCount);
     });
+
+    it('stores a language that has shipped to participants', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('In English'),
+        settings: { locale: 'en' },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.settings).toMatchObject({ locale: 'en' });
+    });
+
+    it('stores no language when none is sent', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('No locale'));
+      if (!r.ok) throw new Error('setup failed');
+      expect(r.value.settings).not.toHaveProperty('locale');
+    });
+
+    async function createdPayload(signupId: string) {
+      const [row] = await fx.db
+        .select({ payload: activity.payload })
+        .from(activity)
+        .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'signup.created')));
+      return row?.payload as Record<string, unknown>;
+    }
+
+    it('records the language and the step that chose it on signup.created', async () => {
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        { ...validCreateInput('Chosen locale'), settings: { locale: 'en' } },
+        { localeSource: 'instance' },
+      );
+      if (!r.ok) throw new Error('setup failed');
+      expect(await createdPayload(r.value.id)).toMatchObject({
+        locale: 'en',
+        localeSource: 'instance',
+      });
+    });
+
+    it('records a language with no step as the caller’s (api)', async () => {
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Sent locale'),
+        settings: { locale: 'en' },
+      });
+      if (!r.ok) throw new Error('setup failed');
+      expect(await createdPayload(r.value.id)).toMatchObject({ locale: 'en', localeSource: 'api' });
+    });
+
+    it('records neither key on signup.created when it stores no language', async () => {
+      const r = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Unstored locale'),
+        { localeSource: 'default' },
+      );
+      if (!r.ok) throw new Error('setup failed');
+      const payload = await createdPayload(r.value.id);
+      expect(payload).not.toHaveProperty('locale');
+      expect(payload).not.toHaveProperty('localeSource');
+    });
+
+    it.each([OTHER_LOCALE, 'xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
+      'refuses a sent language that has not shipped to participants: %j',
+      async (locale) => {
+        shipOnlyEnglish();
+        const title = `Locale ${locale || 'empty'}`;
+        const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+          ...validCreateInput(title),
+          settings: { locale },
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error).toMatchObject({
+          code: 'invalid_input',
+          field: 'settings.locale',
+          received: locale,
+        });
+        expect(r.error.suggestion).toContain('en');
+        const made = await fx.db
+          .select({ id: signups.id })
+          .from(signups)
+          .where(and(eq(signups.workspaceId, fx.workspaceId), eq(signups.title, title)));
+        expect(made).toEqual([]);
+      },
+    );
+
+    describe('names the default template’s columns in the signup’s language', () => {
+      afterEach(() => {
+        instance.defaultLocale = undefined;
+      });
+
+      // A new signup's two columns, as `OTHER_LOCALE`'s catalog names them.
+      const defaults = getTranslator(OTHER_LOCALE, 'participant.defaults', {
+        onError: (error) => {
+          throw error;
+        },
+      });
+      const named: [string, string][] = [
+        ['what', defaults('what')],
+        ['date', defaults('date')],
+      ];
+
+      async function columns(input: unknown): Promise<[string, string][]> {
+        const r = await createSignup(fx.db, fx.actor, fx.workspaceId, input);
+        if (!r.ok) throw new Error(`setup failed: ${JSON.stringify(r.error)}`);
+        const fields = await listFieldsForSignup(fx.db, r.value.id);
+        return fields.map((f) => [f.ref, f.label]);
+      }
+
+      it('in a shipped language sent with it, keeping the refs', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        const sent = {
+          ...validCreateInput('Another language'),
+          settings: { locale: OTHER_LOCALE },
+        };
+        expect(await columns(sent)).toEqual(named);
+      });
+
+      it('in the instance’s language when it stores none', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        instance.defaultLocale = OTHER_LOCALE;
+        expect(await columns(validCreateInput('The instance’s language'))).toEqual(named);
+        const english = { ...validCreateInput('English here'), settings: { locale: 'en' } };
+        expect(await columns(english)).toEqual([
+          ['what', 'What'],
+          ['date', 'Date'],
+        ]);
+      });
+
+      it('in English while the instance’s language hasn’t shipped', async () => {
+        shipOnlyEnglish();
+        instance.defaultLocale = OTHER_LOCALE;
+        expect(await columns(validCreateInput('Not yet'))).toEqual([
+          ['what', 'What'],
+          ['date', 'Date'],
+        ]);
+      });
+    });
   });
 
   describe('getSignupForOrganizer', () => {
@@ -593,6 +749,14 @@ describe('signups service (db)', () => {
           throw new Error('publish failed');
         if (!(await deleteSignup(listFx.db, listFx.actor, gone.value.id)).ok)
           throw new Error('delete failed');
+        // A language stored on one, as the Settings tab stores it, and none on
+        // the other. Written straight into the row, so it's the same whichever
+        // languages have shipped.
+        const another = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+        await listFx.db
+          .update(signups)
+          .set({ settings: { ...b.value.settings, locale: another } })
+          .where(eq(signups.id, b.value.id));
 
         for (const filter of [{}, { status: 'draft' as const }, { status: 'open' as const }]) {
           const full = await listSignupsForWorkspace(
@@ -617,6 +781,7 @@ describe('signups service (db)', () => {
               closesAt: r.closesAt,
               createdAt: r.createdAt,
               updatedAt: r.updatedAt,
+              locale: r.settings.locale ?? null,
             })),
           );
         }
@@ -633,12 +798,17 @@ describe('signups service (db)', () => {
             'closesAt',
             'createdAt',
             'id',
+            'locale',
             'slug',
             'status',
             'title',
             'updatedAt',
           ]);
         }
+        // The stored language, for Your signups to mark each title with.
+        const localeOf = (id: string) => all.value.find((r) => r.id === id)?.locale;
+        expect(localeOf(b.value.id)).toBe(another);
+        expect(localeOf(a.value.id)).toBe(a.value.settings.locale ?? null);
       } finally {
         await teardownWorkspace(listFx.db, listFx.workspaceId, listFx.organizerId);
       }
@@ -820,7 +990,7 @@ describe('signups service (db)', () => {
     });
 
     it('anchors a new signup on its template date field', async () => {
-      // DEFAULT_TEMPLATE has one date field, `date`. Nothing else in settings
+      // The default template has one date field, `date`. Nothing else in settings
       // is touched.
       const created = await createSignup(
         fx.db,
@@ -1056,6 +1226,151 @@ describe('signups service (db)', () => {
       expect(r.ok, JSON.stringify(r)).toBe(true);
       if (!r.ok) return;
       expect(r.value.settings).toMatchObject({ sendReminders: false, groupByFieldRefs: ['gone'] });
+    });
+
+    it('sets a language that has shipped to participants, and clears it with null', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Set locale'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+
+      const set = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { locale: 'en' },
+      });
+      expect(set.ok, JSON.stringify(set)).toBe(true);
+      if (!set.ok) return;
+      expect(set.value.settings).toMatchObject({ locale: 'en' });
+
+      const cleared = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { locale: null },
+      });
+      expect(cleared.ok, JSON.stringify(cleared)).toBe(true);
+      if (!cleared.ok) return;
+      expect(cleared.value.settings).not.toHaveProperty('locale');
+    });
+
+    it('refuses a sent language that has not shipped to participants', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Bad locale'),
+        settings: { locale: 'en' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false, locale: 'xx' },
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.error).toMatchObject({
+        code: 'invalid_input',
+        field: 'settings.locale',
+        received: 'xx',
+      });
+      const [row] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(row?.settings).toEqual(created.value.settings);
+    });
+
+    // The e2e run's server shows each seeded signup in its language, from a
+    // row the seed writes directly. Its flag must not let anyone store one.
+    it('refuses a language that has not shipped on the e2e run’s server too', async () => {
+      shipOnlyEnglish();
+      vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
+      try {
+        const sent = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+          ...validCreateInput('E2E locale'),
+          settings: { locale: OTHER_LOCALE },
+        });
+        expect(sent.ok).toBe(false);
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('E2E locale later'),
+        );
+        if (!created.ok) throw new Error('setup failed');
+        const r = await updateSignup(fx.db, fx.actor, created.value.id, {
+          settings: { locale: OTHER_LOCALE },
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error).toMatchObject({ code: 'invalid_input', field: 'settings.locale' });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('saves an unrelated change on a row whose stored language has left the list', async () => {
+      // updateSignup merges the stored settings under the patch before it
+      // parses, so only a language the caller sent may be checked: otherwise
+      // every save would fail on a signup whose language stopped shipping.
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Stale locale'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      await fx.db
+        .update(signups)
+        .set({ settings: { ...created.value.settings, locale: 'xx' } })
+        .where(eq(signups.id, created.value.id));
+
+      const settingsSave = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
+      });
+      expect(settingsSave.ok, JSON.stringify(settingsSave)).toBe(true);
+      if (!settingsSave.ok) return;
+      expect(settingsSave.value.settings).toMatchObject({ sendReminders: false, locale: 'xx' });
+
+      const titleSave = await updateSignup(fx.db, fx.actor, created.value.id, {
+        title: 'Stale locale, renamed',
+      });
+      expect(titleSave.ok, JSON.stringify(titleSave)).toBe(true);
+      if (!titleSave.ok) return;
+      expect(titleSave.value.settings).toMatchObject({ locale: 'xx' });
+    });
+
+    it('keeps a stored language too long to be one from breaking the row', async () => {
+      // Only a write straight to the database can store one, since the
+      // services refuse it when sent. It reads as no language, so the rest of
+      // the settings still count and an unrelated save goes through.
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        ...validCreateInput('Long locale'),
+        settings: { requireEmail: false },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const tooLong = 'x'.repeat(36);
+      await fx.db
+        .update(signups)
+        .set({ settings: { ...created.value.settings, locale: tooLong } })
+        .where(eq(signups.id, created.value.id));
+      const [stored] = await fx.db.select().from(signups).where(eq(signups.id, created.value.id));
+      expect(requiresEmail(stored?.settings)).toBe(false);
+
+      const settingsSave = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { sendReminders: false },
+      });
+      expect(settingsSave.ok, JSON.stringify(settingsSave)).toBe(true);
+      if (!settingsSave.ok) return;
+      expect(settingsSave.value.settings).toMatchObject({
+        requireEmail: false,
+        sendReminders: false,
+      });
+      expect(settingsSave.value.settings).not.toHaveProperty('locale');
+
+      const sent = await updateSignup(fx.db, fx.actor, created.value.id, {
+        settings: { locale: tooLong },
+      });
+      expect(sent.ok).toBe(false);
+      if (sent.ok) return;
+      expect(sent.error).toMatchObject({
+        code: 'invalid_input',
+        field: 'settings.locale',
+        received: tooLong,
+      });
     });
   });
 
@@ -1868,6 +2183,134 @@ describe('signups service (db)', () => {
       if (r.ok) return;
       expect(r.error.code).toBe('not_found');
       expect(r.error.received).toBeUndefined();
+    });
+
+    it('answers from a row already read, without reading the signup again', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Read once'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      const slotR = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 2 });
+      if (!slotR.ok) throw new Error('slot setup failed');
+      if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) {
+        throw new Error('setup failed');
+      }
+      const row = await getSignupRowBySlug(fx.db, created.value.slug);
+      if (!row) throw new Error('row read failed');
+      // Renamed after the read: a second read of the signup would see this.
+      await fx.db
+        .update(signups)
+        .set({ title: 'Renamed since' })
+        .where(eq(signups.id, created.value.id));
+
+      const r = await getPublicSignup(fx.db, row);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.title).toBe('Read once');
+      expect(r.value.slots.map((s) => s.id)).toContain(slotR.value.id);
+      expect(r.value.committedBySlot).toEqual({});
+    });
+
+    it('gives a row the same answers as its slug: draft, archived and none', async () => {
+      const draft = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Row draft'),
+      );
+      if (!draft.ok) throw new Error('setup failed');
+      const archived = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Row archived'),
+      );
+      if (!archived.ok) throw new Error('setup failed');
+      if (!(await archiveSignup(fx.db, fx.actor, archived.value.id)).ok) {
+        throw new Error('setup failed');
+      }
+
+      for (const slug of [draft.value.slug, archived.value.slug, 'no-such-signup-xyz']) {
+        const fromRow = await getPublicSignup(fx.db, await getSignupRowBySlug(fx.db, slug));
+        expect(fromRow).toEqual(await getPublicSignup(fx.db, slug));
+        expect(fromRow.ok).toBe(false);
+      }
+    });
+
+    // getSignupRowBySlug skips deleted rows, so only a row read some other way
+    // gets here; this check is then all that keeps it off the public page.
+    it('refuses a row that was deleted, as plainly as a slug nobody has', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Row deleted'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) {
+        throw new Error('setup failed');
+      }
+      const row = await getSignupRowBySlug(fx.db, created.value.slug);
+      if (!row) throw new Error('row read failed');
+      expect((await getPublicSignup(fx.db, row)).ok).toBe(true);
+
+      expect(await getPublicSignup(fx.db, { ...row, deletedAt: new Date() })).toEqual({
+        ok: false,
+        error: { code: 'not_found', message: 'signup not found' },
+      });
+    });
+  });
+
+  describe('getSignupRowBySlug', () => {
+    it('returns a draft, an open and an archived signup, for the page to tell apart', async () => {
+      const statuses: string[] = [];
+      for (const [title, publish, archive] of [
+        ['Slug draft', false, false],
+        ['Slug open', true, false],
+        ['Slug archived', true, true],
+      ] as const) {
+        const created = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput(title),
+        );
+        if (!created.ok) throw new Error('setup failed');
+        if (publish) {
+          await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 1 });
+          if (!(await publishSignup(fx.db, fx.actor, created.value.id)).ok) {
+            throw new Error('publish failed');
+          }
+        }
+        if (archive && !(await archiveSignup(fx.db, fx.actor, created.value.id)).ok) {
+          throw new Error('archive failed');
+        }
+        const row = await getSignupRowBySlug(fx.db, created.value.slug);
+        expect(row?.id).toBe(created.value.id);
+        statuses.push(row?.status ?? 'missing');
+      }
+      expect(statuses).toEqual(['draft', 'open', 'archived']);
+    });
+
+    it('skips a deleted signup', async () => {
+      const created = await createSignup(
+        fx.db,
+        fx.actor,
+        fx.workspaceId,
+        validCreateInput('Slug deleted'),
+      );
+      if (!created.ok) throw new Error('setup failed');
+      if (!(await deleteSignup(fx.db, fx.actor, created.value.id)).ok) {
+        throw new Error('delete failed');
+      }
+      expect(await getSignupRowBySlug(fx.db, created.value.slug)).toBeNull();
+    });
+
+    it('returns null for a slug no signup has', async () => {
+      expect(await getSignupRowBySlug(fx.db, 'definitely-not-a-real-slug-xyz')).toBeNull();
     });
   });
 

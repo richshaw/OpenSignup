@@ -1,8 +1,10 @@
 import { decodeJwt, decodeProtectedHeader } from 'jose';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import type { Translator } from '@/i18n/translator';
 import { OAUTH_COOKIES, OAUTH_ROUTES, consentPath } from './config';
 import { generatePrivateJwk } from './keys';
-import { buildProvider, type ProviderDeps } from './provider';
+import { buildProvider, renderErrorPage, type ProviderDeps } from './provider';
 import {
   codeFromRedirect,
   createDriver,
@@ -15,6 +17,22 @@ import {
   startAuthorization,
   type Driver,
 } from './testing/flow-driver';
+
+// English from the catalog; any other language answers with the key it was
+// asked for and the language (`getTestServerTranslator`). `translator`, when
+// a test sets it, answers instead, for the test of what the page escapes.
+const text = vi.hoisted(() => ({ translator: null as unknown }));
+vi.mock('@/i18n/server', async () => {
+  const { getTestServerTranslator } = await import('@/i18n/testing/translator');
+  return {
+    instanceDefaultLocale: () => undefined,
+    getServerTranslator: (locale: string, namespace: 'auth.oauthErrors') =>
+      text.translator ?? getTestServerTranslator(locale, namespace),
+  };
+});
+
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 const ISSUER = 'https://signup.example.org';
 const RESOURCE = `${ISSUER}/api/mcp`;
@@ -53,12 +71,13 @@ const cimdDocuments: Record<string, object> = {
 };
 
 let d: Driver;
+let deps: ProviderDeps;
 const grantsUsed: string[] = [];
 const grantIndex = new Map<string, string>();
 
 beforeAll(async () => {
   const jwk = await generatePrivateJwk();
-  const deps: ProviderDeps = {
+  deps = {
     issuer: ISSUER,
     resource: RESOURCE,
     jwks: { keys: [jwk] },
@@ -78,6 +97,7 @@ beforeAll(async () => {
     onGrantUsed: async (id) => {
       grantsUsed.push(id);
     },
+    errorPageLocale: 'en',
     fetch: async (url) => {
       const doc = cimdDocuments[String(url)];
       return doc
@@ -461,5 +481,105 @@ describe('a CIMD client that lists none among its token endpoint auth methods', 
     const body = await response.text();
     expect(body).toContain('invalid_client_metadata');
     expect(body).toContain('token_endpoint_auth_method must be');
+  });
+});
+
+describe('the error page a browser is shown', () => {
+  /** An authorization request from a client the provider doesn't know. */
+  const unknownClient = `${OAUTH_ROUTES.authorization}?${new URLSearchParams({
+    client_id: 'nope',
+    redirect_uri: REDIRECT,
+    response_type: 'code',
+    scope: 'x',
+  })}`;
+
+  it('reads in English byte for byte as it did before the catalog', () => {
+    const page = renderErrorPage(
+      { error: 'invalid_client', error_description: 'client is <invalid> & "unknown"' },
+      'en',
+    );
+    expect(page).toBe(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Connection failed</title>
+<style>
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f7f8fa; color: #0b1220; }
+  main { max-width: 32rem; margin: 15vh auto; padding: 0 1.5rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 .75rem; }
+  p { line-height: 1.5; color: #5b6474; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; background: #eef1f5; padding: .1em .35em; border-radius: .25rem; }
+  a { color: #1f6feb; }
+</style>
+</head>
+<body>
+<main>
+  <h1>This connection could not be completed</h1>
+  <p>The application that sent you here made a request we could not accept.</p>
+  <p><code>invalid_client</code> — client is &lt;invalid&gt; &amp; &quot;unknown&quot;</p>
+  <p>Nothing was connected to your account. Close this window and try again from the application, or <a href="/">go to the home page</a>.</p>
+</main>
+</body>
+</html>`);
+  });
+
+  it('says the request could not be completed when the error has no description', () => {
+    expect(renderErrorPage({}, 'en')).toContain(
+      '<p><code>error</code> — The request could not be completed.</p>',
+    );
+  });
+
+  it('escapes its own words and keeps the home page link', () => {
+    const fake = Object.assign((key: string) => `${key} & <b>`, {
+      markup: (_key: string, values: { home: (chunks: string) => string }) =>
+        `Q & A, ${values.home('home <now>')}.`,
+    });
+    text.translator = fake as unknown as Translator<'auth.oauthErrors'>;
+    try {
+      const page = renderErrorPage({ error: 'e' }, 'en');
+      expect(page).toContain('<title>tabTitle &amp; &lt;b&gt;</title>');
+      expect(page).toContain('<h1>heading &amp; &lt;b&gt;</h1>');
+      expect(page).toContain('<code>e</code> — noDescription &amp; &lt;b&gt;');
+      expect(page).toContain('<p>Q &amp; A, <a href="/">home &lt;now&gt;</a>.</p>');
+    } finally {
+      text.translator = null;
+    }
+  });
+
+  it('is the one the provider renders, in the language it was built with', async () => {
+    const r = await d.get(unknownClient, { accept: 'text/html' });
+    const html = await r.text();
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('<h1>This connection could not be completed</h1>');
+  });
+
+  describe.each(OTHER_LANGUAGES)('in %s', (other) => {
+    const ask = (key: string) => `auth.oauthErrors.${key} in ${other}`;
+
+    it('has every word of its own from that language, and the code and description as given', () => {
+      const page = renderErrorPage(
+        { error: 'invalid_client', error_description: 'client is invalid' },
+        other,
+      );
+      expect(page).toContain(`<html lang="${other}">`);
+      expect(page).toContain(`<title>${ask('tabTitle')}</title>`);
+      expect(page).toContain(`<h1>${ask('heading')}</h1>`);
+      expect(page).toContain(`<p>${ask('intro')}</p>`);
+      expect(page).toContain('<p><code>invalid_client</code> — client is invalid</p>');
+      expect(page).toContain(`<p>${ask('nothingConnected')}</p>`);
+      expect(renderErrorPage({}, other)).toContain(ask('noDescription'));
+    });
+
+    it('is what a provider built with it renders', async () => {
+      const built = createDriver(buildProvider({ ...deps, errorPageLocale: other }), ISSUER);
+      const r = await built.get(unknownClient, { accept: 'text/html' });
+      expect(r.status).toBe(400);
+      const html = await r.text();
+      expect(html).toContain(`<html lang="${other}">`);
+      expect(html).toContain(ask('heading'));
+      expect(html).toContain('invalid_client');
+    });
   });
 });

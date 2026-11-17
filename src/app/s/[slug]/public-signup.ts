@@ -1,9 +1,15 @@
+import type { CatalogLocale } from '@/i18n/config';
 import { slotTimeOfDay } from '@/lib/reminder-fields';
-import { slotInLockout } from '@/lib/signup-closing';
-import { requiresEmail, sendsReminders, type StoredSignupSettings } from '@/schemas/signups';
+import { shownSignupStatus, slotInLockout } from '@/lib/signup-closing';
+import {
+  requiresEmail,
+  sendsReminders,
+  type SignupStatus,
+  type StoredSignupSettings,
+} from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import type { SlotStatus } from '@/schemas/slots';
-import type { SignupViewSlot } from './signup-view-types';
+import type { SignupViewSignup, SignupViewSlot } from './signup-view-types';
 
 interface SourceSlot {
   id: string;
@@ -18,6 +24,32 @@ interface SourceSignup {
   settings: StoredSignupSettings;
   fields: SlotFieldDefinition[];
   slots: readonly SourceSlot[];
+}
+
+/**
+ * The signup itself as a participant sees it, on the page and in the public
+ * API. Past its closing time an open signup takes no sign-ups
+ * (`signupShutReason`), so it shows as closed: the Closed banner, and Closed
+ * on every slot. The description is trimmed, so one saved as only spaces
+ * before the schema trimmed it shows as none.
+ */
+export function toSignupViewSignup(
+  signup: {
+    title: string;
+    description: string;
+    status: string;
+    closesAt: Date | null;
+    settings: unknown;
+  },
+  now: number = Date.now(),
+): Required<SignupViewSignup> {
+  return {
+    title: signup.title,
+    description: signup.description.trim(),
+    status: shownSignupStatus(signup, now) as SignupStatus,
+    requireEmail: requiresEmail(signup.settings),
+    sendReminders: sendsReminders(signup.settings),
+  };
 }
 
 /**
@@ -56,7 +88,14 @@ export function toSignupViewSlots(
  * participant needs, the same things the public page shows. Anything else on
  * the row (workspace and organizer ids, organizer-only settings, timestamps)
  * stays on the server, and so does any column added later until someone puts
- * it here.
+ * it here. The signup's own title, description, status and the two settings
+ * the form reads come from `toSignupViewSignup`, as the page's do, so past its
+ * closing time the API says `closed` too.
+ *
+ * Settings are sent as they apply, defaults filled in, so `settings.locale` is
+ * `locale`: the language the page is in, which the caller works out with
+ * `localeOfSignup` as the page does, never the stored value. A stored language
+ * that has left the list would otherwise name one that no participant gets.
  */
 export function toPublicSignup(
   signup: SourceSignup & {
@@ -68,18 +107,25 @@ export function toPublicSignup(
     closesAt: Date | null;
     committedBySlot: Record<string, number>;
   },
+  locale: CatalogLocale,
+  now: number = Date.now(),
 ) {
+  const { title, description, status, requireEmail, sendReminders } = toSignupViewSignup(
+    signup,
+    now,
+  );
   return {
     slug: signup.slug,
-    title: signup.title,
-    description: signup.description,
-    status: signup.status,
+    title,
+    description,
+    status,
     opensAt: signup.opensAt,
     closesAt: signup.closesAt,
     settings: {
-      requireEmail: requiresEmail(signup.settings),
-      sendReminders: sendsReminders(signup.settings),
+      requireEmail,
+      sendReminders,
       groupByFieldRefs: signup.settings.groupByFieldRefs ?? [],
+      locale,
     },
     fields: signup.fields.map(({ ref, label, fieldType, config }) => ({
       ref,
@@ -87,7 +133,7 @@ export function toPublicSignup(
       fieldType,
       config,
     })),
-    slots: toSignupViewSlots(signup, signup.committedBySlot),
+    slots: toSignupViewSlots(signup, signup.committedBySlot, now),
     committedBySlot: signup.committedBySlot,
   };
 }

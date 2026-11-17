@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 
 /**
  * The padding of the panel's first band, which quotes the description on every
@@ -26,21 +27,23 @@ export function YouWrote({
   variant: 'band' | 'plain';
   aside?: ReactNode;
 }) {
-  const quoted = `“${prompt.trim()}”`;
+  const t = useTranslations('organizer.compose.youWrote');
   const text = (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="text-[13px] font-medium text-ink-muted">You wrote</span>
+        <span className="text-[13px] font-medium text-ink-muted">{t('heading')}</span>
         {aside}
       </div>
-      <p className="line-clamp-3 text-lg font-semibold leading-snug tracking-tight">{quoted}</p>
+      <p className="line-clamp-3 text-lg font-semibold leading-snug tracking-tight">
+        {t('quoted', { text: prompt.trim() })}
+      </p>
     </div>
   );
 
   if (variant === 'plain') return text;
 
   return (
-    <section aria-label="Your description" className={`${YOU_WROTE_BAND} ${BAND_DIVIDER}`}>
+    <section aria-label={t('label')} className={`${YOU_WROTE_BAND} ${BAND_DIVIDER}`}>
       {text}
     </section>
   );

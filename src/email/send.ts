@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { getServerTranslator } from '@/i18n/server';
 import { getEmailTransport } from './index';
 import { confirmationSubject, reminderSubject, slotChangedSubject } from './subjects';
 import {
@@ -24,7 +25,11 @@ export async function sendCommitmentConfirmation(
   const { html, text } = await renderEmail(createElement(CommitmentConfirmationEmail, props));
   return getEmailTransport().send({
     to,
-    subject: confirmationSubject(props.signupTitle, props.slotSummary),
+    subject: confirmationSubject(
+      getServerTranslator(props.locale, 'email.subject'),
+      props.signupTitle,
+      props.slotSummary,
+    ),
     html,
     text,
   });
@@ -44,7 +49,12 @@ export async function sendReminder(
   const { html, text } = await renderEmail(createElement(ReminderEmail, props));
   return getEmailTransport().send({
     to,
-    subject: reminderSubject(props.signupTitle, props.slotSummary, props.changed),
+    subject: reminderSubject(
+      getServerTranslator(props.locale, 'email.subject'),
+      props.signupTitle,
+      props.slotSummary,
+      props.changed,
+    ),
     html,
     text,
     headers: unsubscribeHeaders(opts.unsubscribePostUrl),
@@ -60,7 +70,11 @@ export async function sendSlotChanged(
   const { html, text } = await renderEmail(createElement(SlotChangedEmail, props));
   return getEmailTransport().send({
     to,
-    subject: slotChangedSubject(props.signupTitle, props.slotSummary),
+    subject: slotChangedSubject(
+      getServerTranslator(props.locale, 'email.subject'),
+      props.signupTitle,
+      props.slotSummary,
+    ),
     html,
     text,
     headers: unsubscribeHeaders(opts.unsubscribePostUrl),

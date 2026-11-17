@@ -3,8 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ShareButton } from '@/components/signup/ShareButton';
 import { ShareScope } from '@/components/signup/ShareScope';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { loadSharePanel } from './load-share-panel';
 import { ShareUnavailable } from './ShareUnavailable';
+import { shareText } from './share-text';
 
 // The panel's chunk can't be fetched: a weak signal, or a tab left open
 // across an update.
@@ -13,6 +16,9 @@ vi.mock('@/lib/signup-link-events', () => ({ emitSignupLinkEvent: emit }));
 vi.mock('./SharePanel', () => {
   throw new Error('Loading chunk failed');
 });
+
+/** The share panel's words in English, as `SignupHeader` passes them. */
+const SHARE_TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers');
 
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
 const writeText = vi.fn<(text: string) => Promise<void>>();
@@ -41,6 +47,7 @@ describe('when the share panel can’t load', () => {
   it('the panel still opens, with the link, its copy button and what to do', async () => {
     render(
       <ShareScope
+        text={SHARE_TEXT}
         publishAction={async () => null}
         signupId="sig_1"
         title="Bake sale"
@@ -72,6 +79,7 @@ describe('when the share panel can’t load', () => {
     await fresh.loadSharePanel();
     render(
       <Scope
+        text={SHARE_TEXT}
         publishAction={async () => null}
         signupId="sig_1"
         title="Bake sale"
@@ -90,3 +98,18 @@ describe('when the share panel can’t load', () => {
     expect(await within(panel).findByText(failed)).toBeInTheDocument();
   });
 });
+
+describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  'when the share panel can’t load, in %s',
+  (locale) => {
+    it('says so, and names the link’s chip, from the catalog in that language', async () => {
+      const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale');
+      const words = (key: string) => `organizer.share.${key} in ${locale}`;
+      render(<ShareUnavailable text={text.panel} signupId="sig_1" url={LINK} />);
+      expect(screen.getByText(words('unavailable'))).toBeInTheDocument();
+      expect(screen.getByText(words('chip.label'))).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: words('chip.copy') }));
+      expect(await screen.findByText(words('chip.copied'))).toBeInTheDocument();
+    });
+  },
+);

@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { OTHER_LOCALE, withRegion } from '@/i18n/testing/locales';
 import { magicComposeEnabled, parseEnv, resetEnvCache } from './env';
 
 /**
@@ -284,6 +286,26 @@ describe('parseEnv', () => {
 
   it('rejects GOOGLE_CLIENT_SECRET without GOOGLE_CLIENT_ID', () => {
     expect(() => parseEnv({ ...base, GOOGLE_CLIENT_SECRET: 'secret' })).toThrow(/GOOGLE_CLIENT_ID/);
+  });
+
+  describe('DEFAULT_LOCALE', () => {
+    it('is unset when absent or blank, so each organizer keeps their own language', () => {
+      expect(parseEnv(base).DEFAULT_LOCALE).toBeUndefined();
+      expect(parseEnv({ ...base, DEFAULT_LOCALE: '' }).DEFAULT_LOCALE).toBeUndefined();
+      expect(parseEnv({ ...base, DEFAULT_LOCALE: '  ' }).DEFAULT_LOCALE).toBeUndefined();
+    });
+
+    // Each language with a catalog, shipped or not: `resolveLocale` keeps every
+    // audience in English until it ships.
+    it.each(CATALOG_LOCALES)('takes a language OpenSignup has a catalog for: %j', (value) => {
+      expect(parseEnv({ ...base, DEFAULT_LOCALE: value }).DEFAULT_LOCALE).toBe(value);
+    });
+
+    // A typo fails at startup like any other bad setting, rather than leaving
+    // the instance in a language nobody chose.
+    it.each(['english', 'EN', 'en-GB', withRegion(OTHER_LOCALE), 'xx'])('refuses %j', (value) => {
+      expect(() => parseEnv({ ...base, DEFAULT_LOCALE: value })).toThrow(/- DEFAULT_LOCALE: /);
+    });
   });
 
   it('accepts GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET together', () => {

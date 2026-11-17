@@ -2,19 +2,50 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { CATALOG_LOCALES } from '@/i18n/config';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { getTranslator, messagesFor, type Namespace } from '@/i18n/translator';
+import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
+import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import { ACTION_SIZING } from './slot-format';
-import { toSignupViewSlots } from './public-signup';
-import {
-  SignupViewBody,
-  toSignupViewSignup,
-  type SignupViewField,
-  type SignupViewSlot,
-} from './signup-view';
+import { toSignupViewSignup, toSignupViewSlots } from './public-signup';
+import { SignupViewBody, type SignupViewField, type SignupViewSlot } from './signup-view';
 
 // Only the 'live' tests mount the real CommitDialog, which calls useRouter().
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+// English from the catalog; any other language answers with the key it was
+// asked for and the language (`getTestServerTranslator`), so a test sees
+// which text the page asks for in it. That answer leaves out the values
+// the page gave with the key, so each call is noted here, values and all.
+const asked = vi.hoisted(() => [] as { locale: string; key: string; values: unknown }[]);
+vi.mock('@/i18n/server', async () => {
+  const { getTestServerTranslator } = await import('@/i18n/testing/translator');
+  return {
+    getServerTranslator: (locale: string, namespace: Namespace) => {
+      const t = getTestServerTranslator(locale, namespace);
+      const answer = t as unknown as (key: string, values?: unknown) => string;
+      const noted = (key: string, values?: unknown) => {
+        asked.push({ locale, key: `${namespace}.${key}`, values });
+        return answer(key, values);
+      };
+      return Object.assign(noted, t);
+    },
+  };
+});
+// The real provider, noting what each render gives it.
+const provided = vi.hoisted(() => [] as { locale: string; messages: unknown }[]);
+vi.mock('@/i18n/ClientMessages', async (importOriginal) => {
+  const { ClientMessages } = await importOriginal<typeof import('@/i18n/ClientMessages')>();
+  return {
+    ClientMessages: (props: Parameters<typeof ClientMessages>[0]) => {
+      provided.push({ locale: props.locale, messages: props.messages });
+      return ClientMessages(props);
+    },
+  };
+});
 
 const FIELDS: SignupViewField[] = [
   { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -36,10 +67,14 @@ const SLOTS: SignupViewSlot[] = [
 
 const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
 
+/** Every language with a catalog besides English, each tried in turn. */
+const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
+
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -62,6 +97,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
   it('does not render the preview banner in showcase mode', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -71,20 +107,20 @@ describe('<SignupViewBody mode="showcase" />', () => {
       />,
     );
     expect(screen.queryByText('Preview')).toBeNull();
-    expect(
-      screen.queryByText(/This signup is live\. The page below shows what visitors see\./),
-    ).toBeNull();
+    expect(screen.queryByText(/The page below shows what visitors see\./)).toBeNull();
   });
 
   it('preview mode still renders a disabled Sign-up button (regression guard)', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status: 'draft' }}
         fields={FIELDS}
         groupByRef={null}
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -98,6 +134,7 @@ describe('<SignupViewBody mode="showcase" />', () => {
     // landing hero). Two h1s on one page is an SEO defect.
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -111,18 +148,351 @@ describe('<SignupViewBody mode="showcase" />', () => {
   });
 });
 
-describe('<SignupViewBody /> heading level', () => {
-  // Only 'preview' is exercised here: 'live' mounts the whole CommitDialog.
-  // Both take the same non-showcase branch, so preview is a faithful stand-in.
-  it('keeps the title as the h1 outside showcase mode, where it is the page heading', () => {
+describe('<SignupViewBody /> language', () => {
+  it('reads slot dates in the language it is given', () => {
+    // The dates come from Intl.
+    const inOther = formatSlotDate('2026-05-17', OTHER_LOCALE);
+    expect(inOther).not.toBe(formatSlotDate('2026-05-17', 'en'));
     render(
       <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef="date"
+        slots={SLOTS}
+        slug="example"
+        mode="showcase"
+      />,
+    );
+    // The group heading, in that language.
+    expect(screen.getByRole('heading', { level: 2, name: inOther! })).toBeInTheDocument();
+    expect(screen.queryByText(/May/)).toBeNull();
+  });
+});
+
+describe('the sign-up dialog’s messages', () => {
+  const props = {
+    signup: SIGNUP,
+    fields: FIELDS,
+    groupByRef: null,
+    slots: SLOTS,
+    slug: 'example',
+  };
+
+  it('come with the live page, in its language, and only the dialog’s', async () => {
+    provided.length = 0;
+    render(<SignupViewBody {...props} locale={OTHER_LOCALE} mode="live" />);
+    // The sections the dialog reads, and no others: not the page's own, which
+    // the server renders. The page's language, with English under it.
+    expect(provided.at(-1)).toEqual({
+      locale: OTHER_LOCALE,
+      messages: messagesFor(OTHER_LOCALE, COMMIT_DIALOG_NAMESPACES),
+    });
+    const given = provided.at(-1)?.messages as { participant: Record<string, unknown> };
+    expect(Object.keys(given.participant).sort()).toEqual(['dialog', 'errors', 'fields', 'slot']);
+    const strict = {
+      onError: (error: Error) => {
+        throw error;
+      },
+    };
+    const dialog = getTranslator(OTHER_LOCALE, 'participant.dialog', strict);
+    const fields = getTranslator(OTHER_LOCALE, 'participant.fields', strict);
+    // Its Sign up button, named for its slot in the language.
+    const [before, after] = dialog('signUpFor', { slot: '\u0000' }).split('\u0000');
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: (name) => name.startsWith(before!) && name.endsWith(after!),
+      }),
+    );
+    expect(await screen.findByLabelText(fields('name'), {}, { timeout: 5000 })).toBeInTheDocument();
+  });
+
+  it('stay out of the Preview and the showcase, which have no dialog', () => {
+    provided.length = 0;
+    render(<SignupViewBody {...props} locale="en" mode="preview" organizerLocale="en" />);
+    cleanup();
+    render(<SignupViewBody {...props} locale="en" mode="showcase" />);
+    expect(provided).toEqual([]);
+  });
+});
+
+describe('<SignupViewBody /> text, from the catalog in the signup’s language', () => {
+  // The mocked translator answers each key in a language other than English
+  // with where it was asked for: "participant.signupView.full in sv".
+  const view = (key: string) => `participant.signupView.${key} in ${OTHER_LOCALE}`;
+  const slot = (key: string) => `participant.slot.${key} in ${OTHER_LOCALE}`;
+  // The live row's Sign up is the dialog's, and its stand-ins say the same.
+  const dialog = (key: string) => `participant.dialog.${key} in ${OTHER_LOCALE}`;
+  const OWN = { slotId: 's1', editUrl: '/s/example/c/com_1?t=tok' };
+
+  it('asks for the Closed banner and a returning participant’s bar in it', () => {
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={{ ...SIGNUP, status: 'closed' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+        ownCommitments={[OWN]}
+      />,
+    );
+    const banner = screen.getByRole('status');
+    expect(banner).toHaveTextContent(view('closedBanner.title'));
+    expect(banner).toHaveTextContent(view('closedBanner.keepsYours'));
+    expect(banner.closest('[lang]')).toBeNull();
+    expect(screen.getByText(view('signedUp'))).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: view('editOrCancel') })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: view('editFor') })).toHaveTextContent(view('edit'));
+  });
+
+  it('asks for the Closed banner’s plain line and Manage in it', () => {
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={{ ...SIGNUP, status: 'closed' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(view('closedBanner.body'));
+    cleanup();
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={[...SLOTS, { ...SLOTS[0]!, id: 's2', ref: 's2' }]}
+        slug="example"
+        mode="live"
+        ownCommitments={[OWN, { ...OWN, slotId: 's2' }]}
+      />,
+    );
+    expect(screen.getByRole('link', { name: view('manage') })).toBeInTheDocument();
+  });
+
+  it('asks for every row’s words in it', () => {
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef="date"
+        slots={[
+          { ...SLOTS[0]!, id: 'left', capacity: 12, committed: 10 },
+          { ...SLOTS[0]!, id: 'uncapped', capacity: null, committed: 3 },
+          { ...SLOTS[0]!, id: 'full', capacity: 1, committed: 1 },
+          { ...SLOTS[0]!, id: 'shut', status: 'closed' },
+          { ...SLOTS[0]!, id: 'undated', values: {}, capacity: 1 },
+        ]}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
+        showStateBanner={false}
+      />,
+    );
+    expect(screen.getByText(slot('left'))).toBeInTheDocument();
+    expect(screen.getByText(slot('leftOf'))).toHaveClass('sr-only');
+    expect(screen.getByText(slot('signedUp'))).toHaveClass('sr-only');
+    expect(screen.getByText(view('full'))).toBeInTheDocument();
+    expect(screen.getByText(view('closed'))).toBeInTheDocument();
+    // The slot with no date: its group's heading, and its title, which has no
+    // team to show.
+    expect(screen.getByRole('heading', { level: 2, name: slot('noValue') })).toBeInTheDocument();
+    expect(screen.getByText(view('untitledSlot'))).toBeInTheDocument();
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toHaveAccessibleName(dialog('signUpFor'));
+      expect(button).toHaveTextContent(dialog('signUp'));
+    }
+  });
+
+  it('asks for the showcase’s Sign up in it', () => {
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="showcase"
+      />,
+    );
+    expect(screen.getByText(dialog('signUp'))).toHaveClass('bg-brand');
+    // The Preview's tip is only the Preview's.
+    expect(document.querySelector('[aria-describedby], [hidden]')).toBeNull();
+  });
+
+  it('keeps the Preview banner and the disabled button’s tip in an English organizer’s language, marked so', () => {
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={{ ...SIGNUP, status: 'draft' }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
+      />,
+    );
+    const banner = screen.getByRole('status');
+    expect(banner.closest('[lang]')).toHaveAttribute('lang', 'en');
+    expect(banner).toHaveTextContent(
+      'PreviewThis is what people will see once you publish. No signups will be saved.',
+    );
+    const button = screen.getByRole('button', { name: dialog('signUpFor') });
+    expect(button).toHaveAttribute('title', 'Preview: publish to let people sign up');
+    // The same tip as its description, from text marked with the organizer's language.
+    expect(button).toHaveAccessibleDescription('Preview: publish to let people sign up');
+    const tip = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+    expect(tip).toHaveAttribute('lang', 'en');
+    expect(tip).not.toBeVisible();
+  });
+
+  // The organizer's, whatever the signup's: the stand-in translator answers
+  // with where each text was asked for.
+  it.each(OTHER_LANGUAGES)(
+    'puts the Preview banner and the disabled button’s tip in the organizer’s language, %s',
+    (other) => {
+      render(
+        <SignupViewBody
+          locale="en"
+          signup={{ ...SIGNUP, status: 'draft' }}
+          fields={FIELDS}
+          groupByRef={null}
+          slots={SLOTS}
+          slug="example"
+          mode="preview"
+          organizerLocale={other}
+        />,
+      );
+      const ask = (key: string) => `organizer.preview.${key} in ${other}`;
+      const banner = screen.getByRole('status');
+      expect(banner.closest('[lang]')).toHaveAttribute('lang', other);
+      expect(banner).toHaveTextContent(`${ask('title')}${ask('body')}`);
+      // The button itself is the participants', in the signup's language.
+      const button = screen.getByRole('button');
+      expect(button).toHaveAttribute('title', ask('signUpDisabled'));
+      expect(button).toHaveTextContent(getTestTranslator('participant.dialog')('signUp'));
+      // Its description is the tip, marked with the organizer's language,
+      // which the title can't be.
+      expect(button).toHaveAccessibleDescription(ask('signUpDisabled'));
+      const tip = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+      expect(tip).toHaveAttribute('lang', other);
+      expect(tip).not.toBeVisible();
+    },
+  );
+
+  // The stand-in answers the same whatever it's given, so the test above
+  // can't tell a draft's tip from an open signup's. What each call was given
+  // can: the button's title and its description both pass the signup's
+  // status, which picks the words (#888).
+  it.each(
+    OTHER_LANGUAGES.flatMap((other) =>
+      (['draft', 'open'] as const).map((status) => [other, status] as const),
+    ),
+  )('gives the disabled button’s tip in %s the status of a signup that is %s', (other, status) => {
+    asked.length = 0;
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={{ ...SIGNUP, status }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        organizerLocale={other}
+      />,
+    );
+    const tip = { locale: other, key: 'organizer.preview.signUpDisabled', values: { status } };
+    expect(asked.filter(({ key }) => key === tip.key)).toEqual([tip, tip]);
+  });
+
+  // Open and closed, the words of the status beside the signup's title, read
+  // as a pair; "published" is only for leaving draft (docs/writing-help.md).
+  it.each([
+    ['draft', 'This is what people will see once you publish. No signups will be saved.'],
+    ['open', 'This signup is open. The page below shows what visitors see.'],
+    ['closed', 'This signup is closed. The page below shows what visitors see.'],
+    ['archived', 'This signup is archived and is not visible to participants.'],
+  ] as const)('words the Preview banner of a signup that is %s', (status, body) => {
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={{ ...SIGNUP, status }}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(`Preview${body}`);
+    expect(screen.queryByText(/\blive\b/i)).toBeNull();
+  });
+
+  it('sends an open signup’s preview to its public link, which is already taking sign-ups', () => {
+    render(
+      <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
+      />,
+    );
+    const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
+    expect(button).toHaveAttribute('title', 'Preview: people sign up at the public link');
+    expect(button).toHaveAccessibleDescription('Preview: people sign up at the public link');
+  });
+});
+
+describe('the signed-up bar’s and the Closed banner’s messages', () => {
+  const t = getTestTranslator('participant.signupView');
+  const tags = { b: (chunks: string) => `[${chunks}]`, slot: (chunks: string) => `<${chunks}>` };
+
+  it('name the one slot someone holds, or count several', () => {
+    const bar = (count: number) => t.markup('signedUp', { count, name: 'Sat · Cookies', ...tags });
+    expect(bar(1)).toBe("[You're signed up] for <Sat · Cookies>.");
+    expect(bar(0)).toBe("[You're signed up] for <0 slots>.");
+    expect(bar(2)).toBe("[You're signed up] for <2 slots>.");
+    // As `${n} slots` wrote it, with no thousands separator.
+    expect(bar(1234)).toBe("[You're signed up] for <1234 slots>.");
+  });
+
+  it('say whether one spot or several are still theirs', () => {
+    const line = (count: number) => t('closedBanner.keepsYours', { count });
+    expect(line(1)).toBe('No one new can sign up, but your spot is still yours.');
+    expect(line(0)).toBe('No one new can sign up, but your spots are still yours.');
+    expect(line(3)).toBe('No one new can sign up, but your spots are still yours.');
+  });
+});
+
+describe('<SignupViewBody /> heading level', () => {
+  // Only 'preview' is exercised here: 'live' mounts the whole CommitDialog.
+  // Both take the same non-showcase branch, so preview is a faithful stand-in.
+  it('keeps the title as the h1 outside showcase mode, where it is the page heading', () => {
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -167,12 +537,14 @@ describe('<SignupViewBody /> slot row', () => {
   function renderRows() {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
         slots={MULTI}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -193,6 +565,7 @@ describe('<SignupViewBody /> slot row', () => {
   it('counts nothing on a closed signup, where every row says "Closed"', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status: 'closed' }}
         fields={FIELDS}
         groupByRef={null}
@@ -220,6 +593,7 @@ describe('<SignupViewBody /> slot row', () => {
     // The location was being truncated off every row on a 390px screen.
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={[...FIELDS, { ref: 'where', label: 'Where', fieldType: 'text' }]}
         groupByRef={null}
@@ -231,6 +605,7 @@ describe('<SignupViewBody /> slot row', () => {
         ]}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -245,6 +620,7 @@ describe('<SignupViewBody /> slot row', () => {
     // time: without the group label in the name, both buttons are "9:00 AM".
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={[
           { ref: 'date', label: 'Date', fieldType: 'date' },
@@ -257,6 +633,7 @@ describe('<SignupViewBody /> slot row', () => {
         ]}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -287,6 +664,7 @@ describe('<SignupViewBody /> slot row', () => {
   it('gives Full, Closed and Sign up the same box, not a narrow label beside a pill', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -297,6 +675,7 @@ describe('<SignupViewBody /> slot row', () => {
         ]}
         slug="example"
         mode="preview"
+        organizerLocale="en"
         showStateBanner={false}
       />,
     );
@@ -345,6 +724,7 @@ describe('<SignupViewBody mode="live" /> quantity', () => {
   function openRow(team: RegExp) {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={FIELDS}
         groupByRef={null}
@@ -459,6 +839,7 @@ describe('"Add to calendar" on a signup with several time fields', () => {
     try {
       render(
         <SignupViewBody
+          locale="en"
           signup={{ title: 'Trip', description: '', status: 'open' }}
           fields={TRIP.fields}
           groupByRef={null}
@@ -507,6 +888,7 @@ describe('the optional email box on the live page', () => {
   async function emailHelp(sendReminders: boolean | undefined, slotAt: string | null) {
     render(
       <SignupViewBody
+        locale="en"
         signup={{
           ...SIGNUP,
           requireEmail: false,
@@ -551,6 +933,7 @@ describe('the live page past its closing time', () => {
   function renderLive(closesAt: Date | null) {
     render(
       <SignupViewBody
+        locale="en"
         signup={toSignupViewSignup({ ...ROW, closesAt }, NOW)}
         fields={FIELDS}
         groupByRef={null}
@@ -581,12 +964,14 @@ describe("the signup's description", () => {
   function renderWith(description: string) {
     const { container } = render(
       <SignupViewBody
+        locale="en"
         signup={toSignupViewSignup({ ...ROW, description })}
         fields={FIELDS}
         groupByRef={null}
         slots={SLOTS}
         slug="example"
         mode="preview"
+        organizerLocale="en"
       />,
     );
     return container.querySelector('header p');
@@ -624,6 +1009,7 @@ describe('the live page inside the lockout before a slot', () => {
   it('shows a slot that starts within the lockout as closed, with no Sign up button or count', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={[{ ref: 'team', label: 'Team', fieldType: 'text' }]}
         groupByRef={null}
@@ -650,12 +1036,13 @@ describe('<SignupViewBody /> for a returning participant', () => {
   function renderOwn(status: 'open' | 'closed', mode: 'live' | 'preview' = 'live') {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status }}
         fields={FIELDS}
         groupByRef={null}
         slots={SLOTS}
         slug="example"
-        mode={mode}
+        {...(mode === 'preview' ? { mode, organizerLocale: 'en' as const } : { mode })}
         ownCommitments={OWN}
       />,
     );
@@ -688,6 +1075,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
   it('says "spots" for someone with more than one slot on a closed signup', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={{ ...SIGNUP, status: 'closed' }}
         fields={FIELDS}
         groupByRef={null}
@@ -700,6 +1088,7 @@ describe('<SignupViewBody /> for a returning participant', () => {
     expect(
       screen.getByText('No one new can sign up, but your spots are still yours.'),
     ).toBeInTheDocument();
+    expect(screen.getByText('2 slots', { selector: 'span.text-ink' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage' })).toBeInTheDocument();
   });
 
@@ -750,6 +1139,7 @@ describe('naming the slot once its row is out of sight', () => {
   ) {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={fields}
         groupByRef={groupByRef}
@@ -842,6 +1232,7 @@ describe('naming the slot once its row is out of sight', () => {
   it('names the group and time in the signed-up bar', () => {
     render(
       <SignupViewBody
+        locale="en"
         signup={SIGNUP}
         fields={SHIFT_FIELDS}
         groupByRef="date"
@@ -875,6 +1266,7 @@ describe('"You\'re in." and the address the link went to', () => {
     try {
       render(
         <SignupViewBody
+          locale="en"
           signup={{ ...SIGNUP, requireEmail }}
           fields={FIELDS}
           groupByRef={null}

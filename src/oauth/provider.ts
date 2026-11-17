@@ -8,6 +8,8 @@ import Provider, {
   type KoaContextWithOIDC,
 } from 'oidc-provider';
 import type { JWK } from 'jose';
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 import { log } from '@/lib/log';
 import {
   OAUTH_COOKIES,
@@ -44,6 +46,12 @@ export interface ProviderDeps {
   allowCimdFetch(clientId: string): Promise<boolean>;
   /** Called after any successful token-endpoint use of a grant. */
   onGrantUsed(grantId: string): Promise<void>;
+  /**
+   * The language of the error page a browser is shown (`renderErrorPage`):
+   * the instance's (`signInLocale`), since the provider doesn't know who is
+   * signed in.
+   */
+  errorPageLocale: CatalogLocale;
   /**
    * Override outbound HTTP (CIMD documents) — tests only. oidc-provider passes
    * `init.dispatcher`, the agent that refuses loopback and private addresses;
@@ -127,7 +135,7 @@ export function buildProvider(deps: ProviderDeps): Provider {
     },
     renderError: async (ctx, out) => {
       ctx.type = 'html';
-      ctx.body = renderErrorPage(out);
+      ctx.body = renderErrorPage(out, deps.errorPageLocale);
     },
     fetch: deps.fetch,
     features: {
@@ -274,23 +282,40 @@ function escapeHtml(s: string): string {
   );
 }
 
+/** Where the home page link's tags sit while the sentence around them is escaped. */
+const HOME_LINK_OPEN = '\uE000';
+const HOME_LINK_CLOSE = '\uE001';
+
 /**
  * Shown to a browser when the authorization request itself is broken — a bad
  * redirect URI, an unknown client — and the error cannot be sent back to
  * the client. Deliberately plain and self-contained: at this point nothing
  * about the request can be trusted, so it renders no user-supplied value
  * except the escaped error code and description.
+ *
+ * Its own words are in `locale`, from `auth.oauthErrors`, and so is its
+ * `lang`. The code and the description are shown as given: the provider's
+ * own descriptions are its English for developers, the same a client reads,
+ * and this app's callers pass theirs already in `locale`.
  */
-export function renderErrorPage(out: OidcError): string {
+export function renderErrorPage(out: OidcError, locale: CatalogLocale): string {
+  const t = getServerTranslator(locale, 'auth.oauthErrors');
   const code = escapeHtml(out.error ?? 'error');
-  const description = escapeHtml(out.error_description ?? 'The request could not be completed.');
+  const description = escapeHtml(out.error_description ?? t('noDescription'));
+  const nothingConnected = escapeHtml(
+    t.markup('nothingConnected', {
+      home: (chunks) => `${HOME_LINK_OPEN}${chunks}${HOME_LINK_CLOSE}`,
+    }),
+  )
+    .replace(HOME_LINK_OPEN, '<a href="/">')
+    .replace(HOME_LINK_CLOSE, '</a>');
   return `<!doctype html>
-<html lang="en">
+<html lang="${locale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Connection failed</title>
+<title>${escapeHtml(t('tabTitle'))}</title>
 <style>
   body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f7f8fa; color: #0b1220; }
   main { max-width: 32rem; margin: 15vh auto; padding: 0 1.5rem; }
@@ -302,10 +327,10 @@ export function renderErrorPage(out: OidcError): string {
 </head>
 <body>
 <main>
-  <h1>This connection could not be completed</h1>
-  <p>The application that sent you here made a request we could not accept.</p>
+  <h1>${escapeHtml(t('heading'))}</h1>
+  <p>${escapeHtml(t('intro'))}</p>
   <p><code>${code}</code> — ${description}</p>
-  <p>Nothing was connected to your account. Close this window and try again from the application, or <a href="/">go to the home page</a>.</p>
+  <p>${nothingConnected}</p>
 </main>
 </body>
 </html>`;

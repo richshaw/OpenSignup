@@ -11,6 +11,17 @@ export interface RateLimitPolicy {
 }
 
 /**
+ * The subject a per-IP limit charges for a request whose client IP is `ip`.
+ * A request with no readable IP (neither x-forwarded-for nor x-real-ip set,
+ * or set to something that isn't a bare IP, such as one with a port) is
+ * charged to one shared bucket rather than skipping the limit, so a missing
+ * or odd header degrades to a shared cap, never to no cap at all.
+ */
+export function ipSubject(ip: string | null): string {
+  return ip ?? 'unknown';
+}
+
+/**
  * Sliding-ish fixed-window rate limit backed by Postgres.
  * Cheap and sufficient for v1. For per-IP hot paths we rely on HTTP
  * edge/CDN layer in production as well.
@@ -58,7 +69,7 @@ export async function chargeRateLimit(
 }
 
 /**
- * `chargeRateLimit`, throwing a `rate_limited` ServiceException when over the
+ * `chargeRateLimit` for one unit, throwing a `rate_limited` ServiceException when over the
  * limit, for route handlers and tools that turn it into the API's 429. Code
  * that answers a rate limit its own way calls `chargeRateLimit` and reads the
  * result instead of catching this.
@@ -67,9 +78,8 @@ export async function consumeRateLimit(
   db: Db,
   policy: RateLimitPolicy,
   subject: string,
-  cost = 1,
 ): Promise<void> {
-  const retryAfter = await chargeRateLimit(db, policy, subject, cost);
+  const retryAfter = await chargeRateLimit(db, policy, subject);
   if (retryAfter === null) return;
   throw new ServiceException(
     serviceError('rate_limited', 'too many requests', {

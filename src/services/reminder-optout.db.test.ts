@@ -22,6 +22,7 @@ import {
   previewReminderOptOut,
   reminderOptOutTokenFor,
 } from './reminder-optout';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 interface Fixture {
   db: Db;
@@ -261,6 +262,38 @@ describe('reminder opt-out (db)', () => {
       .where(eq(participants.id, participantId))
       .limit(1);
     expect(row?.optedOut).toBeNull();
+  });
+
+  // The page is in the signup's language, read from the same row as the rest
+  // of the preview. Of the signup's settings, which are the organizer's, only
+  // the language comes back.
+  it("preview gives the signup's language as stored, and none of its other settings", async () => {
+    const { participantId } = await makeDueCommitment(fx, 'Preview language');
+    const signupId = (await signupIdFor(fx, participantId)) ?? '';
+    const preview = () =>
+      previewReminderOptOut(fx.db, participantId, reminderOptOutTokenFor(participantId));
+
+    const none = await preview();
+    expect(none.ok && none.value.signupLocale).toBeNull();
+
+    // Written to the row: `updateSignup` refuses a language that hasn't shipped.
+    await fx.db
+      .update(signups)
+      .set({
+        settings: {
+          locale: OTHER_LOCALE,
+          sendReminders: true,
+          lockoutHoursBeforeSlot: 6,
+          confirmationMessage: 'Organizers only: the gate code is 4321',
+        },
+      })
+      .where(eq(signups.id, signupId));
+    const stored = await preview();
+    if (!stored.ok) throw new Error(stored.error.message);
+    expect(stored.value.signupLocale).toBe(OTHER_LOCALE);
+    expect(JSON.stringify(stored.value)).not.toMatch(
+      /"(settings|locale|sendReminders|lockoutHoursBeforeSlot|confirmationMessage)"|gate code/,
+    );
   });
 
   it('does not resolve a soft-deleted signup', async () => {

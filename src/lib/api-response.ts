@@ -12,7 +12,7 @@ import { log } from './log';
 import { BodyTooLarge, MAX_JSON_BODY_BYTES, readRequestBody } from './request-body';
 import type { Result } from './result';
 
-export type Links = Record<string, LinkObject | string>;
+export type Links = Record<string, LinkObject>;
 
 interface SuccessEnvelope<T> {
   data: T;
@@ -27,21 +27,15 @@ export interface ErrorEnvelope {
     received?: unknown;
     expected?: string;
     suggestion?: string;
-    details?: Record<string, unknown>;
+    /** Attached data, and the error's `reason` when it has one (see `ErrorReason`). */
+    details?: ServiceError['details'];
   };
 }
 
-export function ok<T>(
-  data: T,
-  init: {
-    links?: Links;
-    status?: number;
-    headers?: HeadersInit;
-  } = {},
-): NextResponse {
+export function ok<T>(data: T, init: { links?: Links } = {}): NextResponse {
   const body: SuccessEnvelope<T> = { data };
   if (init.links) body._links = init.links;
-  return NextResponse.json(body, { status: init.status ?? 200, headers: init.headers });
+  return NextResponse.json(body);
 }
 
 /** The error body every surface sends: REST via `fail`, MCP via `toolFailure`. */

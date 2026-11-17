@@ -32,3 +32,28 @@ export const UI = {
   // what each slot says in place of Sign up.
   closedForPeople: 'Closed',
 } as const;
+
+/**
+ * Where each name above is in the English catalog (src/messages/en.json):
+ * the key of the message the control shows, with its placeholders' values
+ * where it has any, or a list where one name stands for several controls.
+ * src/help/ui-names.test.ts checks each name is that message's English, so
+ * a reworded message fails it until the name, and the article, change with
+ * it. Null for a name whose text isn't in the catalog.
+ */
+type FromCatalog = string | { key: string; values: Readonly<Record<string, string>> };
+export const FROM_CATALOG: {
+  readonly [Name in keyof typeof UI]: FromCatalog | readonly FromCatalog[] | null;
+} = {
+  yourSignups: 'organizer.dashboard.title',
+  share: 'organizer.share.button',
+  moreActions: 'organizer.signup.moreActions',
+  closeSignup: 'organizer.signup.close.action',
+  notYet: 'organizer.signup.close.notYet',
+  closed: 'organizer.status.closed',
+  open: 'organizer.status.open',
+  signupClosed: 'organizer.signup.closed.title',
+  reopenSignup: 'organizer.signup.reopen.action',
+  preview: 'organizer.signup.preview',
+  closedForPeople: ['participant.signupView.closedBanner.title', 'participant.signupView.closed'],
+};

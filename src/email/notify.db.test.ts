@@ -4,7 +4,10 @@ import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
+import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
@@ -14,6 +17,7 @@ import { commitments } from '@/db/schema/commitments';
 import { participants } from '@/db/schema/participants';
 import { slots } from '@/db/schema/slots';
 import { willSendReminder } from '@/lib/reminder-eligibility';
+import type { SignupTemplate } from '@/lib/signup-templates';
 import { selectDueReminders } from '@/jobs/reminders';
 import { removeParticipantEmail } from '@/services/testing/participants';
 import { getEmailTransport } from './index';
@@ -65,16 +69,37 @@ async function setupWorkspace(): Promise<Fixture> {
   };
 }
 
-async function commitOnce(fx: Fixture, title: string) {
-  const created = await createSignup(fx.db, fx.actor, fx.workspaceId, {
-    title,
-    description: '',
-    tags: [],
-    visibility: 'unlisted' as const,
-    settings: {},
-  });
+/**
+ * Commits once to a new published signup's one slot. `settings` and
+ * `template` go to `createSignup`, `values` are the slot's.
+ */
+async function commitOnce(
+  fx: Fixture,
+  title: string,
+  opts: {
+    settings?: Record<string, unknown>;
+    template?: SignupTemplate;
+    values?: Record<string, unknown>;
+  } = {},
+) {
+  const created = await createSignup(
+    fx.db,
+    fx.actor,
+    fx.workspaceId,
+    {
+      title,
+      description: '',
+      tags: [],
+      visibility: 'unlisted' as const,
+      settings: opts.settings ?? {},
+    },
+    opts.template ? { template: opts.template } : {},
+  );
   if (!created.ok) throw new Error(created.error.message);
-  const slot = await addSlot(fx.db, fx.actor, created.value.id, { values: {}, capacity: 4 });
+  const slot = await addSlot(fx.db, fx.actor, created.value.id, {
+    values: opts.values ?? {},
+    capacity: 4,
+  });
   if (!slot.ok) throw new Error(slot.error.message);
   const pub = await publishSignup(fx.db, fx.actor, created.value.id);
   if (!pub.ok) throw new Error(pub.error.message);
@@ -193,6 +218,103 @@ describe('notifyCommitmentCreated (db)', () => {
     await expect(
       notifyCommitmentCreated(fx.db, makeId('com'), 'irrelevant'),
     ).resolves.toBeUndefined();
+  });
+
+  describe('the email, in the signup’s language', () => {
+    const template: SignupTemplate = {
+      id: 'confirmation-language',
+      fields: [
+        {
+          ref: 'day',
+          label: 'Day',
+          fieldType: 'date',
+          sortOrder: 0,
+          config: { fieldType: 'date' },
+        },
+        {
+          ref: 'start',
+          label: 'Start',
+          fieldType: 'time',
+          sortOrder: 1,
+          config: { fieldType: 'time' },
+        },
+        {
+          ref: 'role',
+          label: 'Role',
+          fieldType: 'text',
+          sortOrder: 2,
+          config: { fieldType: 'text', maxLength: 100 },
+        },
+      ],
+      slots: [],
+    };
+    const values = { day: '2026-05-02', start: '13:00', role: 'Front desk' };
+
+    /** The confirmation for one sign-up, as sent; `stored` is written straight into settings. */
+    async function confirmation(
+      title: string,
+      opts: { settings?: Record<string, unknown>; stored?: Record<string, unknown> } = {},
+    ) {
+      const { signupId, commitmentId, editToken } = await commitOnce(fx, title, {
+        settings: opts.settings ?? {},
+        template,
+        values,
+      });
+      if (opts.stored) {
+        await fx.db
+          .update(signups)
+          .set({ settings: sql`${signups.settings} || ${JSON.stringify(opts.stored)}::jsonb` })
+          .where(eq(signups.id, signupId));
+      }
+      const send = vi.spyOn(getEmailTransport(), 'send');
+      try {
+        await notifyCommitmentCreated(fx.db, commitmentId, editToken);
+        expect(send).toHaveBeenCalledTimes(1);
+        return send.mock.calls[0]![0];
+      } finally {
+        send.mockRestore();
+      }
+    }
+
+    /** The email's plain text with its 80-column wrapping undone. */
+    const flat = (text: string) => text.replace(/\s+/g, ' ');
+
+    it('is English, as always, for a signup with no language of its own', async () => {
+      const mail = await confirmation('Spring fair');
+      expect(mail.subject).toBe(
+        "You're signed up: Spring fair · Sat, May 2 · 1:00\u00a0PM · Front desk",
+      );
+      expect(mail.html).toMatch(/<html[^>]* lang="en"/);
+      expect(flat(mail.text)).toContain(
+        'Thanks Dana Participant, you signed up for Spring fair. Day: Sat, May 2',
+      );
+      expect(flat(mail.text)).toContain('Keep this email. The button above is how you change');
+    });
+
+    it('is Swedish for a Swedish signup', async () => {
+      ship('participant', ['en', 'sv']);
+      const mail = await confirmation('Vårloppis', { settings: { locale: 'sv' } });
+      expect(mail.subject).toBe('Du är anmäld: Vårloppis · lör 2 maj · 13:00 · Front desk');
+      expect(mail.html).toMatch(/<html[^>]* lang="sv"/);
+      // The body, from the heading to the last line; the slot's labels are
+      // the organizer's own.
+      expect(flat(mail.text)).toContain(
+        'DU ÄR ANMÄLD Tack Dana Participant, du har anmält dig till Vårloppis. Day: lör 2 maj Start: 13:00 Role: Front desk Visa eller ändra din anmälan',
+      );
+      expect(flat(mail.text)).toContain('Spara det här mejlet.');
+      // The preview text inboxes show after the subject is the subject.
+      expect(mail.html).toContain(`>${mail.subject}<`);
+    });
+
+    it('stays English while the signup’s language has not shipped', async () => {
+      shipOnlyEnglish();
+      const mail = await confirmation('Loppis', { stored: { locale: OTHER_LOCALE } });
+      expect(mail.subject).toBe(
+        "You're signed up: Loppis · Sat, May 2 · 1:00\u00a0PM · Front desk",
+      );
+      expect(mail.html).toMatch(/<html[^>]* lang="en"/);
+      expect(flat(mail.text)).toContain('Thanks Dana Participant, you signed up for Loppis.');
+    });
   });
 
   describe('the reminder promise printed in the receipt', () => {

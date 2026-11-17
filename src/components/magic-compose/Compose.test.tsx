@@ -3,14 +3,23 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { getTranslator, messagesFor } from '@/i18n/translator';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
+import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { Compose } from './Compose';
 
 afterEach(cleanup);
 
-function renderWith(prompt: string) {
+/** Compose with the messages its page passes, in `locale`. */
+function renderWith(prompt: string, locale: CatalogLocale = 'en') {
   const onDraft = vi.fn();
-  render(<Compose prompt={prompt} setPrompt={() => {}} onDraft={onDraft} />);
+  render(
+    <ClientMessages locale={locale} messages={messagesFor(locale, MAGIC_COMPOSE_NAMESPACES)}>
+      <Compose prompt={prompt} setPrompt={() => {}} onDraft={onDraft} />
+    </ClientMessages>,
+  );
   return onDraft;
 }
 
@@ -45,4 +54,19 @@ describe('Compose description limit', () => {
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', ctrlKey: true });
     expect(onDraft).not.toHaveBeenCalled();
   });
+
+  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+    "writes the count in the organizer's language, numbers included (%s)",
+    (locale) => {
+      renderWith('a'.repeat(4828), locale);
+      const t = getTranslator(locale, 'organizer.compose', {
+        onError: (error) => {
+          throw error;
+        },
+      });
+      const count = t('countOver', { count: 4828, max: PROMPT_MAX_LENGTH, over: 828 });
+      expect(screen.getByRole('textbox')).toHaveAccessibleDescription(count);
+      expect(count).toContain(new Intl.NumberFormat(locale).format(4828));
+    },
+  );
 });

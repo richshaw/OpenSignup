@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Banner } from '@/components/banner';
 import type { SignupStatus } from '@/schemas/signups';
+import type { SignupHeaderText } from './header-text';
 import { focusTitle, useLastStatusChange } from './HeaderAnnouncer';
 
 /**
@@ -16,7 +17,14 @@ import { focusTitle, useLastStatusChange } from './HeaderAnnouncer';
  * Not a live region: the header's says it closed. Its ✕ takes the focus
  * with it, so focus goes to the signup's title rather than to the page.
  */
-export function ClosedNotice({ status, body }: { status: SignupStatus; body: string }) {
+export function ClosedNotice({
+  status,
+  text,
+}: {
+  status: SignupStatus;
+  /** Its words, from the server. */
+  text: SignupHeaderText['closedNotice'];
+}) {
   const changed = useLastStatusChange();
   const [dismissed, setDismissed] = useState<number | null>(null);
   if (status !== 'closed' || !changed?.here || changed.to !== 'closed' || dismissed === changed.n)
@@ -25,12 +33,13 @@ export function ClosedNotice({ status, body }: { status: SignupStatus; body: str
     <Banner
       kind="closed"
       live={false}
-      title="Signup closed"
-      body={body}
+      title={text.title}
+      body={text.body}
       onDismiss={() => {
         setDismissed(changed.n);
         focusTitle();
       }}
+      dismissLabel={text.dismiss}
     />
   );
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { Check, Sparkles } from 'lucide-react';
 
 /**
@@ -10,30 +11,30 @@ export const FRAME =
   'mx-auto mt-10 grid max-w-[1080px] grid-cols-1 items-start gap-7 md:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]';
 
 export interface DraftStep {
-  id: string;
-  label: string;
+  /** Also the key of its label under `organizer.compose.steps`. */
+  id: 'read' | 'title' | 'desc' | 'fields' | 'slots' | 'check';
   /** Fixed time on this step; the fields and slots steps take a reveal time instead. */
   duration?: number;
 }
 
 export const DRAFT_STEPS: DraftStep[] = [
-  { id: 'read', label: 'Reading your description', duration: 700 },
-  { id: 'title', label: 'Drafting a title', duration: 700 },
-  { id: 'desc', label: 'Writing a short blurb', duration: 900 },
-  { id: 'fields', label: 'Choosing fields for each slot' },
-  { id: 'slots', label: 'Generating slots' },
-  { id: 'check', label: 'Tidying up', duration: 600 },
+  { id: 'read', duration: 700 },
+  { id: 'title', duration: 700 },
+  { id: 'desc', duration: 900 },
+  { id: 'fields' },
+  { id: 'slots' },
+  { id: 'check', duration: 600 },
 ];
 
 /** The step the questions add, between reading and drafting. */
-export const DETAILS_STEP = { id: 'details', label: 'A few details' };
+export const DETAILS_STEP = { id: 'details' } as const;
 
 /** `active` is the step under way; `todo` is still to come. */
 export type StepState = 'done' | 'active' | 'todo';
 
 export interface StepRow {
-  id: string;
-  label: string;
+  /** Also the key of its label under `organizer.compose.steps`. */
+  id: DraftStep['id'] | typeof DETAILS_STEP.id;
   state: StepState;
   /**
    * In place of the state's icon. The questions' step waits on the organizer,
@@ -78,9 +79,10 @@ export const LABEL: Record<StepState, string> = {
 
 /** Every step, one per row. */
 export function StepList({ rows, className = '' }: { rows: StepRow[]; className?: string }) {
+  const t = useTranslations('organizer.compose.steps');
   return (
     <ul
-      aria-label="Progress"
+      aria-label={t('label')}
       className={`flex-col gap-0.5 rounded-2xl border border-surface-sunk bg-white p-1.5 ${className || 'flex'}`}
     >
       {rows.map((row) => (
@@ -92,7 +94,7 @@ export function StepList({ rows, className = '' }: { rows: StepRow[]; className?
           } ${row.className ?? ''}`}
         >
           {row.icon ?? <StepIcon state={row.state} />}
-          <div className={`text-sm ${LABEL[row.state]}`}>{row.label}</div>
+          <div className={`text-sm ${LABEL[row.state]}`}>{t(row.id)}</div>
         </li>
       ))}
     </ul>
