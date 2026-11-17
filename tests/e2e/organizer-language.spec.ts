@@ -16,6 +16,7 @@ import {
   publishSignupIn,
   type OrganizerIn,
 } from './helpers/organizer-language';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 /**
  * The organizer app follows the language stored on the organizer's account
@@ -108,7 +109,7 @@ function connectionRequest(scope: string): string {
 for (const stored of STORED) {
   const locale = stored ?? 'en';
   const unshippedHint = stored
-    ? `the organizer app isn’t in ${stored}: start the server with E2E_UNSHIPPED_LOCALES=${stored}`
+    ? `the organizer app isn’t in ${stored}: ${howToShow(stored)}`
     : 'an organizer with no language stored gets English';
 
   test.describe(`an organizer who stores ${stored ?? 'no language'}`, () => {

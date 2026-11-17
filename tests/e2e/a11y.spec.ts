@@ -5,7 +5,7 @@ import { loginAsSeededOrganizer } from './helpers/auth';
 import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import { loadSeed } from './helpers/fixtures';
 import { escaped, gotoIn, messagesIn } from './helpers/languages';
-import { UNSHIPPED_LOCALES } from './helpers/unshipped-locales';
+import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 
 const seed = loadSeed();
 
@@ -278,7 +278,7 @@ test.describe('accessibility', () => {
   for (const locale of TEST_LOCALES) {
     const { organizer } = seed.languages[locale];
     const language = englishName(locale);
-    const unshippedHint = `the organizer app isn’t in ${locale}: start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`;
+    const unshippedHint = `the organizer app isn’t in ${locale}: ${howToShow(locale)}`;
 
     test(`Your signups in ${language} has no WCAG A/AA violations`, async ({ page, context }) => {
       await loginAsSeededOrganizer(context, { sessionToken: organizer.sessionToken });

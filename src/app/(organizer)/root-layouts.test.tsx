@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
 // Who is signed in, with the language stored on their account, and the
 // instance's settings: unit tests have no DATABASE_URL, so the real getEnv()
@@ -44,6 +44,8 @@ afterEach(() => {
 });
 
 describe.each(OTHER_LANGUAGES)('with %s', (other) => {
+  beforeEach(shipOnlyEnglish);
+
   describe.each([
     ['the organizer app', AppLayout],
     ['the consent screen', ConsentLayout],
