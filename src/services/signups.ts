@@ -88,13 +88,24 @@ export function checkSignupLocale(
   field = 'settings.locale',
 ): Result<CatalogLocale | undefined, ServiceError> {
   if (sent === undefined || isShipped('participant', sent)) return ok(sent);
-  return err(
-    serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
-      field,
-      received: sent,
-      suggestion: `leave it out, or use one of: ${SHIPPED.participant.join(', ')}`,
-    }),
-  );
+  return err(unshippedSignupLocale(sent, { field, canLeaveOut: true }));
+}
+
+/**
+ * The refusal for a language that hasn't shipped to participants, where a
+ * signup's language or an organizer's own is stored. `canLeaveOut` is for the
+ * one place a language is optional (`checkSignupLocale`), whose suggestion
+ * says so.
+ */
+export function unshippedSignupLocale(
+  received: unknown,
+  { field = 'locale', canLeaveOut = false }: { field?: string; canLeaveOut?: boolean } = {},
+): ServiceError {
+  return serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
+    field,
+    received,
+    suggestion: `${canLeaveOut ? 'leave it out, or ' : ''}use one of: ${SHIPPED.participant.join(', ')}`,
+  });
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -499,15 +510,7 @@ export async function setOpenSignupsLocale(
   locale: unknown,
 ): Promise<Result<{ locale: CatalogLocale; signupIds: string[] }, ServiceError>> {
   const which = ownOpenSignups(actor);
-  if (!isShipped('participant', locale)) {
-    return err(
-      serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
-        field: 'locale',
-        received: locale,
-        suggestion: `use one of: ${SHIPPED.participant.join(', ')}`,
-      }),
-    );
-  }
+  if (!isShipped('participant', locale)) return err(unshippedSignupLocale(locale));
   if (which.workspaceIds.length === 0) return ok({ locale, signupIds: [] });
 
   return db.transaction(async (tx) => {

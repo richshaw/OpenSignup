@@ -1,10 +1,11 @@
 import { eq } from 'drizzle-orm';
 import type { Queryable } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
-import { type CatalogLocale, SHIPPED, isShipped } from '@/i18n/config';
+import { type CatalogLocale, isShipped } from '@/i18n/config';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { requireOrganizerId, type Actor } from '@/lib/policy';
 import { err, ok, type Result } from '@/lib/result';
+import { unshippedSignupLocale } from './signups';
 
 /**
  * Saves the language an organizer chose for their new signups (#626). It's
@@ -23,15 +24,7 @@ export async function updateOrganizerLocale(
   locale: unknown,
 ): Promise<Result<{ locale: CatalogLocale }, ServiceError>> {
   const organizerId = requireOrganizerId(actor);
-  if (!isShipped('participant', locale)) {
-    return err(
-      serviceError('invalid_input', 'locale must be a language OpenSignup offers for signups', {
-        field: 'locale',
-        received: locale,
-        suggestion: `use one of: ${SHIPPED.participant.join(', ')}`,
-      }),
-    );
-  }
+  if (!isShipped('participant', locale)) return err(unshippedSignupLocale(locale));
   const updated = await db
     .update(organizers)
     .set({ locale })

@@ -3,7 +3,9 @@
  * and `twitter-image.png` (Open Graph + Twitter card, 1200×630), committed under
  * `public/`, and `apple-icon.png` (180×180 home-screen icon), under `src/app/`.
  * The share images' size and alt text are also in `SHARE_IMAGE`
- * (src/lib/seo.ts), which `seo.test.ts` checks against the files.
+ * (src/lib/seo.ts): `seo.test.ts` checks the size against the files, but
+ * nothing checks the alt text, so change it there when you change the words
+ * on the image.
  *
  * Uses `next/og` (Satori + resvg, both bundled with Next — no browser, no
  * network, no extra deps) to render on-brand layouts to PNG buffers. NOT part
