@@ -90,8 +90,19 @@ export function signInLocale(): CatalogLocale {
  * refuse one.
  */
 export function newSignupLocale(session: Pick<OrganizerSession, 'locale'>) {
-  if (SHIPPED.participant.length < 2) return null;
+  if (!offersLanguageChoice()) return null;
   return resolveLocale('participant', session.locale, instanceDefaultLocale());
+}
+
+/**
+ * Whether an organizer gets a choice of language for their signups: only
+ * once more than one language has shipped to participants. Account Settings
+ * (through `newSignupLocale`) and a signup's Settings tab both ask here, so
+ * they offer the choice together. Reads `SHIPPED` on each call, since tests
+ * change it at runtime.
+ */
+export function offersLanguageChoice(): boolean {
+  return SHIPPED.participant.length > 1;
 }
 
 /**
