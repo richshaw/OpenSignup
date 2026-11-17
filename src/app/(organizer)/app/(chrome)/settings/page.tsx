@@ -10,7 +10,8 @@ import {
 import { FormError } from '@/components/ui/form-error';
 import { SavedNotice } from '@/components/ui/save-notice';
 import { getDb } from '@/db/client';
-import { type CatalogLocale, SHIPPED, languageName, languageNameInSentence } from '@/i18n/config';
+import { LanguageRadios } from '@/components/ui/language-radios';
+import { languageNameInSentence } from '@/i18n/config';
 import { localeOfOrganizer, newSignupLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
@@ -161,7 +162,6 @@ function OrganizerLanguageForm({
   /** Whether the switch just ran: the address's `switched=1`, a flag. */
   switched: boolean;
 }) {
-  const languages: readonly CatalogLocale[] = SHIPPED.participant;
   // The language new signups get now: the one stored on the account, or with
   // none stored (or one that has left the list) the instance's, else English.
   // So the choice shown is always one that saves. None while there's only
@@ -185,21 +185,7 @@ function OrganizerLanguageForm({
       <form key={current} action={setOrganizerLocaleAction} className="flex flex-col gap-4">
         <fieldset>
           <legend className="font-medium">{t('language.legend')}</legend>
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-            {languages.map((locale) => (
-              <label key={locale} className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="locale"
-                  value={locale}
-                  defaultChecked={locale === current}
-                  aria-describedby="organizer-language-help"
-                  className="h-4 w-4 accent-brand"
-                />
-                <span lang={locale}>{languageName(locale)}</span>
-              </label>
-            ))}
-          </div>
+          <LanguageRadios current={current} describedBy="organizer-language-help" />
           <p id="organizer-language-help" className="mt-2 text-sm text-ink-muted">
             {t('language.help')}
           </p>

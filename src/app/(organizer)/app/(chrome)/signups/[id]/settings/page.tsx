@@ -1,10 +1,11 @@
 import { requireOrganizerSession, toActor } from '@/auth/session';
 import { AsyncSubmitButton } from '@/components/ui/async-submit-button';
 import { SavedNotice } from '@/components/ui/save-notice';
-import { type CatalogLocale, SHIPPED, languageName } from '@/i18n/config';
+import { LanguageRadios } from '@/components/ui/language-radios';
+import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
-import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
+import { localeOfOrganizer, localeOfSignup, offersLanguageChoice } from '@/i18n/locale';
 import { refusalFromQuery } from '@/lib/organizer-errors';
 import { requiresEmail } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
@@ -163,7 +164,7 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
  * there's nothing to choose, so the tab has no "Signup language".
  */
 function signupLanguage(stored: unknown): CatalogLocale | null {
-  return SHIPPED.participant.length < 2 ? null : localeOfSignup(stored);
+  return offersLanguageChoice() ? localeOfSignup(stored) : null;
 }
 
 /**
@@ -181,7 +182,6 @@ function SignupLanguageSection({
   current: CatalogLocale;
   t: Translator<'organizer.signupSettings'>;
 }) {
-  const languages: readonly CatalogLocale[] = SHIPPED.participant;
   return (
     <section
       aria-labelledby="signup-language-heading"
@@ -193,21 +193,7 @@ function SignupLanguageSection({
       <fieldset>
         <legend className="text-sm font-medium">{t('language.legend')}</legend>
         <input type="hidden" name="localeShown" value={current} />
-        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-          {languages.map((locale) => (
-            <label key={locale} className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="locale"
-                value={locale}
-                defaultChecked={locale === current}
-                aria-describedby="signup-language-help"
-                className="h-4 w-4 accent-brand"
-              />
-              <span lang={locale}>{languageName(locale)}</span>
-            </label>
-          ))}
-        </div>
+        <LanguageRadios current={current} describedBy="signup-language-help" />
         <p id="signup-language-help" className="mt-2 text-sm text-ink-muted">
           {t('language.help')}
         </p>
