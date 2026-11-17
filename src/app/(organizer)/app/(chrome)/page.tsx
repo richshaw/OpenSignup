@@ -65,7 +65,7 @@ export default async function DashboardPage() {
           {rows.map((r) => (
             <li key={r.id}>
               <Link
-                href={`/app/signups/${r.id}`}
+                href={`/app/signups/${r.id}/build`}
                 className="block px-5 py-4 transition hover:bg-surface"
               >
                 <div className="flex items-center justify-between gap-4">
