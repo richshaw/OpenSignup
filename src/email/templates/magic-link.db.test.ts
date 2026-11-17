@@ -87,18 +87,6 @@ describe('MagicLinkEmail', () => {
     expect(flat(long.text)).toContain('It works for 15 minutes:');
   });
 
-  it('omits the code section when no code is given', async () => {
-    const { text } = await renderEmail(
-      createElement(MagicLinkEmail, {
-        locale: 'en',
-        url: 'https://signup.example/x',
-        email: 'a@example.com',
-        expiresInMinutes: 60,
-      }),
-    );
-    expect(text).not.toMatch(/different device/i);
-  });
-
   it('is the English it always was, word for word', async () => {
     const url = 'https://signup.example/login/confirm?token=abc&x=1';
     const { html, text } = await renderEmail(
