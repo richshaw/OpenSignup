@@ -7,7 +7,7 @@ import { CATALOG_LOCALES } from '@/i18n/config';
 import { serviceError } from '@/lib/errors';
 
 vi.mock('next/headers', () => ({ headers: vi.fn() }));
-vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn() }));
+vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: vi.fn(), switchOrganizer: vi.fn() }));
 // English from the catalog; any other language answers with the key it was
 // asked for and the language (`getTestServerTranslator`).
 vi.mock('@/i18n/server', async () => ({
