@@ -77,13 +77,22 @@ function stripBreaks(value: string): string {
   return value.replace(/[\r\n]/g, '');
 }
 
+// The web's own UTF-8 codecs, global in browsers and in Node. Measuring and
+// slicing with Buffer instead made webpack bundle its polyfill (7 kB gzipped)
+// into every page that builds a calendar file.
+const encoder = new TextEncoder();
+// ignoreBOM: a leading U+FEFF (zero-width no-break space) is real content
+// here — it arrives in text pasted from Word or Excel — and TextDecoder
+// would otherwise strip it when it lands at a fold point.
+const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
+
 /**
  * RFC 5545 §3.1: content lines longer than 75 octets must be folded by
  * inserting CRLF + a single space at each fold point. We fold by octet
  * length (UTF-8) so multi-byte characters split safely.
  */
 function foldLine(line: string): string {
-  const bytes = Buffer.from(line, 'utf8');
+  const bytes = encoder.encode(line);
   if (bytes.length <= 75) return line;
   const parts: string[] = [];
   let offset = 0;
@@ -94,7 +103,7 @@ function foldLine(line: string): string {
     // Avoid splitting in the middle of a multi-byte UTF-8 sequence: a
     // continuation byte is 10xxxxxx (0x80–0xBF). Walk back to a leading byte.
     while (end < bytes.length && ((bytes[end] ?? 0) & 0xc0) === 0x80) end--;
-    parts.push(bytes.subarray(offset, end).toString('utf8'));
+    parts.push(decoder.decode(bytes.subarray(offset, end)));
     offset = end;
     chunkSize = 74;
   }
@@ -136,4 +145,40 @@ export function buildIcs(input: IcsEventInput): string {
   rawLines.push('END:VEVENT', 'END:VCALENDAR');
 
   return rawLines.map(foldLine).join(CRLF) + CRLF;
+}
+
+/**
+ * The longest name, in UTF-8 bytes, before ".ics". Most file systems allow
+ * 255, and a browser may add " (1)" and ".crdownload" while it saves.
+ */
+const MAX_NAME_BYTES = 200;
+
+/**
+ * The name "Add to calendar" saves the file under: the signup's slug and the
+ * slot's title, in the title's own letters (`fika-Räksmörgås.ics`). What a
+ * file name can't hold becomes `-`: path separators and `:*?"<>|`, spaces,
+ * control and invisible characters, and emoji. Never a `-` or `.` at either
+ * end or two `-` together, and cut, between whole characters, to fit.
+ */
+export function calendarFileName(slug: string, slotTitle: string): string {
+  // Built here, not once for the module: a browser without `\p{…}` (Firefox
+  // before 78) then loses this download, not the page that imports it.
+  //
+  // Letters, digits and combining marks stay. A mark goes with what it
+  // follows: after a letter it is part of the letter (a vowel sign in Hindi or
+  // Thai, which have no precomposed letters), after an emoji it is part of the
+  // emoji (U+FE0F), and goes with it. NFC first, so an "å" typed as "a" and a
+  // combining ring is one letter.
+  const safe = `${slug}-${slotTitle}`
+    .normalize('NFC')
+    .replace(/(?:[^\p{L}\p{M}\p{N}._-]\p{M}*)+/gu, '-')
+    .replace(/-+/g, '-');
+  let name = '';
+  let bytes = 0;
+  for (const char of safe) {
+    bytes += encoder.encode(char).length;
+    if (bytes > MAX_NAME_BYTES) break;
+    name += char;
+  }
+  return `${name.replace(/^[-.]+|[-.]+$/g, '') || 'signup'}.ics`;
 }

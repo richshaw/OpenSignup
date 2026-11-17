@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { shareText, type ShareText } from '@/components/share/share-text';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
+import { HeaderAnnouncer } from './HeaderAnnouncer';
+import { signupHeaderText } from './header-text';
 import { PublishButton } from './PublishButton';
 import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
@@ -21,7 +26,13 @@ vi.mock('@/components/share/load-share-panel', async (importOriginal) => {
   };
 });
 
+/** The share panel's words in English, as `SignupHeader` passes them. */
+const SHARE_TEXT = shareText(getTestTranslator('organizer.share'), 'Bake sale helpers');
+
 const LINK = 'https://your-site.example/s/bake-sale-k3x';
+
+/** The header's words in English, as the layout passes them. */
+const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
 const MESSAGE = `Bake sale helpers\n8 spots open\nSign up here, no account needed: ${LINK}`;
 
 /** A window this wide; jsdom has no matchMedia of its own. */
@@ -39,19 +50,25 @@ function windowWidth(width: number) {
 function Header({
   action = async () => null,
   message = MESSAGE,
+  messageLang,
+  text = SHARE_TEXT,
 }: {
   action?: StatusAction;
   message?: string;
+  messageLang?: CatalogLocale;
+  text?: ShareText;
 }) {
   return (
     <ShareScope
+      text={text}
       publishAction={action}
       signupId="sig_1"
       title="Bake sale helpers"
       url={LINK}
       message={message}
+      messageLang={messageLang}
     >
-      <PublishButton variant="desktop" />
+      <PublishButton variant="desktop" text={TEXT.publish} />
       <div data-testid="desktop">
         <ShareButton variant="desktop" />
       </div>
@@ -192,6 +209,31 @@ describe('ShareButton on a computer', () => {
   });
 });
 
+describe('ShareButton’s message', () => {
+  it('carries no mark of its own in the panel’s language', async () => {
+    windowWidth(1280);
+    render(<Header />);
+    fireEvent.click(shareIn('desktop'));
+    expect(await screen.findByLabelText('A message to send with it')).not.toHaveAttribute('lang');
+  });
+
+  // The signup's language, which the layout passes where it isn't the
+  // organizer's, on a computer's popover and a phone's sheet.
+  it.each(
+    CATALOG_LOCALES.flatMap((locale) => [
+      [locale, 'desktop', 1280],
+      [locale, 'phone', 390],
+    ]) as [CatalogLocale, 'desktop' | 'phone', number][],
+  )('is marked %s when the signup is in it, %s', async (locale, where, width) => {
+    windowWidth(width);
+    render(<Header messageLang={locale} />);
+    fireEvent.click(shareIn(where));
+    const box = await screen.findByLabelText('A message to send with it');
+    expect(box).toHaveValue(MESSAGE);
+    expect(box).toHaveAttribute('lang', locale);
+  });
+});
+
 describe('ShareButton on a phone', () => {
   beforeEach(() => windowWidth(390));
 
@@ -220,3 +262,56 @@ describe('ShareButton on a phone', () => {
     expect(sheet).toHaveAccessibleDescription('Published');
   });
 });
+
+describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  'ShareButton and its panel in %s',
+  (locale) => {
+    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale helpers');
+    const words = (key: string) => `organizer.share.${key} in ${locale}`;
+
+    it('take every word from the catalog in that language, but the message', async () => {
+      windowWidth(1280);
+      render(
+        <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
+          <Header action={async () => ({ published: true })} text={text} />
+        </HeaderAnnouncer>,
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Publish and share' }));
+      });
+      const panel = await screen.findByRole('dialog', { name: words('heading.firstTime') });
+      expect(within(panel).getByText(words('published'))).toBeInTheDocument();
+      expect(screen.getByRole('status', { hidden: true })).toHaveTextContent(words('announce'));
+      expect(within(panel).getByText(words('lead.firstTime'))).toBeInTheDocument();
+      expect(within(panel).getByLabelText(words('linkField'))).toHaveValue(LINK);
+      expect(
+        await within(panel).findByRole('button', { name: words('copyLink') }),
+      ).toBeInTheDocument();
+      // The message is the signup's, whatever language the panel is in.
+      expect(within(panel).getByLabelText(words('messageLabel'))).toHaveValue(MESSAGE);
+      expect(within(panel).getByRole('button', { name: words('copyMessage') })).toBeInTheDocument();
+      expect(within(panel).getByRole('link', { name: words('emailIt') })).toBeInTheDocument();
+
+      fireEvent.click(within(panel).getByRole('button', { name: words('close') }));
+      const share = within(screen.getByTestId('desktop')).getByRole('button', {
+        name: words('button'),
+      });
+      fireEvent.click(share);
+      expect(
+        await screen.findByRole('dialog', { name: words('heading.later') }),
+      ).toBeInTheDocument();
+      expect(screen.getByText(words('lead.desktop'))).toBeInTheDocument();
+    });
+
+    it('name a phone’s sheet and its ✕ from the catalog in that language', async () => {
+      windowWidth(390);
+      render(<Header text={text} />);
+      fireEvent.click(
+        within(screen.getByTestId('phone')).getByRole('button', { name: words('button') }),
+      );
+      const sheet = await screen.findByRole('dialog', { name: words('heading.later') });
+      expect(within(sheet).getByRole('button', { name: words('close') })).toBeInTheDocument();
+      expect(await within(sheet).findByText(words('lead.phone'))).toBeInTheDocument();
+    });
+  },
+);

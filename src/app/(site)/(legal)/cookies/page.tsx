@@ -1,0 +1,195 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { SESSION_MAX_AGE_DAYS } from '@/auth/session-lifetime';
+import { PREFILL_KEY } from '@/app/s/[slug]/prefill-key';
+import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
+import { pageMetadata } from '@/lib/seo';
+import { INSTANCE_NAME } from '@/lib/site-config';
+import {
+  COMMIT_COOKIE_AFTER_SLOT,
+  COMMIT_COOKIE_MAX,
+  COMMIT_COOKIE_MIN,
+  OAUTH_INTERACTION_LIFETIME,
+  OAUTH_SESSION_LIFETIME,
+} from '@/lib/lifetimes';
+import { COMMIT_COOKIE_NAME } from '@/lib/returning-participant';
+import { OAUTH_COOKIES } from '@/oauth/config';
+
+export const metadata: Metadata = pageMetadata({
+  path: '/cookies',
+  title: 'Cookies',
+  description: `Every cookie ${INSTANCE_NAME} sets, what each one is for, and how long it lasts — plus why there are no advertising or cross-site tracking cookies here.`,
+  siteName: INSTANCE_NAME,
+});
+
+export default function CookiesPage() {
+  return (
+    <>
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
+        <p className="text-sm text-ink-muted">Last updated: 12 November 2026</p>
+      </header>
+
+      <section className="space-y-3">
+        <p>
+          {INSTANCE_NAME} sets only the cookies it needs to operate. It sets no analytics,
+          advertising, or cross-site tracking cookies. If the operator has enabled third-party
+          sign-in (for example, Google) and you use it, that provider may set cookies on its own
+          domain when you sign in there; those are governed by the provider&apos;s policies, not
+          ours.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Cookies we set</h2>
+        <div className="overflow-hidden rounded-lg border border-surface-sunk">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-surface-raised text-ink-muted">
+              <tr>
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Purpose</th>
+                <th className="px-4 py-3 font-medium">Lifetime</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-sunk">
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  authjs.session-token (or __Secure-authjs.session-token over HTTPS)
+                </td>
+                <td className="px-4 py-3">Keeps organizers signed in after they sign in.</td>
+                <td className="px-4 py-3">{SESSION_MAX_AGE_DAYS} days from when you sign in</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  authjs.csrf-token (__Host-authjs.csrf-token over HTTPS)
+                </td>
+                <td className="px-4 py-3">
+                  Prevents cross-site request forgery on the sign-in form.
+                </td>
+                <td className="px-4 py-3">Short-lived</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  authjs.callback-url (__Secure-authjs.callback-url over HTTPS)
+                </td>
+                <td className="px-4 py-3">
+                  Remembers where to return you after a successful magic-link sign-in.
+                </td>
+                <td className="px-4 py-3">Short-lived</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  authjs.pkce.code_verifier (__Secure-authjs.pkce.code_verifier over HTTPS)
+                </td>
+                <td className="px-4 py-3">
+                  Checks that a Google sign-in finishing here is the one this browser started. Set
+                  only if this site has Google sign-in turned on and you use it.
+                </td>
+                <td className="px-4 py-3">15 minutes</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  {COMMIT_COOKIE_NAME}
+                </td>
+                <td className="px-4 py-3">
+                  Keeps the private link to change or cancel each slot a participant signed up for,
+                  so they can come back from the same browser without finding the link again,
+                  whether or not they gave an email. <code>httpOnly</code>; not readable from
+                  JavaScript.
+                </td>
+                <td className="px-4 py-3">
+                  {COMMIT_COOKIE_MIN}, or until {COMMIT_COOKIE_AFTER_SLOT} after the latest slot it
+                  holds if that is later (at most {COMMIT_COOKIE_MAX})
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  {OAUTH_COOKIES.session}
+                </td>
+                <td className="px-4 py-3">
+                  Records which organizer is signed in while connecting an app or AI assistant to
+                  their account. Sent only to the connection endpoints under <code>/api/oauth</code>
+                  .
+                </td>
+                <td className="px-4 py-3">{OAUTH_SESSION_LIFETIME}</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  {OAUTH_COOKIES.interaction}
+                </td>
+                <td className="px-4 py-3">
+                  Ties a pending connection request to the browser that started it, so only that
+                  browser can approve it.
+                </td>
+                <td className="px-4 py-3">{OAUTH_INTERACTION_LIFETIME}</td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-mono text-xs [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">
+                  {OAUTH_COOKIES.resume}
+                </td>
+                <td className="px-4 py-3">
+                  Carries your allow-or-decline answer back to finish (or cancel) the connection.
+                </td>
+                <td className="px-4 py-3">{OAUTH_INTERACTION_LIFETIME}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-sm text-ink-muted">
+          The three <code>os_oauth_*</code> cookies are set only when an organizer connects an app
+          or AI assistant to their account, and each one is paired with a <code>.sig</code> cookie
+          of the same name and lifetime holding the signature that proves we set it. All of them are{' '}
+          <code>httpOnly</code>, limited to the page or endpoint that needs them, and marked{' '}
+          <code>Secure</code> over HTTPS. See the{' '}
+          <Link href="/privacy" className="text-brand underline">
+            privacy policy
+          </Link>{' '}
+          for what a connected app can reach and how to disconnect it.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Other storage in your browser</h2>
+        <p>
+          After you sign up for a slot, the sign-up form saves the name and email address you
+          entered in your browser&apos;s local storage, under the key <code>{PREFILL_KEY}</code>,
+          and uses it to fill in the form the next time you sign up for anything on {INSTANCE_NAME}.
+          It is not a cookie and is not sent to us on its own; we only see it when you send the form
+          again. It has no expiry: it stays until you clear this site&apos;s data in your browser,
+          and each sign-up updates it. On a shared or public computer, the next person to sign up
+          for anything on {INSTANCE_NAME} in the same browser will see your name and email address
+          filled in, so clear this site&apos;s data when you have finished.
+        </p>
+        <p>
+          When Magic Compose drafts a signup for an organizer, any warnings it has about the draft
+          are kept in that browser tab&apos;s session storage, under the key{' '}
+          <code>{AI_DRAFT_WARNINGS_KEY_PREFIX}</code> followed by the signup&apos;s ID, so the
+          draft&apos;s page can show them. They are never sent anywhere. They are removed when the
+          organizer dismisses them or publishes the signup, and the browser deletes them when the
+          tab closes.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Why there is no cookie banner</h2>
+        <p>
+          Every cookie above is strictly necessary to make the service work — for sign-in, to let a
+          participant edit their own commitment, or to complete a connection an organizer asked for.
+          Under GDPR/ePrivacy, strictly-necessary cookies do not require a consent banner. That is
+          why you don&apos;t see a popup.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">Related</h2>
+        <p>
+          See the{' '}
+          <Link href="/privacy" className="text-brand underline">
+            privacy policy
+          </Link>{' '}
+          for what data we store and how to request a copy or deletion.
+        </p>
+      </section>
+    </>
+  );
+}

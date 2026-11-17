@@ -1,4 +1,4 @@
-import { spotCount } from '@/lib/spot-counts';
+import type { Translator } from '@/i18n/translator';
 
 /**
  * Participant-facing copy for a `capacity_full` error.
@@ -9,7 +9,8 @@ import { spotCount } from '@/lib/spot-counts';
  * rephrase them here from the numbers in `details`.
  *
  * The copy never names the input it refers to, so it survives the field's
- * label changing.
+ * label changing. It comes from `participant.errors` through `t`, which the
+ * sign-up dialog and the edit page get from `useTranslations`.
  */
 
 /**
@@ -34,12 +35,44 @@ interface ApiErrorLike {
 }
 
 /**
+ * Where the server points a participant whose slot filled up mid-sign-up.
+ *
+ * Mirrors `SlotAlternative` in `services/commitments.ts`, which cannot be
+ * imported here: that module pulls in the database layer, and this one runs in
+ * the browser.
+ */
+export interface SlotAlternative {
+  id: string;
+  ref: string;
+  slotAt: string | null;
+}
+
+/**
+ * Whether this error should point the participant at other slots at all.
+ *
+ * Both the copy ("Pick another slot.") and the dialog's "See alternatives"
+ * link answer this question, so the answer lives here once. It used to be
+ * written twice, and the two copies disagreed: the link skipped the error-code
+ * check and compared `remaining === 0` where the copy compared `<= 0`, so a
+ * negative `remaining` offered the words but not the link.
+ */
+export function offersAlternatives(error: ApiErrorLike | null | undefined): boolean {
+  if (error?.code !== 'capacity_full') return false;
+  const remaining = error.details?.remaining;
+  if (typeof remaining !== 'number' || !Number.isFinite(remaining)) return false;
+  if (remaining > 0) return false;
+  const alternatives = error.details?.alternatives;
+  return Array.isArray(alternatives) && alternatives.length > 0;
+}
+
+/**
  * Returns null for any other error, or a `capacity_full` without the numbers,
- * so callers fall back to the server's text rather than guess.
+ * so callers fall back on their general copy rather than guess.
  */
 export function capacityMessage(
   error: ApiErrorLike | null | undefined,
   context: CapacityContext,
+  t: Translator<'participant.errors'>,
 ): CapacityCopy | null {
   if (error?.code !== 'capacity_full') return null;
   const remaining = error.details?.remaining;
@@ -51,15 +84,14 @@ export function capacityMessage(
     if (remaining <= 0) {
       // Only point at other slots when the server found some; with none open,
       // "Pick another slot." would send the participant looking for nothing.
-      const alternatives = error.details?.alternatives;
-      return Array.isArray(alternatives) && alternatives.length > 0
-        ? { message: 'Sorry, this slot just filled up.', suggestion: 'Pick another slot.' }
-        : { message: 'Sorry, this slot just filled up.' };
+      return offersAlternatives(error)
+        ? { message: t('capacity.filledUp'), suggestion: t('capacity.pickAnother') }
+        : { message: t('capacity.filledUp') };
     }
-    const verb = remaining === 1 ? 'is' : 'are';
     return {
-      message: `Only ${spotCount(remaining)} ${verb} left, and you asked for ${requested}.`,
-      suggestion: remaining === 1 ? 'Ask for 1 instead.' : `Ask for ${remaining} or fewer.`,
+      message: t('capacity.onlyLeft', { remaining, requested }),
+      suggestion:
+        remaining === 1 ? t('capacity.askForOne') : t('capacity.askForOrFewer', { remaining }),
     };
   }
 
@@ -67,15 +99,13 @@ export function capacityMessage(
   // can't drop below what is taken, it always covers the participant's own
   // spots, so it should never get this low.
   if (remaining <= 0) {
-    return {
-      message: "This slot is full, so you can't add more spots.",
-      suggestion: 'Keep the number you have.',
-    };
+    return { message: t('capacity.full'), suggestion: t('keepNumber') };
   }
   return {
-    message: `You can have at most ${spotCount(remaining)} on this slot, and you asked for ${requested}.`,
+    message: t('capacity.atMost', { remaining, requested }),
     // At 1 the participant already holds that one spot, so there is nothing
     // to ask for instead.
-    suggestion: remaining === 1 ? 'Keep your 1 spot.' : `Ask for ${remaining} or fewer.`,
+    suggestion:
+      remaining === 1 ? t('capacity.keepYourOne') : t('capacity.askForOrFewer', { remaining }),
   };
 }

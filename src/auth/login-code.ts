@@ -144,6 +144,11 @@ export async function sweepExpiredLoginCodes(db: Queryable): Promise<number> {
  * Exchange a code for the callback URL it protects. Single use. The caller
  * must have consumed the attempt rate limits first; this function does no
  * metering of its own.
+ *
+ * Each refusal names its case in `details.reason` (`code_malformed`,
+ * `code_invalid`, `code_expired`), so the sign-in page words it in its own
+ * language; `message` stays English. A callback URL that can't be read back
+ * is `internal`, with no reason.
  */
 export async function redeemLoginCode(
   db: Queryable,
@@ -153,7 +158,10 @@ export async function redeemLoginCode(
   const code = normalizeLoginCode(input.code);
   if (!code)
     return err(
-      serviceError('invalid_input', 'enter the six-digit code from the email', { field: 'code' }),
+      serviceError('invalid_input', 'enter the six-digit code from the email', {
+        field: 'code',
+        details: { reason: 'code_malformed' },
+      }),
     );
   const [row] = await db
     .select()
@@ -163,9 +171,18 @@ export async function redeemLoginCode(
     )
     .limit(1);
   if (!row || row.consumedAt)
-    return err(serviceError('invalid_input', 'that code is not valid', { field: 'code' }));
+    return err(
+      serviceError('invalid_input', 'that code is not valid', {
+        field: 'code',
+        details: { reason: 'code_invalid' },
+      }),
+    );
   if (row.expiresAt.getTime() <= Date.now()) {
-    return err(serviceError('already_consumed', 'that code has expired — request a new link'));
+    return err(
+      serviceError('already_consumed', 'that code has expired — request a new link', {
+        details: { reason: 'code_expired' },
+      }),
+    );
   }
   const claimed = await db
     .update(magicLinks)
@@ -173,7 +190,12 @@ export async function redeemLoginCode(
     .where(and(eq(magicLinks.id, row.id), isNull(magicLinks.consumedAt)))
     .returning({ id: magicLinks.id });
   if (claimed.length === 0)
-    return err(serviceError('invalid_input', 'that code is not valid', { field: 'code' }));
+    return err(
+      serviceError('invalid_input', 'that code is not valid', {
+        field: 'code',
+        details: { reason: 'code_invalid' },
+      }),
+    );
   const url = row.payloadEncrypted ? decryptCallbackUrl(row.payloadEncrypted) : null;
   if (!url) return err(serviceError('internal', 'could not read the sign-in link for that code'));
   return ok(url);

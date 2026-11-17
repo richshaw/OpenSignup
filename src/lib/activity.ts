@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { activity, type ActivityEvent } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import type { Db, Queryable } from '@/db/client';
@@ -51,22 +51,46 @@ interface RecordActivityArgs {
 }
 
 export async function recordActivity(db: Queryable, args: RecordActivityArgs) {
-  const payload = activityPayload(args.actor, args.payload);
-  await db.insert(activity).values({
-    id: makeId('act'),
-    signupId: args.signupId ?? null,
-    workspaceId: args.workspaceId ?? null,
-    actorId: args.actor.actorId,
-    actorType: args.actor.actorType,
-    eventType: args.eventType,
-    payload,
-  });
+  await recordActivities(db, [args]);
+}
 
-  if (args.actor.actorType === 'organizer' && args.actor.actorId !== null) {
+/**
+ * Rows per insert in `recordActivities`: each row is 7 bind parameters, and
+ * Postgres takes at most 65,535 in one statement.
+ */
+const ROWS_PER_INSERT = 1000;
+
+/**
+ * `recordActivity` for a change that touches many signups in one
+ * transaction: one insert for every row (more past `ROWS_PER_INSERT`), and
+ * one `last_active_at` update for each organizer among the actors, rather
+ * than two statements a row.
+ */
+export async function recordActivities(db: Queryable, rows: readonly RecordActivityArgs[]) {
+  for (let start = 0; start < rows.length; start += ROWS_PER_INSERT) {
+    await db.insert(activity).values(
+      rows.slice(start, start + ROWS_PER_INSERT).map((args) => ({
+        id: makeId('act'),
+        signupId: args.signupId ?? null,
+        workspaceId: args.workspaceId ?? null,
+        actorId: args.actor.actorId,
+        actorType: args.actor.actorType,
+        eventType: args.eventType,
+        payload: activityPayload(args.actor, args.payload),
+      })),
+    );
+  }
+
+  const organizerIds = new Set(
+    rows.flatMap(({ actor }) =>
+      actor.actorType === 'organizer' && actor.actorId !== null ? [actor.actorId] : [],
+    ),
+  );
+  for (const organizerId of organizerIds) {
     await db
       .update(organizers)
       .set({ lastActiveAt: sql`now()` })
-      .where(eq(organizers.id, args.actor.actorId));
+      .where(eq(organizers.id, organizerId));
   }
 }
 
@@ -89,11 +113,42 @@ export async function recordActivityBestEffort(db: Db, args: RecordActivityArgs)
   }
 }
 
-export async function listActivityForSignup(db: Db, signupId: string, limit = 100) {
+export async function listActivityForSignup(db: Db, signupId: string, limit: number) {
   return db
     .select()
     .from(activity)
     .where(eq(activity.signupId, signupId))
     .orderBy(desc(activity.occurredAt))
     .limit(limit);
+}
+
+/**
+ * Whether an `eventType` row is already recorded for this commitment, such as
+ * the `commitment.confirmation_sent` or `reminder.sent` that says its email
+ * went out, or the `commitment.removed` that says an organizer took it off its
+ * slot. `where`, a condition over `activity`, narrows which rows count.
+ */
+export async function alreadyRecorded(
+  db: Db,
+  eventType: ActivityEvent,
+  signupId: string,
+  commitmentId: string,
+  where?: SQL,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: activity.id })
+    .from(activity)
+    .where(
+      and(
+        eq(activity.eventType, eventType),
+        // Scoped to the signup as well as the commitment: the row carries
+        // signup_id anyway, and it keeps this off a full scan of every such
+        // event ever recorded even where the expression index is absent.
+        eq(activity.signupId, signupId),
+        sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+        where,
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
 }

@@ -8,13 +8,15 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
+import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship } from '@/i18n/testing/ship';
 import { getEnv, resetEnvCache } from '@/lib/env';
 import { makeId } from '@/lib/ids';
 import { MAGIC_COMPOSE_BUCKET } from '@/lib/magic-compose/limits';
 import type { ChatMessage } from '@/lib/magic-compose/prompt';
 import type { FollowUp } from '@/lib/magic-compose/questions';
 import type { Actor } from '@/lib/policy';
-import { consumeRateLimit, RateLimits } from '@/lib/rate-limit';
+import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { err, ok } from '@/lib/result';
 import { POST } from './route';
 
@@ -24,10 +26,14 @@ import { POST } from './route';
 const session = vi.hoisted(() => ({
   actor: { kind: 'anonymous' } as Actor,
   workspaceId: '',
+  locale: null as string | null,
 }));
 vi.mock('@/auth/session', () => ({
   requireActor: async () => session.actor,
-  getOrganizerSession: async () => ({ defaultWorkspaceId: session.workspaceId }),
+  getOrganizerSession: async () => ({
+    defaultWorkspaceId: session.workspaceId,
+    locale: session.locale,
+  }),
 }));
 vi.mock('@/lib/env', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/env')>()),
@@ -100,6 +106,7 @@ beforeEach(async () => {
   llm.replies = [];
   llm.calls = [];
   llm.onCall = undefined;
+  session.locale = null;
   const db = getDb();
   organizerId = makeId('org');
   workspaceId = makeId('ws');
@@ -192,6 +199,11 @@ async function composeRows() {
 /** The user message of the model's nth call. */
 function sent(n: number): string {
   return llm.calls[n]?.messages.find((m) => m.role === 'user')?.content ?? '';
+}
+
+/** The system prompt of the model's nth call. */
+function system(n: number): string {
+  return llm.calls[n]?.messages.find((m) => m.role === 'system')?.content ?? '';
 }
 
 describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () => {
@@ -295,8 +307,11 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     llm.replies = [ok(CANT_ASK), ok(CANT_ASK), ok(DRAFT)];
     const res = await compose({ prompt: 'Bake sale' });
     expect(res.status).toBe(500);
-    const body = (await res.json()) as { error: { message: string } };
+    const body = (await res.json()) as {
+      error: { message: string; details: { reason: string } };
+    };
     expect(body.error.message).toBe('AI draft did not match expected shape');
+    expect(body.error.details.reason).toBe('draft_invalid');
     expect(llm.calls).toHaveLength(2);
     expect(await quotaUsed()).toBe(1);
     expect(await signupsMade()).toBe(0);
@@ -464,8 +479,11 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
       llm.replies = [ok(CANT_ASK), ok(DRAFT)];
       const res = await compose({ prompt: 'Bake sale' });
       expect(res.status).toBe(500);
-      const body = (await res.json()) as { error: { message: string } };
+      const body = (await res.json()) as {
+        error: { message: string; details: { reason: string } };
+      };
       expect(body.error.message).toBe('AI draft did not match expected shape');
+      expect(body.error.details.reason).toBe('draft_invalid');
       expect(llm.calls).toHaveLength(1);
       expect(await signupsMade()).toBe(0);
     });
@@ -530,6 +548,34 @@ describe('POST /api/signups/magic-compose: questions and follow-ups (db)', () =>
     expect(body.error.message).toMatch(message);
     expect(llm.calls).toHaveLength(0);
     expect(await quotaUsed()).toBe(0);
+  });
+});
+
+describe('POST /api/signups/magic-compose: the fallback language on every call (db)', () => {
+  const writesIn = (name: string) =>
+    `too short or too mixed to tell (a few names and dates), write in ${name}.`;
+
+  // Another language shipped, for an organizer who saved it, so English can only come from a call
+  // that wasn't told the organizer's language.
+  beforeEach(() => {
+    ship('participant', ['en', OTHER_LOCALE]);
+    session.locale = OTHER_LOCALE;
+  });
+
+  it('tells the first call and its retry', async () => {
+    llm.replies = [ok(CANT_ASK), ok(DRAFT)];
+    expect((await compose({ prompt: 'Bake sale' })).status).toBe(200);
+    expect(llm.calls).toHaveLength(2);
+    expect(system(0)).toContain(writesIn(OTHER_LANGUAGE));
+    expect(system(1)).toContain(writesIn(OTHER_LANGUAGE));
+  });
+
+  it('tells a follow-up and its retry', async () => {
+    llm.replies = [ok(QUESTIONS), ok(DRAFT)];
+    expect((await compose({ prompt: 'Bake sale', followUp: ANSWERS })).status).toBe(200);
+    expect(llm.calls).toHaveLength(2);
+    expect(system(0)).toContain(writesIn(OTHER_LANGUAGE));
+    expect(system(1)).toContain(writesIn(OTHER_LANGUAGE));
   });
 });
 
@@ -654,7 +700,7 @@ describe('POST /api/signups/magic-compose: what the activity log records (db)', 
 
   it('records nothing for a follow-up turned away by the hourly quota', async () => {
     const policy = RateLimits.magicComposePerOrganizer;
-    await consumeRateLimit(getDb(), policy, organizerId, policy.max);
+    await chargeRateLimit(getDb(), policy, organizerId, policy.max);
     llm.replies = [ok(DRAFT)];
     expect((await compose({ prompt: 'Bake sale', followUp: ANSWERS })).status).toBe(429);
     expect(await composeRows()).toEqual([]);

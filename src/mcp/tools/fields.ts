@@ -9,7 +9,7 @@ import {
 import { addField, deleteField, reorderFields, updateField } from '@/services/slot-fields';
 import { defineTool } from '../registry';
 import { fieldOut } from './signups-read';
-import { FIELD_GUIDE } from './guides';
+import { FIELD_CONFIGS_GUIDE, FIELD_GUIDE } from './guides';
 
 /**
  * No sortOrder, for the reason add_slots has none: an assistant asked for "at
@@ -63,8 +63,7 @@ export const updateFieldTool = defineTool({
   name: 'update_field',
   scope: 'signups:write',
   title: 'Update field',
-  description:
-    'Rename a field, or change its type. To change the type, pass fieldType and a matching config: text { fieldType: "text", maxLength }, date { fieldType: "date" }, time { fieldType: "time" }, number { fieldType: "number" }, enum { fieldType: "enum", choices: [...] }. A type change is refused with conflict if any existing slot value would not fit; fix those values with update_slot first. To change the order fields are shown in, call reorder_fields.',
+  description: `Rename a field, or change its type. To change the type, pass fieldType and a matching config: ${FIELD_CONFIGS_GUIDE}. A type change is refused with conflict if any existing slot value would not fit; fix those values with update_slot first. To change the order fields are shown in, call reorder_fields.`,
   annotations: { readOnlyHint: false, destructiveHint: true },
   inputSchema: UpdateFieldSchema,
   handler: async (ctx, input) => {

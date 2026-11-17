@@ -153,6 +153,16 @@ describe('query budgets for the participant hot path (db)', () => {
     await countingClient.end();
   });
 
+  // Both GET /s/[slug] cases count the page alone, called directly. Under
+  // vitest React's cache() runs every call, and generateMetadata, the layouts
+  // and the not-found page (which Next renders on every request, not only a
+  // 404) don't render. In a request, whatever else reads the signup by its
+  // slug goes through the same cached loaders (loadPublicSignup, and
+  // loadSignupRowBySlug under it), so it adds no statement and the page's
+  // count is the request's. signups.cached.test.ts checks that the page gets
+  // its row that way, not-found.test.tsx that the not-found page does, and
+  // s/[slug]/layout.test.tsx that the layout (its <html lang>, og:locale and
+  // footer) does, so a second read can't creep in unseen here.
   it('GET /s/[slug], for a returning participant', async () => {
     const committed = await commitToSlot(getDb(), slotId, {
       name: 'Pat Example',

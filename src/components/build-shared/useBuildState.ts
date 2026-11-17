@@ -1,14 +1,9 @@
 import { useReducer, useRef, useEffect, useState } from 'react';
-import { toFieldRef } from '@/schemas/slot-fields';
+import { toFieldRef } from '@/schemas/slot-field-basics';
 import type { SlotFieldDefinition, SlotFieldConfig } from '@/schemas/slot-fields';
 import type { SignupSettings } from '@/schemas/signups';
-import {
-  DESCRIPTION_MAX_LENGTH,
-  TITLE_MAX_LENGTH,
-  TITLE_MIN_LENGTH,
-  TITLE_TOO_SHORT_MESSAGE,
-} from '@/lib/signup-limits';
-import type { ErrorCode } from '@/lib/errors';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/lib/signup-limits';
+import type { ServiceError } from '@/lib/errors';
 import { resolveAnchorRef } from '@/lib/reminder-fields';
 import { usePageLeave } from '@/hooks/usePageLeave';
 
@@ -45,29 +40,39 @@ export type BuildSlot = {
 };
 
 /**
- * `error` carries the closed `ErrorCode` enum the server returns via the
- * `{ error: { code, message } }` envelope (see `lib/api-response.ts`), so the
- * rail can render code-specific messages instead of a generic "Save failed".
+ * A refused save, as the server's `{ error }` envelope (see
+ * `lib/api-response.ts`) gives it: the closed `ErrorCode`, and the `details`
+ * whose `reason` names the case, with `field` and `received` for the words
+ * some reasons print. The rail words it from these (`saveErrorMessage`), so
+ * the envelope's English `message` and `suggestion` are left behind.
  */
+export type SaveError = Pick<ServiceError, 'code' | 'field' | 'received' | 'details'>;
+
 export type SaveStatus =
   | { kind: 'idle' }
   | { kind: 'saving' }
   | { kind: 'saved' }
-  | { kind: 'error'; code: ErrorCode; message?: string };
-
-type SaveError = { code: ErrorCode; message?: string };
+  | ({ kind: 'error' } & SaveError);
 
 const SAVING: SaveStatus = { kind: 'saving' };
 const SAVED: SaveStatus = { kind: 'saved' };
 const IDLE: SaveStatus = { kind: 'idle' };
 
-/** Best-effort parse of `{ error: { code, message } }` from a non-OK Response. */
+/** What the rail needs of a refusal, and nothing else: `internal` when it names no code. */
+function toSaveError({ code, field, received, details }: Partial<SaveError>): SaveError {
+  return {
+    code: code ?? 'internal',
+    ...(field !== undefined ? { field } : {}),
+    ...(received !== undefined ? { received } : {}),
+    ...(details !== undefined ? { details } : {}),
+  };
+}
+
+/** Best-effort parse of `{ error: { code, details, … } }` from a non-OK Response. */
 async function parseErrorEnvelope(res: Response): Promise<SaveError> {
   try {
-    const body = (await res.clone().json()) as { error?: { code?: ErrorCode; message?: string } };
-    const code = body.error?.code ?? 'internal';
-    const message = body.error?.message;
-    return message !== undefined ? { code, message } : { code };
+    const body = (await res.clone().json()) as { error?: Partial<SaveError> };
+    return toSaveError(body.error ?? {});
   } catch {
     return { code: 'internal' };
   }
@@ -202,16 +207,11 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
 const DEBOUNCE_MS = 800;
 const SAVED_CLEAR_MS = 3000;
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
-// The reorder routes refuse a list that isn't every slot (or field) exactly once,
-// which from the builder means another window changed them. Their own message
-// is for API callers.
-const STALE_REORDER_MESSAGE =
-  "The slots changed in another window, so your move wasn't saved. Drag it again.";
-const STALE_FIELD_REORDER_MESSAGE =
-  "The fields changed in another window, so your move wasn't saved. Drag it again.";
+/** A title the tab refuses before sending it, as the server would. */
 const TITLE_TOO_SHORT: SaveError = {
   code: 'invalid_input',
-  message: TITLE_TOO_SHORT_MESSAGE,
+  field: 'title',
+  details: { reason: 'title_too_short' },
 };
 
 // ---------------------------------------------------------------------------
@@ -316,7 +316,7 @@ async function savedSettings(res: Response): Promise<SignupSettings | null> {
 
 /**
  * Sends a request, JSON-encoding `body` when there is one. A non-OK answer
- * throws the server's `{ code, message }`, which `withSave` shows on the rail.
+ * throws the server's refusal (`SaveError`), which `withSave` shows on the rail.
  * `keepalive` lets the browser finish the request after the page unloads, for
  * the debounced saves a reload or a closed tab sends on its way out (#598).
  */
@@ -339,28 +339,10 @@ async function sendForData<T>(method: string, url: string, body?: unknown): Prom
   return ((await res.json()) as { data: T }).data;
 }
 
-/**
- * PUTs a whole new order to a reorder route. The route answers a list that
- * isn't every item exactly once with `invalid_input`, which from the builder
- * means another window changed the list, so that answer shows `staleMessage`.
- */
-async function putOrder(url: string, body: unknown, staleMessage: string): Promise<void> {
-  try {
-    await send('PUT', url, body);
-  } catch (e) {
-    const err = asErr(e);
-    throw err.code === 'invalid_input' ? { code: 'invalid_input', message: staleMessage } : err;
-  }
-}
-
 function asErr(e: unknown): SaveError {
-  if (e && typeof e === 'object' && 'code' in e) {
-    const obj = e as SaveError;
-    return obj.message !== undefined
-      ? { code: obj.code, message: obj.message }
-      : { code: obj.code };
-  }
-  return { code: 'internal' };
+  return e && typeof e === 'object' && 'code' in e
+    ? toSaveError(e as Partial<SaveError>)
+    : { code: 'internal' };
 }
 
 // ---------------------------------------------------------------------------
@@ -495,13 +477,7 @@ export function useBuildState(
       clearTimeout(savedTimerRef.current);
       savedTimerRef.current = null;
     }
-    dispatch({
-      type: 'SET_SAVE_STATUS',
-      status:
-        err.message !== undefined
-          ? { kind: 'error', code: err.code, message: err.message }
-          : { kind: 'error', code: err.code },
-    });
+    dispatch({ type: 'SET_SAVE_STATUS', status: { kind: 'error', ...err } });
   }
 
   /** Adds `save` to the saves in flight until it settles, counting it if it fails, and returns it. */
@@ -645,12 +621,10 @@ export function useBuildState(
       previous,
       next,
       showFields,
-      () =>
-        putOrder(
-          `${fieldsUrl}/order`,
-          { fieldIds: next.map((f) => f.id) },
-          STALE_FIELD_REORDER_MESSAGE,
-        ),
+      // A list another window changed since is refused as `field_ids_mismatch`.
+      async () => {
+        await send('PUT', `${fieldsUrl}/order`, { fieldIds: next.map((f) => f.id) });
+      },
       async () => toBuildFields(await sendForData<SlotFieldDefinition[]>('GET', fieldsUrl)),
     );
   };
@@ -750,11 +724,8 @@ export function useBuildState(
       async () => {
         if (group) await saveRowValues(moved);
         if (!reordered) return;
-        await putOrder(
-          `${slotsUrl}/order`,
-          { slotIds: reordered.map((r) => r.id) },
-          STALE_REORDER_MESSAGE,
-        );
+        // A list another tab changed since is refused as `slot_ids_mismatch`.
+        await send('PUT', `${slotsUrl}/order`, { slotIds: reordered.map((r) => r.id) });
       },
       async () => {
         const rows = (await sendForData<BuildSlot[]>('GET', slotsUrl)).map(toBuildRow);

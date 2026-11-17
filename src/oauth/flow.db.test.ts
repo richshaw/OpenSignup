@@ -51,6 +51,7 @@ import {
   startAuthorization,
   type Driver,
 } from './testing/flow-driver';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 
 /**
  * The authorization code flow against real Postgres: the Drizzle adapter,
@@ -134,6 +135,7 @@ beforeAll(async () => {
     findGrantId: (a, c) => findGrantIdFor(db, a, c),
     allowCimdFetch: async () => true,
     onGrantUsed: (g) => touchGrantUsed(db, g),
+    errorPageLocale: 'en',
     // Serve the CIMD document without a network. MISMATCHED_CLIENT gets the
     // same document, whose `client_id` is CLIENT, so its test reaches the
     // provider's id check instead of stopping at a 404.
@@ -285,7 +287,21 @@ describe('authorization code flow on Postgres', () => {
         clientId: CLIENT,
         scopes: ['signups:read', 'signups:write'],
       });
+      expect(seam.locale).toBeNull();
     }
+    // The organizer's saved language rides along raw, even one that names no
+    // language, and stays off the actor: the cookie path's actor still matches.
+    for (const saved of [OTHER_LOCALE, 'not a language at all']) {
+      await db.update(organizers).set({ locale: saved }).where(eq(organizers.id, organizerId));
+      const withLocale = await resolveBearerActor(bearer(tokens.access_token));
+      expect(withLocale.ok).toBe(true);
+      if (withLocale.ok) {
+        expect(withLocale.locale).toBe(saved);
+        expect(withLocale.actor).toEqual({ ...organizerActor, via: { clientId: CLIENT } });
+      }
+      expect(toActor(await loadOrganizerSessionById(db, organizerId))).toEqual(organizerActor);
+    }
+    await db.update(organizers).set({ locale: null }).where(eq(organizers.id, organizerId));
     const noHeader = await resolveBearerActor(bearer());
     expect(noHeader.ok).toBe(false);
     if (!noHeader.ok) {

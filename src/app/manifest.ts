@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
-    // Matches the viewport `themeColor` in src/app/layout.tsx.
+    // Matches the viewport `themeColor` in src/app/root-shell.tsx.
     theme_color: '#0b1220',
     icons: [
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml' },

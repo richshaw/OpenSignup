@@ -277,6 +277,354 @@ describe('ev_031, the French bake sale', () => {
   });
 });
 
+describe('language_must_be', () => {
+  const field = (ref: string, label: string, fieldType: 'text' | 'date' | 'time' = 'text') => ({
+    ref,
+    label,
+    fieldType,
+    choices: undefined,
+  });
+  const SWEDISH = draftOf({
+    title: 'Fika efter skolavslutningen',
+    description: 'Två familjer tar med varje sak.',
+    fields: [field('sak', 'Sak'), field('datum', 'Datum', 'date')],
+    slots: [{ values: { sak: 'Kaffe', datum: '2027-06-11' }, capacity: 2 }],
+  });
+  const ENGLISH = draftOf({
+    title: 'Coffee after the last day of school',
+    description: 'Two families bring each item.',
+    fields: [field('item', 'Item'), field('date', 'Date', 'date')],
+    slots: [{ values: { item: 'Coffee', date: '2027-06-11' }, capacity: 2 }],
+  });
+  const GERMAN = draftOf({
+    title: 'Helfer für das Sommerfest',
+    description: 'Wir brauchen drei Personen je Schicht.',
+    fields: [field('aufgabe', 'Aufgabe'), field('zeit', 'Zeit', 'time')],
+    slots: [{ values: { aufgabe: 'Aufbau', zeit: '09:00' }, capacity: 3 }],
+  });
+  const check = async (reply: Produced, language: unknown) => {
+    const run = await runOneCase(
+      runner(reply),
+      evalCase({ expect: { language_must_be: language } }),
+    );
+    return run.checks.find((c) => c.key === 'language_must_be')!;
+  };
+
+  it('passes a draft in the language it names, and fails it for any other', async () => {
+    expect((await check(SWEDISH, 'sv')).outcome).toBe('pass');
+    expect((await check(SWEDISH, 'en')).outcome).toBe('fail');
+    expect((await check(GERMAN, 'de')).outcome).toBe('pass');
+    expect((await check(GERMAN, 'sv')).outcome).toBe('fail');
+  });
+
+  it('fails an English draft where Swedish is expected, saying which words it read', async () => {
+    expect(await check(ENGLISH, 'sv')).toEqual({
+      key: 'language_must_be',
+      outcome: 'fail',
+      detail: "doesn't read as sv (en: the, each, of, bring, item)",
+    });
+  });
+
+  it('keeps accents, so "för" is Swedish and "für" German, never English "for"', async () => {
+    const title = (t: string) =>
+      draftOf({
+        title: t,
+        fields: [field('n', 'N')],
+        slots: [{ values: { n: '1' }, capacity: 1 }],
+      });
+    expect((await check(title('Kakor för klassen'), 'sv')).outcome).toBe('pass');
+    expect((await check(title('Kuchen für die Klasse'), 'de')).outcome).toBe('pass');
+    expect((await check(title('Cakes for the class'), 'en')).outcome).toBe('pass');
+    expect((await check(title('Kakor för klassen'), 'en')).outcome).toBe('fail');
+  });
+
+  it('scores the options of a questions reply', async () => {
+    const options = (whatOptions: string[]) => asks({ topics: ['what'], whatOptions });
+    expect((await check(options(['Ta med fika', 'Hjälpa till vid bordet']), 'sv')).outcome).toBe(
+      'pass',
+    );
+    expect((await check(options(['Bring snacks', 'Help at the table']), 'sv')).outcome).toBe(
+      'fail',
+    );
+  });
+
+  it('skips a refusal, and a language it has no words for', async () => {
+    const refused: Produced = { status: 'refusal', raw: {}, refusalReason: 'Nej.', ms: 1 };
+    expect((await check(refused, 'sv')).outcome).toBe('skip');
+    expect((await check(SWEDISH, 'fi')).outcome).toBe('skip');
+  });
+});
+
+describe('draft_must_contain_exactly', () => {
+  const kept = (title: string, description: string) =>
+    runOneCase(
+      runner(draftOf({ title, description })),
+      evalCase({
+        expect: { draft_must_contain_exactly: ['Winter Lights Concert', 'Brookside Library'] },
+      }),
+    ).then((run) => failed(run.checks));
+
+  it('passes names written as given, and fails them translated or recased', async () => {
+    expect(await kept('Winter Lights Concert', 'Konserten på Brookside Library.')).toEqual([]);
+    expect(await kept('Winter Lights-konserten', 'Konserten på Brookside Library.')).toEqual([
+      'draft_must_contain_exactly',
+    ]);
+    expect(await kept('Winter Lights Concert', 'Konserten på Brookside library.')).toEqual([
+      'draft_must_contain_exactly',
+    ]);
+  });
+});
+
+describe('organizerLanguage', () => {
+  it('runs a case that sets it only for a runner that tells the model', async () => {
+    const c = evalCase({ organizerLanguage: 'sv', expect: { 'slots.count': 1 } });
+
+    const untold = runner(drafted);
+    const skipped = await runOneCase(untold, c);
+    expect(skipped.status).toBe('skipped');
+    expect(skipped.checks[0]?.detail).toMatch(/only Magic Compose is told/);
+    expect(untold.produce).not.toHaveBeenCalled();
+
+    const told = { ...runner(drafted), tellsOrganizerLanguage: true };
+    const run = await runOneCase(told, c);
+    expect(run.status).toBe('ok');
+    expect(told.produce).toHaveBeenCalledWith(c);
+  });
+
+  it('is set on the case too short to tell, and on no case of a language it decides', () => {
+    expect(devCase('ev_045').organizerLanguage).toBe('sv');
+    for (const id of ['ev_042', 'ev_043', 'ev_044']) {
+      expect(devCase(id).organizerLanguage, id).toBeUndefined();
+    }
+  });
+});
+
+describe('the language cases, ev_042 to ev_045', () => {
+  const field = (ref: string, label: string, fieldType: 'text' | 'date' | 'time' = 'text') => ({
+    ref,
+    label,
+    fieldType,
+    choices: undefined,
+  });
+  const told = (reply: Produced) => ({ ...runner(reply), tellsOrganizerLanguage: true });
+
+  it('pass ev_042 on a Swedish draft of the four things, two families each', async () => {
+    const swedish = draftOf({
+      title: 'Fika efter skolavslutningen',
+      description: 'Två familjer tar med varje sak.',
+      fields: [field('sak', 'Sak'), field('datum', 'Datum', 'date'), field('tid', 'Tid', 'time')],
+      slots: ['Kaffe', 'Kanelbullar', 'Saft', 'Frukt'].map((sak) => ({
+        values: { sak, datum: '2027-06-11', tid: '13:00' },
+        capacity: 2,
+      })),
+    });
+    expect(failed((await runOneCase(told(swedish), devCase('ev_042'))).checks)).toEqual([]);
+  });
+
+  it('pass ev_043 on a German draft of the three shifts, three people each', async () => {
+    const shift = (aufgabe: string, zeit: string) => ({
+      values: { aufgabe, datum: '2027-06-19', zeit },
+      capacity: 3,
+    });
+    const german = draftOf({
+      title: 'Helfer für das Sommerfest',
+      description: 'Wir brauchen jeweils drei Personen.',
+      fields: [
+        field('aufgabe', 'Aufgabe'),
+        field('datum', 'Datum', 'date'),
+        field('zeit', 'Uhrzeit', 'time'),
+      ],
+      slots: [shift('Aufbau', '09:00'), shift('Kuchenstand', '11:00'), shift('Abbau', '16:00')],
+    });
+    expect(failed((await runOneCase(told(german), devCase('ev_043'))).checks)).toEqual([]);
+  });
+
+  it('pass ev_044 on a Swedish draft that keeps the concert and the venue as written', async () => {
+    const slot = (uppgift: string, tid: string, capacity: number) => ({
+      values: { uppgift, datum: '2027-12-12', tid },
+      capacity,
+    });
+    const swedish = draftOf({
+      title: 'Frivilliga till Winter Lights Concert',
+      description: 'Hjälp oss på Brookside Library söndag 12 december.',
+      fields: [
+        field('uppgift', 'Uppgift'),
+        field('datum', 'Datum', 'date'),
+        field('tid', 'Tid', 'time'),
+      ],
+      slots: [slot('Ställa i ordning stolar', '16:00', 2), slot('Servera kaffe', '18:00', 3)],
+    });
+    expect(failed((await runOneCase(told(swedish), devCase('ev_044'))).checks)).toEqual([]);
+
+    const english = draftOf({
+      ...(swedish as Extract<Produced, { status: 'draft' }>).draft,
+      title: 'Volunteers for the Winter Lights Concert',
+      description: 'Help us at Brookside Library on Sunday, December 12.',
+    });
+    expect(failed((await runOneCase(told(english), devCase('ev_044'))).checks)).toEqual([
+      'language_must_be',
+    ]);
+  });
+
+  it('pass ev_045 on a Swedish draft of the three dishes, and fail an English one', async () => {
+    const dishes = (title: string, dish: string, date: string) =>
+      draftOf({
+        title,
+        description: '',
+        fields: [field('dish', dish), field('date', date, 'date')],
+        slots: ['Pizza', 'Sushi', 'Tapas'].map((d) => ({
+          values: { dish: d, date: '2027-05-29' },
+          capacity: 1,
+        })),
+      });
+    const swedish = dishes('Pizza, sushi och tapas', 'Rätt', 'Datum');
+    expect(failed((await runOneCase(told(swedish), devCase('ev_045'))).checks)).toEqual([]);
+    const english = dishes('Pizza, sushi and tapas', 'Dish', 'Date');
+    expect(failed((await runOneCase(told(english), devCase('ev_045'))).checks)).toEqual([
+      'language_must_be',
+    ]);
+  });
+});
+
+describe('the Swedish cases, ev_046 to ev_050', () => {
+  const field = (ref: string, label: string, fieldType: 'text' | 'date' | 'time' = 'text') => ({
+    ref,
+    label,
+    fieldType,
+    choices: undefined,
+  });
+  const told = (reply: Produced) => ({ ...runner(reply), tellsOrganizerLanguage: true });
+  const failures = async (reply: Produced, id: string) =>
+    failed((await runOneCase(told(reply), devCase(id))).checks);
+  const draftIn = (reply: Produced) => (reply as Extract<Produced, { status: 'draft' }>).draft;
+
+  it('are Swedish organizers on the cases about them, and not on the shift and fika cases', () => {
+    for (const id of ['ev_046', 'ev_049', 'ev_050']) {
+      expect(devCase(id).organizerLanguage, id).toBe('sv');
+    }
+    for (const id of ['ev_047', 'ev_048']) {
+      expect(devCase(id).organizerLanguage, id).toBeUndefined();
+    }
+  });
+
+  it('pass ev_046 on a Swedish potluck with a slot per dish, and fail English labels or 2pm', async () => {
+    const dish = (ratt: string, capacity: number) => ({
+      values: { ratt, datum: '2027-12-11', tid: '11:00' },
+      capacity,
+    });
+    const swedish = draftOf({
+      title: 'Knytkalas för 3B:s familjer',
+      description: 'Ta med något till knytkalaset i matsalen.',
+      fields: [field('ratt', 'Rätt'), field('datum', 'Datum', 'date'), field('tid', 'Tid', 'time')],
+      slots: [dish('Sallad', 2), dish('Varmrätt', 3), dish('Bröd', 1), dish('Efterrätt', 1)],
+    });
+    expect(await failures(swedish, 'ev_046')).toEqual([]);
+
+    const englishLabels = draftOf({
+      ...draftIn(swedish),
+      fields: [field('ratt', 'Item'), field('datum', 'Date', 'date'), field('tid', 'Time', 'time')],
+    });
+    expect(await failures(englishLabels, 'ev_046')).toEqual(['fields.labels_must_not_match_any']);
+
+    const twelveHour = draftOf({
+      ...draftIn(swedish),
+      description: 'Ta med något till knytkalaset, 11am till 2pm.',
+    });
+    expect(await failures(twelveHour, 'ev_046')).toEqual(['raw_output_must_not_match_patterns']);
+  });
+
+  it('pass ev_047 on three shifts a day, two volunteers each, and fail a row per volunteer', async () => {
+    const shifts = ['2027-04-17', '2027-04-18'].flatMap((datum) =>
+      ['10:00', '12:00', '14:00'].map((tid) => ({
+        values: { uppgift: 'Kassan', datum, tid },
+        capacity: 2,
+      })),
+    );
+    const swedish = draftOf({
+      title: 'Volontärer till loppisen',
+      description: 'Två volontärer per pass i kassan.',
+      fields: [
+        field('uppgift', 'Uppgift'),
+        field('datum', 'Datum', 'date'),
+        field('tid', 'Starttid', 'time'),
+      ],
+      slots: shifts,
+    });
+    expect(await failures(swedish, 'ev_047')).toEqual([]);
+
+    const perVolunteer = draftOf({
+      ...draftIn(swedish),
+      slots: shifts.flatMap((s) => [
+        { ...s, capacity: 1 },
+        { ...s, capacity: 1 },
+      ]),
+    });
+    expect(await failures(perVolunteer, 'ev_047')).toEqual([
+      'slots.count',
+      'slots.all_capacities_equal',
+    ]);
+  });
+
+  it('pass ev_048 on every Saturday in the range, and fail one that drops 1 May', async () => {
+    const saturdays = ['2027-04-24', '2027-05-01', '2027-05-08', '2027-05-15', '2027-05-22'];
+    const rota = (dates: string[]) =>
+      draftOf({
+        title: 'Fikalista för P12:s hemmamatcher',
+        description: 'En familj per lördag tar med fika till kiosken.',
+        fields: [field('datum', 'Datum', 'date')],
+        slots: dates.map((datum) => ({ values: { datum }, capacity: 1 })),
+        groupBy: undefined,
+      });
+    expect(await failures(rota([...saturdays, '2027-05-29']), 'ev_048')).toEqual([]);
+    expect(
+      await failures(
+        rota([...saturdays.filter((d) => d !== '2027-05-01'), '2027-05-29']),
+        'ev_048',
+      ),
+    ).toEqual(['slots.count', 'slot_dates.set_must_equal']);
+  });
+
+  it('pass ev_049 on asking when with fika as the option, and fail English options', async () => {
+    expect(
+      await failures(asks({ topics: ['when', 'how_many'], whatOptions: ['Fika'] }), 'ev_049'),
+    ).toEqual([]);
+    expect(
+      await failures(
+        asks({ topics: ['when', 'how_many'], whatOptions: ['Bring snacks'] }),
+        'ev_049',
+      ),
+    ).toEqual(['questions.options_must_mention_any', 'questions.options_must_not_mention_any']);
+    expect(await failures(drafted, 'ev_049')).toEqual(['expected_questions_but_drafted']);
+  });
+
+  it('pass ev_050 on an English draft that keeps sill, and fail a Swedish one', async () => {
+    const picnic = (title: string, description: string, sak: string, items: string[]) =>
+      draftOf({
+        title,
+        description,
+        fields: [field('item', sak), field('date', 'Datum', 'date')],
+        slots: items.map((item) => ({ values: { item, date: '2027-06-26' }, capacity: 2 })),
+      });
+    const english = picnic(
+      'Midsommar picnic in the park',
+      'Two families bring each item.',
+      'Item',
+      ['Sill', 'New potatoes', 'Strawberries', 'Drinks'],
+    );
+    expect(await failures(english, 'ev_050')).toEqual([]);
+    const swedish = picnic('Midsommarpicknick i parken', 'Två familjer tar med varje sak.', 'Sak', [
+      'Sill',
+      'Färskpotatis',
+      'Jordgubbar',
+      'Dricka',
+    ]);
+    expect(await failures(swedish, 'ev_050')).toEqual([
+      'language_must_be',
+      'slot_values_must_cover_all',
+    ]);
+  });
+});
+
 describe('askedBeforeCreating', () => {
   it('passes a reply that asks, with a "?" or by asking for details', () => {
     for (const reply of [

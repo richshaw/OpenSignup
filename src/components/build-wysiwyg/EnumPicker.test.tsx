@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, type Mock } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-fields';
+import { render as renderUi, screen, fireEvent, waitFor } from '@testing-library/react';
+import { CHOICE_COUNT_FROM, CHOICE_MAX_LENGTH, MAX_CHOICES } from '@/schemas/slot-field-basics';
 import { EnumPicker } from './EnumPicker';
+import type { ReactElement } from 'react';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { BUILD_TAB_NAMESPACES } from './client-namespaces';
+
+/** Renders `ui` with the Build tab's messages in English, as its page gives them. */
+const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
+const render = (ui: ReactElement) => renderUi(ui, { wrapper });
 
 function renderPicker(
   overrides: {

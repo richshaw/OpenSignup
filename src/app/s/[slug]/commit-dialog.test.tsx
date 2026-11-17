@@ -3,6 +3,13 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { ClientMessages } from '@/i18n/ClientMessages';
+import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { englishMessages, standInMessages } from '@/i18n/testing/client-messages';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { getTranslator, messagesFor } from '@/i18n/translator';
+import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
@@ -31,6 +38,7 @@ describe('<CommitDialog /> trigger', () => {
         requireEmail
         sendsReminder={false}
       />,
+      { wrapper: englishMessages(COMMIT_DIALOG_NAMESPACES) },
     );
   }
 
@@ -59,22 +67,31 @@ describe('<CommitDialog /> sheet', () => {
   });
 
   function openSheet({
+    slotTitle = 'Cookies',
     spotsLeft = null,
     capacity = null,
     requireEmail = true,
     slotAt = null,
     sendsReminder = false,
+    wrapper = englishMessages(COMMIT_DIALOG_NAMESPACES),
+    trigger = /^Sign up for /,
   }: {
+    /** The slot's title, which the calendar file is named after. */
+    slotTitle?: string;
     spotsLeft?: number | null;
     capacity?: number | null;
     requireEmail?: boolean;
     slotAt?: string | null;
     sendsReminder?: boolean;
+    /** What gives the sheet its messages: the page's, in English, unless a test says. */
+    wrapper?: (props: { children: ReactNode }) => ReactNode;
+    /** The Sign up button's name in those messages. */
+    trigger?: string | RegExp;
   } = {}) {
     render(
       <CommitDialog
         slotId="slot_1"
-        slotTitle="Cookies"
+        slotTitle={slotTitle}
         actionName="Sat, May 16, Cookies, Vinland Elementary"
         slotName="Sat, May 16 · Cookies · Vinland Elementary"
         slotContext="Sat, May 16 · Vinland Elementary"
@@ -87,14 +104,79 @@ describe('<CommitDialog /> sheet', () => {
         requireEmail={requireEmail}
         sendsReminder={sendsReminder}
       />,
+      { wrapper },
     );
-    fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
+    fireEvent.click(screen.getByRole('button', { name: trigger }));
   }
 
   // jsdom + Radix mount in several passes, and these run alongside the rest of
   // the suite; the 1s default left them close enough to the edge to flake on a
   // loaded machine.
   const settle = { timeout: 5000 };
+
+  /**
+   * Presses the button that downloads the calendar file and returns the name
+   * it is saved under, its SUMMARY and its DESCRIPTION, unfolded (RFC 5545
+   * §3.1). jsdom's Blob has no text(), and it doesn't implement navigation,
+   * which a download link's click is.
+   */
+  async function savedCalendarFile(button: string): Promise<{
+    name: string | undefined;
+    summary: string | undefined;
+    description: string | undefined;
+  }> {
+    const blobs: Blob[] = [];
+    const names: string[] = [];
+    const { createObjectURL, revokeObjectURL } = URL;
+    URL.createObjectURL = (blob: Blob) => {
+      blobs.push(blob);
+      return 'blob:ics';
+    };
+    URL.revokeObjectURL = () => {};
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      names.push(this.download);
+    });
+    try {
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      expect(blobs).toHaveLength(1);
+      const ics = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(blobs[0]!);
+      });
+      const lines = ics.replace(/\r\n /g, '').split('\r\n');
+      const property = (name: string) =>
+        lines.find((line) => line.startsWith(`${name}:`))?.slice(name.length + 1);
+      return {
+        name: names[0],
+        summary: property('SUMMARY'),
+        description: property('DESCRIPTION'),
+      };
+    } finally {
+      URL.createObjectURL = createObjectURL;
+      URL.revokeObjectURL = revokeObjectURL;
+      click.mockRestore();
+    }
+  }
+
+  const calendarDescription = async (button: string) =>
+    (await savedCalendarFile(button)).description;
+
+  /** Presses the button that opens the share sheet and returns what it was given. */
+  async function shared(button: string): Promise<ShareData | undefined> {
+    const share = vi.fn(async (_data: ShareData) => {});
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+    try {
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1), settle);
+      return share.mock.calls[0]?.[0];
+    } finally {
+      delete (navigator as { share?: unknown }).share;
+    }
+  }
 
   // The reason this is a real modal and not the fixed overlay it replaced: on a
   // phone the page kept scrolling under that overlay, so the row you tapped
@@ -126,6 +208,23 @@ describe('<CommitDialog /> sheet', () => {
 
     fireEvent.keyDown(dialog, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+  });
+
+  // The sheet's Sign up isn't Radix's own trigger, so Radix had nowhere to
+  // put the focus back and it fell to the page.
+  it.each([
+    ['Escape', () => fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })],
+    ['Cancel', () => fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))],
+    ['the close button', () => fireEvent.click(screen.getByRole('button', { name: 'Close' }))],
+  ])('gives the focus back to its Sign up when closed with %s', async (_, close) => {
+    openSheet();
+    await waitFor(() => expect(screen.getByLabelText('Your name')).toHaveFocus(), settle);
+    close();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument(), settle);
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /^Sign up for / })).toHaveFocus(),
+      settle,
+    );
   });
 
   it('opens with the caret in the first field, not on the close button', async () => {
@@ -408,6 +507,89 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
+  // The server's `message` and `suggestion` are English for API callers. The
+  // sheet words every refusal itself, by code and reason, and never shows them.
+  describe('a refusal', () => {
+    const SERVER_WORDS = 'SERVER-ONLY-ENGLISH';
+    const failed = ["Something went wrong, so you're not signed up yet.", 'Try again.'];
+    const unreadable = ['Something went wrong.', 'Press Confirm again.'];
+
+    beforeEach(() => {
+      // jsdom leaves scrollIntoView out, and the dialog calls it on the alert.
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    });
+
+    async function confirmAnswered(json: () => Promise<unknown>) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: false, status: 400, json })),
+      );
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Fields' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'jordan@example' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).not.toHaveTextContent(SERVER_WORDS);
+      return alert;
+    }
+
+    it.each([
+      [
+        'email_invalid',
+        { code: 'invalid_input', field: 'email', details: { reason: 'email_invalid' } },
+        ["That email address doesn't look right.", 'Check it and try again.'],
+      ],
+      [
+        'name_too_long',
+        { code: 'invalid_input', field: 'name', details: { reason: 'name_too_long' } },
+        ['Enter your name, up to 100 characters.'],
+      ],
+      [
+        'a reason it does not know',
+        { code: 'invalid_input', field: 'phone', details: { reason: 'phone_invalid' } },
+        ['Check what you entered and try again.'],
+      ],
+      ['an internal error', { code: 'internal' }, failed],
+      ['a code it does not know', { code: 'teapot' }, failed],
+      // Every error the API sends has a code: one without may not be the API's.
+      ['an error with no code', {}, unreadable],
+    ])('words %s itself', async (_, error, words) => {
+      const alert = await confirmAnswered(async () => ({
+        error: { ...error, message: SERVER_WORDS, suggestion: SERVER_WORDS },
+      }));
+      for (const line of words) expect(alert).toHaveTextContent(line);
+    });
+
+    // An error page from a proxy, say, rather than the API's JSON. Not a
+    // network error: the server answered. A proxy can answer after the server
+    // made the sign-up, so the sheet can't say whether it happened.
+    it.each([
+      [
+        'is not JSON',
+        async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      ],
+      ['is JSON without an error', async () => ({})],
+      ['is JSON whose error is not the API’s', async () => ({ error: 'Bad Gateway' })],
+    ])(
+      'says only that it went wrong, and to confirm again, when the answer %s',
+      async (_, json) => {
+        const alert = await confirmAnswered(json);
+        for (const line of unreadable) expect(alert).toHaveTextContent(line);
+        expect(alert).not.toHaveTextContent('signed up');
+        expect(alert).not.toHaveTextContent("Couldn't reach the server.");
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+      },
+    );
+  });
+
   it('commits one place when it does not ask', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -465,7 +647,10 @@ describe('<CommitDialog /> sheet', () => {
   describe('where the email is optional', () => {
     const editUrl = 'https://example.test/s/example/c/com_1';
 
-    async function signUpWithEmail(email: string, opts: { slotAt?: string | null } = {}) {
+    async function signUpWithEmail(
+      email: string,
+      opts: { slotAt?: string | null; slotTitle?: string } = {},
+    ) {
       const fetchMock = vi.fn(async () => ({
         ok: true,
         json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
@@ -570,20 +755,27 @@ describe('<CommitDialog /> sheet', () => {
     // The link changes or cancels their spot, so the share sheet is for keeping
     // it, and the text it fills in says to keep it private.
     it('fills the share sheet with their link as theirs to keep', async () => {
-      const share = vi.fn(async () => {});
-      Object.defineProperty(navigator, 'share', { value: share, configurable: true });
-      try {
-        await signUpWithEmail('jordan@example.test');
-        fireEvent.click(screen.getByRole('button', { name: 'Save your link' }));
-        await waitFor(() => expect(share).toHaveBeenCalledTimes(1), settle);
-        expect(share).toHaveBeenCalledWith({
-          title: 'Snack duty',
-          text: 'My spot for Sat, May 16 · Cookies · Vinland Elementary. This link changes or cancels it, so keep it private.',
-          url: editUrl,
-        });
-      } finally {
-        delete (navigator as { share?: unknown }).share;
-      }
+      await signUpWithEmail('jordan@example.test');
+      expect(await shared('Save your link')).toEqual({
+        title: 'Snack duty',
+        text: 'My spot for Sat, May 16 · Cookies · Vinland Elementary. This link changes or cancels it, so keep it private.',
+        url: editUrl,
+      });
+    });
+
+    it('writes their link into the calendar file, saying what it is for', async () => {
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
+      expect(await calendarDescription('Add to calendar')).toBe(`Edit or cancel: ${editUrl}`);
+    });
+
+    it('calls the calendar event by the signup and the slot', async () => {
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z' });
+      expect((await savedCalendarFile('Add to calendar')).summary).toBe('Snack duty — Cookies');
+    });
+
+    it('names the calendar file after the signup and the slot, in the slot’s own letters', async () => {
+      await signUpWithEmail('', { slotAt: '2030-04-06T12:00:00.000Z', slotTitle: 'Räksmörgås' });
+      expect((await savedCalendarFile('Add to calendar')).name).toBe('example-Räksmörgås.ics');
     });
 
     // Someone who chose to leave it out once should not send it by accident.
@@ -622,6 +814,7 @@ describe('<CommitDialog /> sheet', () => {
               message: 'Email is required for this signup.',
               field: 'email',
               suggestion: 'Add your email and try again.',
+              details: { reason: 'email_required' },
             },
           }),
         })),
@@ -637,7 +830,9 @@ describe('<CommitDialog /> sheet', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
         const alert = await screen.findByRole('alert', {}, settle);
-        expect(alert).toHaveTextContent('Email is required for this signup.');
+        expect(alert).toHaveTextContent('This signup now needs an email address.');
+        expect(alert).toHaveTextContent('Add yours and try again.');
+        expect(alert).not.toHaveTextContent('Email is required');
         const email = screen.getByLabelText('Email');
         expect(email).toBeRequired();
         expect(email).not.toHaveAccessibleDescription();
@@ -701,8 +896,53 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
-  // A phone that loses its connection after the POST got through shows
-  // "network error" for a sign-up the server did make. Pressing Confirm again
+  // The link and "Pick another slot." answer one question, `offersAlternatives`
+  // (#806). The dialog used to ask it for itself, as `remaining === 0`, so a
+  // `remaining` below 0 got the words and no link.
+  it('offers See alternatives with "Pick another slot." when remaining is below 0', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: {
+            code: 'capacity_full',
+            message: 'slot is full',
+            details: {
+              remaining: -1,
+              requested: 1,
+              capacity: 2,
+              alternatives: [{ id: 'slot_2', ref: 'slot_2', slotAt: null }],
+            },
+          },
+        }),
+      })),
+    );
+    Element.prototype.scrollIntoView = vi.fn();
+
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Sorry, this slot just filled up.');
+      expect(alert).toHaveTextContent('Pick another slot.');
+      expect(within(alert).getByRole('link', { name: 'See alternatives' })).toHaveAttribute(
+        'href',
+        '/s/example',
+      );
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // A phone that loses its connection after the POST got through says it
+  // couldn't reach the server for a sign-up the server did make. Pressing Confirm again
   // must be recognisably the same sign-up, so the server hands that one back
   // rather than booking a second place (#387).
   describe('the idempotency key', () => {
@@ -742,7 +982,9 @@ describe('<CommitDialog /> sheet', () => {
     }
 
     async function seeNetworkError() {
-      expect(await screen.findByRole('alert', {}, settle)).toHaveTextContent('network error');
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent("Couldn't reach the server.");
+      expect(alert).toHaveTextContent('Check your connection and try again.');
       await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
     }
 
@@ -776,6 +1018,35 @@ describe('<CommitDialog /> sheet', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(first?.idempotencyKey).toEqual(expect.any(String));
       // The same sign-up, key and all.
+      expect(second).toEqual(first);
+    });
+
+    // "Press Confirm again", the sheet says, after an answer it can't read.
+    it('sends the same key when Confirm is pressed again after an answer it can’t read', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 502,
+          json: async () => {
+            throw new SyntaxError('Unexpected token <');
+          },
+        })
+        .mockResolvedValueOnce(success);
+      vi.stubGlobal('fetch', fetchMock);
+
+      openSheet();
+      await fillAndConfirm();
+      expect(await screen.findByRole('alert', {}, settle)).toHaveTextContent(
+        'Press Confirm again.',
+      );
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      await screen.findByRole('heading', { name: "You're in." }, settle);
+
+      const [first, second] = sentBodies(fetchMock);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(first?.idempotencyKey).toEqual(expect.any(String));
       expect(second).toEqual(first);
     });
 
@@ -847,6 +1118,323 @@ describe('<CommitDialog /> sheet', () => {
       expect(secondRest).toEqual(firstRest);
       expect(secondKey).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
       expect(secondKey).not.toBe(firstKey);
+    });
+  });
+
+  // The page passes the sheet its messages in the signup's language. These
+  // stand in for another language's: each reads as where it was asked for
+  // ("participant.dialog.done in sv"). Every word the sheet shows,
+  // or gives a screen reader, has to be one of them, or the test's own data.
+  describe('in the signup’s language', () => {
+    const say = (key: string) => `participant.${key} in ${OTHER_LOCALE}`;
+    const inOther = standInMessages(OTHER_LOCALE, COMMIT_DIALOG_NAMESPACES);
+    const editUrl = 'https://example.test/s/example/c/com_1';
+    // What the test gives the sheet, which it shows as given.
+    const DATA = ['Cookies', 'Sat, May 16 · Vinland Elementary', editUrl];
+
+    /** The words left in `element`, its text and the attributes people read, once those are out. */
+    function untranslated(element: Element): string {
+      const attributes = [element, ...element.querySelectorAll('*')].flatMap((el) =>
+        ['aria-label', 'placeholder', 'title', 'alt'].map((name) => el.getAttribute(name) ?? ''),
+      );
+      let text = [element.textContent ?? '', ...attributes].join(' ');
+      text = text.replace(new RegExp(`participant\\.[\\w.]+ in ${OTHER_LOCALE}`, 'g'), ' ');
+      for (const value of DATA) text = text.split(value).join(' ');
+      return text.replace(/[^\p{L}]+/gu, ' ').trim();
+    }
+
+    function openInOther(options: Parameters<typeof openSheet>[0] = {}) {
+      openSheet({ ...options, wrapper: inOther, trigger: say('dialog.signUpFor') });
+    }
+
+    async function confirmWith(response: unknown) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => response),
+      );
+      fireEvent.change(await screen.findByLabelText(say('fields.name'), {}, settle), {
+        target: { value: 'Jordan Fields' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: say('dialog.confirm') }));
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      delete (navigator as { clipboard?: unknown }).clipboard;
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    it('asks for the button, the heading and the form in it', async () => {
+      openInOther({ spotsLeft: 3, capacity: 5, requireEmail: false, sendsReminder: true });
+      const dialog = await screen.findByRole('dialog', {}, settle);
+      // Behind the sheet, so hidden from assistive tech while it is open.
+      const trigger = screen.getByRole('button', { name: say('dialog.signUpFor'), hidden: true });
+      expect(trigger).toHaveTextContent(say('dialog.signUp'));
+      expect(dialog).toHaveAccessibleName(say('dialog.signUpFor'));
+      // "N of M spots left" is the row's message, not a second one.
+      expect(dialog).toHaveAccessibleDescription(say('slot.leftOf'));
+      expect(screen.getByRole('button', { name: say('dialog.close') })).toBeInTheDocument();
+      expect(screen.getByLabelText(say('fields.name'))).toBeInTheDocument();
+      const email = screen.getByLabelText(say('fields.emailOptional'));
+      expect(email).toHaveAccessibleDescription(say('dialog.emailHelp'));
+      expect(screen.getByLabelText(say('fields.notes'))).toHaveAttribute(
+        'placeholder',
+        say('dialog.notesPlaceholder'),
+      );
+      expect(screen.getByLabelText(say('fields.spots'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.cancel') })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.confirm') })).toBeInTheDocument();
+
+      fireEvent.change(email, { target: { value: 'pat@gmial.com' } });
+      expect(await screen.findByText(say('dialog.didYouMean'), {}, settle)).toBeInTheDocument();
+      expect(untranslated(dialog)).toBe('');
+      expect(untranslated(trigger)).toBe('');
+    });
+
+    it('asks for the required email’s label in it', async () => {
+      openInOther();
+      expect(await screen.findByLabelText(say('fields.email'), {}, settle)).toBeRequired();
+    });
+
+    it('asks for an error, its suggestion and See alternatives in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInOther({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: 'capacity_full',
+            message: 'slot is full',
+            details: { remaining: 0, requested: 1, alternatives: [{ id: 'slot_2' }] },
+          },
+        }),
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('errors.capacity.filledUp'));
+      expect(alert).toHaveTextContent(say('errors.capacity.pickAnother'));
+      expect(within(alert).getByRole('link')).toHaveTextContent(say('dialog.seeAlternatives'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for a refused input, and an error it has no copy for, in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInOther({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => ({
+          error: {
+            code: 'invalid_input',
+            message: 'Invalid email',
+            suggestion: 'Check the value of "email".',
+            details: { reason: 'email_invalid' },
+          },
+        }),
+      });
+      let alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('errors.email.invalid'));
+      expect(alert).toHaveTextContent(say('errors.email.check'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+
+      await confirmWith({
+        ok: false,
+        json: async () => ({ error: { code: 'internal', message: 'something went wrong' } }),
+      });
+      await waitFor(
+        () => expect(screen.getByRole('alert')).toHaveTextContent(say('errors.failed.join')),
+        settle,
+      );
+      alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent(say('errors.failed.tryAgain'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for an answer it can’t read in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInOther({ requireEmail: false });
+      await confirmWith({
+        ok: false,
+        json: async () => {
+          throw new SyntaxError('Unexpected token <');
+        },
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('dialog.unreadable.message'));
+      expect(alert).toHaveTextContent(say('dialog.unreadable.suggestion'));
+      expect(alert).not.toHaveTextContent(say('errors.failed.join'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for a sign-up that never reached the server in it', async () => {
+      Element.prototype.scrollIntoView = vi.fn();
+      openInOther({ requireEmail: false });
+      await confirmWith({
+        then: (_: unknown, reject: (reason: unknown) => void) =>
+          reject(new TypeError('Failed to fetch')),
+      });
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent(say('dialog.unreachable.message'));
+      expect(alert).toHaveTextContent(say('dialog.unreachable.suggestion'));
+      expect(untranslated(screen.getByRole('dialog'))).toBe('');
+    });
+
+    it('asks for Signing up in it while the sign-up is on its way', async () => {
+      openInOther({ requireEmail: false });
+      await confirmWith(new Promise(() => {}));
+      expect(
+        await screen.findByRole('button', { name: say('dialog.signingUp') }, settle),
+      ).toBeDisabled();
+    });
+
+    it('asks for the screen after a sign-up with an email in it', async () => {
+      openInOther({ slotAt: '2030-04-06T12:00:00.000Z' });
+      fireEvent.change(await screen.findByLabelText(say('fields.email'), {}, settle), {
+        target: { value: 'jordan@example.test' },
+      });
+      await confirmWith({
+        ok: true,
+        json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+      });
+      const dialog = await screen.findByRole('dialog', { name: say('dialog.youreIn') }, settle);
+      expect(screen.getByText(say('dialog.savedEmailed'))).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.addToCalendar') })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.saveYourLink') })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: say('dialog.done') })).toBeInTheDocument();
+      expect(untranslated(dialog)).toBe('');
+    });
+
+    it('asks for the calendar file’s description and the share text in it', async () => {
+      openInOther({ slotAt: '2030-04-06T12:00:00.000Z' });
+      fireEvent.change(await screen.findByLabelText(say('fields.email'), {}, settle), {
+        target: { value: 'jordan@example.test' },
+      });
+      await confirmWith({
+        ok: true,
+        json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+      });
+      await screen.findByRole('dialog', { name: say('dialog.youreIn') }, settle);
+      const calendar = await savedCalendarFile(say('dialog.addToCalendar'));
+      expect(calendar.summary).toBe(say('dialog.calendarTitle'));
+      expect(calendar.description).toBe(say('dialog.calendarDescription'));
+      expect(await shared(say('dialog.saveYourLink'))).toEqual({
+        title: 'Snack duty',
+        text: say('dialog.shareText'),
+        url: editUrl,
+      });
+    });
+
+    it('asks for the screen after a sign-up without an email, and its copy lines, in it', async () => {
+      openInOther({ requireEmail: false });
+      await confirmWith({
+        ok: true,
+        json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+      });
+      const dialog = await screen.findByRole('dialog', { name: say('dialog.youreIn') }, settle);
+      expect(screen.getByText(say('dialog.savedNotEmailed'))).toBeInTheDocument();
+      expect(untranslated(dialog)).toBe('');
+
+      const writeText = vi.fn(async () => {});
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      fireEvent.click(screen.getByRole('button', { name: say('dialog.copyLink') }));
+      await waitFor(
+        () => expect(screen.getByRole('status')).toHaveTextContent(say('dialog.copied')),
+        settle,
+      );
+      expect(screen.getByRole('button', { name: say('dialog.linkCopied') })).toBeInTheDocument();
+
+      writeText.mockRejectedValue(new Error('not allowed'));
+      fireEvent.click(screen.getByRole('button', { name: say('dialog.linkCopied') }));
+      await waitFor(
+        () => expect(screen.getByRole('status')).toHaveTextContent(say('dialog.copyFailed')),
+        settle,
+      );
+      expect(untranslated(dialog)).toBe('');
+    });
+  });
+
+  // From the real catalogs, in each language they hold: what the page gives
+  // the sheet.
+  describe('the calendar file and the share text, from the catalog', () => {
+    const editUrl = 'https://example.test/s/example/c/com_1';
+    const slotName = 'Sat, May 16 · Cookies · Vinland Elementary';
+
+    /**
+     * The words in each language's share text that say to keep the link
+     * private. Whoever has the link can change or cancel the spot, so a
+     * translation that drops the warning fails here, and a language with a
+     * catalog fails until it names the words that carry it.
+     */
+    const KEEP_IT_PRIVATE: { readonly [L in CatalogLocale]?: string } = {
+      en: 'so keep it private',
+      sv: 'så dela inte länken med någon',
+    };
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    /** Signs up with an email in `locale`, and returns the dialog's translator. */
+    async function signUpIn(locale: CatalogLocale) {
+      // A message the catalog lacks fails the test, rather than reading as a key.
+      const strict = {
+        onError: (error: Error) => {
+          throw error;
+        },
+      };
+      const dialog = getTranslator(locale, 'participant.dialog', strict);
+      const fields = getTranslator(locale, 'participant.fields', strict);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({
+          ok: true,
+          json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
+        })),
+      );
+      openSheet({
+        slotAt: '2030-04-06T12:00:00.000Z',
+        wrapper: function CatalogMessages({ children }: { children: ReactNode }) {
+          return (
+            <ClientMessages
+              locale={locale}
+              messages={messagesFor(locale, COMMIT_DIALOG_NAMESPACES)}
+            >
+              {children}
+            </ClientMessages>
+          );
+        },
+        trigger: dialog('signUpFor', { slot: 'Sat, May 16, Cookies, Vinland Elementary' }),
+      });
+      fireEvent.change(await screen.findByLabelText(fields('name'), {}, settle), {
+        target: { value: 'Jordan Fields' },
+      });
+      fireEvent.change(screen.getByLabelText(fields('email')), {
+        target: { value: 'jordan@example.test' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: dialog('confirm') }));
+      await screen.findByRole('dialog', { name: dialog('youreIn') }, settle);
+      return dialog;
+    }
+
+    it('are Swedish on a Swedish signup', async () => {
+      const dialog = await signUpIn('sv');
+      const calendar = await savedCalendarFile(dialog('addToCalendar'));
+      // The en dash Swedish puts between two parts, where English has an em dash.
+      expect(calendar.summary).toBe('Snack duty – Cookies');
+      expect(calendar.description).toBe(`Ändra eller avboka: ${editUrl}`);
+      expect((await shared(dialog('saveYourLink')))?.text).toBe(
+        `Min anmälan till ${slotName} – med den här länken går den att ändra eller avboka, så dela inte länken med någon.`,
+      );
+    });
+
+    it.each(CATALOG_LOCALES)('say to keep the link private in %s', async (locale) => {
+      const words = KEEP_IT_PRIVATE[locale];
+      expect(
+        words,
+        `KEEP_IT_PRIVATE has no entry for ${locale}: add the words in its participant.dialog.shareText that say to keep the link private`,
+      ).toBeDefined();
+      const dialog = await signUpIn(locale);
+      const text = (await shared(dialog('saveYourLink')))?.text;
+      expect(text).toContain(slotName);
+      expect(text).toContain(words);
     });
   });
 });

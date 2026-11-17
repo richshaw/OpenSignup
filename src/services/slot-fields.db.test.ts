@@ -10,7 +10,6 @@ import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
-import { DEFAULT_TEMPLATE } from '@/lib/signup-templates';
 import {
   addField,
   deleteField,
@@ -253,7 +252,7 @@ describe('slot-fields service (db)', () => {
     it('appends when sortOrder is omitted', async () => {
       // Regression: the build page adds fields without a sortOrder. While the
       // input schema defaulted that to 0, the new field sorted ahead of
-      // the template's date column (DEFAULT_TEMPLATE pins it at 1) and
+      // the template's date column (the default template pins it at 1) and
       // reappeared mid-grid after a reload. This signup starts empty, so the
       // first field is placed explicitly and the second must land after it.
       const sigId = await createTestSignup(fx, 'Append not prepend');
@@ -1618,19 +1617,14 @@ describe('slot-fields service (db)', () => {
     });
 
     it('keeps the template anchor a signup was created with', async () => {
-      const r = await createSignup(
-        fx.db,
-        fx.actor,
-        fx.workspaceId,
-        {
-          title: 'Template anchor',
-          description: '',
-          tags: [],
-          visibility: 'unlisted',
-          settings: {},
-        },
-        { template: DEFAULT_TEMPLATE },
-      );
+      // No template given, so the default one, whose date field is `date`.
+      const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+        title: 'Template anchor',
+        description: '',
+        tags: [],
+        visibility: 'unlisted',
+        settings: {},
+      });
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(await anchorOf(r.value.id)).toBe('date');
@@ -1736,6 +1730,30 @@ describe('slot-fields service (db)', () => {
           (a) => a.eventType === 'field.created' && (a.payload as { ref: string }).ref === 'mid',
         )?.payload,
       ).toMatchObject({ beforeFieldId: ids[1] });
+    });
+
+    it('an append partway through a one-field-at-a-time renumbering does not tie', async () => {
+      // A REST caller can renumber fields 0..n-1 by PATCHing sortOrder one
+      // field at a time, as `nextSortOrder` explains for slots. An add landing
+      // between two of those PATCHes must stay clear of 0..n-1.
+      const sigId = await createTestSignup(fx, 'Append during renumber');
+      const ids: Record<string, string> = {};
+      for (const ref of ['a', 'b', 'c']) {
+        const r = await addField(fx.db, fx.actor, sigId, { ...textField(ref), sortOrder: 0 });
+        if (!r.ok) throw new Error(`${ref} setup failed`);
+        ids[ref] = r.value.id;
+      }
+      expect((await updateField(fx.db, fx.actor, ids['b']!, { sortOrder: 1 })).ok).toBe(true);
+      const d = await addField(fx.db, fx.actor, sigId, textField('d'));
+      expect(d.ok, JSON.stringify(d)).toBe(true);
+      expect((await updateField(fx.db, fx.actor, ids['c']!, { sortOrder: 2 })).ok).toBe(true);
+
+      expect(await order(sigId)).toEqual([
+        ['a', 0],
+        ['b', 1],
+        ['c', 2],
+        ['d', 3],
+      ]);
     });
 
     it('addField with beforeFieldId unties fields that shared a sortOrder', async () => {

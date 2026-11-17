@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useDropPendingFix } from './BuildBridge';
+import type { SignupHeaderText } from './header-text';
+
+const TABS = ['build', 'responses', 'settings'] as const;
+
+type TabId = (typeof TABS)[number];
 
 interface TabsNavProps {
   signupId: string;
@@ -11,17 +16,11 @@ interface TabsNavProps {
     build: number;
     responses: number;
   };
+  /** Each tab's name and the strip's, from the server. */
+  labels: SignupHeaderText['tabs'];
 }
 
-const TABS = [
-  { id: 'build', label: 'Build' },
-  { id: 'responses', label: 'Responses' },
-  { id: 'settings', label: 'Settings' },
-] as const;
-
-type TabId = (typeof TABS)[number]['id'];
-
-export function TabsNav({ signupId, counts }: TabsNavProps) {
+export function TabsNav({ signupId, counts, labels }: TabsNavProps) {
   const pathname = usePathname();
   const stripRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef<HTMLAnchorElement | null>(null);
@@ -33,8 +32,8 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
 
   const activeTab: TabId = (() => {
     const segment = pathname.split('/').pop() ?? '';
-    const match = TABS.find((t) => t.id === segment);
-    return match ? match.id : 'build';
+    const match = TABS.find((id) => id === segment);
+    return match ?? 'build';
   })();
 
   // Keeps the current tab in view when the strip scrolls sideways on a phone.
@@ -53,19 +52,18 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
     <div
       ref={stripRef}
       role="tablist"
-      aria-label="Signup sections"
+      aria-label={labels.strip}
       className="-mx-4 mb-2 flex overflow-x-auto border-b border-surface-sunk px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
     >
-      {TABS.map((t) => {
-        const active = t.id === activeTab;
-        const count =
-          t.id === 'build' ? counts.build : t.id === 'responses' ? counts.responses : null;
+      {TABS.map((id) => {
+        const active = id === activeTab;
+        const count = id === 'build' ? counts.build : id === 'responses' ? counts.responses : null;
         return (
           <Link
-            key={t.id}
+            key={id}
             ref={active ? activeRef : null}
-            href={`/app/signups/${signupId}/${t.id}`}
-            {...(t.id === 'build'
+            href={`/app/signups/${signupId}/${id}`}
+            {...(id === 'build'
               ? {}
               : {
                   // Not a modified click (a new tab or window, or a
@@ -85,7 +83,7 @@ export function TabsNav({ signupId, counts }: TabsNavProps) {
                 : 'border-transparent font-medium text-ink-muted hover:text-ink'
             }`}
           >
-            {t.label}
+            {labels[id]}
             {count != null ? (
               <span
                 className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs leading-none ${

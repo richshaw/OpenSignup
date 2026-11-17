@@ -3,7 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { MagicComposeRoot, explainFetchError } from './MagicComposeRoot';
+import { englishMessages } from '@/i18n/testing/client-messages';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
+import { MagicComposeRoot, explainFetchError as explainFetchErrorIn } from './MagicComposeRoot';
+
+/** As its page renders it, in English. */
+const wrapper = englishMessages(MAGIC_COMPOSE_NAMESPACES);
+const explainFetchError = (e: unknown) =>
+  explainFetchErrorIn(e, getTestTranslator('organizer.compose.errors'));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -21,7 +29,7 @@ function stubFetch(status: number, body: unknown) {
 }
 
 async function draft(prompt: string) {
-  render(<MagicComposeRoot />);
+  render(<MagicComposeRoot />, { wrapper });
   fireEvent.change(screen.getByRole('textbox'), { target: { value: prompt } });
   fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
   return screen.findByRole('alert');
@@ -93,7 +101,7 @@ describe('<MagicComposeRoot /> errors', () => {
       vi.fn(() => new Promise<Response>(() => {})),
     );
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    render(<MagicComposeRoot />);
+    render(<MagicComposeRoot />, { wrapper });
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     act(() => {
@@ -111,7 +119,7 @@ describe('<MagicComposeRoot /> errors', () => {
       vi.fn(() => new Promise<Response>(() => {})),
     );
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    render(<MagicComposeRoot llmTimeoutMs={300_000} />);
+    render(<MagicComposeRoot llmTimeoutMs={300_000} />, { wrapper });
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bake sale' } });
     fireEvent.click(screen.getByRole('button', { name: /Draft my signup/ }));
     act(() => {
