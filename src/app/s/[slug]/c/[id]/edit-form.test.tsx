@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { ReactNode } from 'react';
 import { ClientMessages } from '@/i18n/ClientMessages';
 import { englishMessages, standInMessages } from '@/i18n/testing/client-messages';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator, messagesFor } from '@/i18n/translator';
 import { EDIT_FORM_NAMESPACES } from '../../client-namespaces';
@@ -65,10 +66,12 @@ describe('<EditForm /> name box', () => {
   // fields' labels come from them, not the files: each reads as where it was
   // asked for ("participant.fields.name in sv").
   it('takes the fields’ labels from the messages its page passes', () => {
-    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
-    expect(screen.getByLabelText('participant.fields.name in sv')).toHaveValue('Pat Example');
-    expect(screen.getByLabelText('participant.fields.notes in sv')).toHaveValue('');
-    expect(screen.getByLabelText('participant.fields.spots in sv')).toHaveValue(1);
+    renderForm(4, 1, standInMessages(OTHER_LOCALE, EDIT_FORM_NAMESPACES));
+    expect(screen.getByLabelText(`participant.fields.name in ${OTHER_LOCALE}`)).toHaveValue(
+      'Pat Example',
+    );
+    expect(screen.getByLabelText(`participant.fields.notes in ${OTHER_LOCALE}`)).toHaveValue('');
+    expect(screen.getByLabelText(`participant.fields.spots in ${OTHER_LOCALE}`)).toHaveValue(1);
     expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
   });
 
@@ -280,12 +283,12 @@ describe('<EditForm /> quantity', () => {
         }),
       })),
     );
-    renderForm(4, 2, standInMessages('sv', EDIT_FORM_NAMESPACES));
+    renderForm(4, 2, standInMessages(OTHER_LOCALE, EDIT_FORM_NAMESPACES));
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'participant.errors.closed.change in sv participant.errors.keepNumber in sv',
+      `participant.errors.closed.change in ${OTHER_LOCALE} participant.errors.keepNumber in ${OTHER_LOCALE}`,
     );
   });
 
@@ -634,7 +637,7 @@ describe('<EditForm /> refusals', () => {
 // Every word the form shows of its own comes from the messages its page
 // passes (`participant.editForm`), in the signup's language.
 describe('<EditForm /> words', () => {
-  const sv = (key: string) => `participant.editForm.${key} in sv`;
+  const say = (key: string) => `participant.editForm.${key} in ${OTHER_LOCALE}`;
 
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -642,13 +645,13 @@ describe('<EditForm /> words', () => {
   });
 
   it('takes its buttons and the spots line from the messages its page passes', () => {
-    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
-    expect(screen.getByText(sv('spotsMax'))).toBeInTheDocument();
-    expect(screen.getByLabelText('participant.fields.spots in sv')).toHaveAccessibleDescription(
-      sv('spotsMax'),
-    );
-    expect(screen.getByRole('button', { name: sv('save') })).toBeEnabled();
-    expect(screen.getByRole('button', { name: sv('cancel') })).toBeEnabled();
+    renderForm(4, 1, standInMessages(OTHER_LOCALE, EDIT_FORM_NAMESPACES));
+    expect(screen.getByText(say('spotsMax'))).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(`participant.fields.spots in ${OTHER_LOCALE}`),
+    ).toHaveAccessibleDescription(say('spotsMax'));
+    expect(screen.getByRole('button', { name: say('save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: say('cancel') })).toBeEnabled();
   });
 
   it('asks before cancelling, in those messages', async () => {
@@ -657,14 +660,14 @@ describe('<EditForm /> words', () => {
       'fetch',
       vi.fn(() => new Promise((resolve) => (answer = resolve))),
     );
-    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+    renderForm(4, 1, standInMessages(OTHER_LOCALE, EDIT_FORM_NAMESPACES));
 
-    fireEvent.click(screen.getByRole('button', { name: sv('cancel') }));
-    const question = screen.getByRole('alertdialog', { name: sv('confirmCancel') });
-    expect(question).toHaveTextContent(sv('cancelQuestion'));
-    expect(screen.getByRole('button', { name: sv('keep') })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: sv('yesCancel') }));
-    expect(await screen.findByRole('button', { name: sv('cancelling') })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: say('cancel') }));
+    const question = screen.getByRole('alertdialog', { name: say('confirmCancel') });
+    expect(question).toHaveTextContent(say('cancelQuestion'));
+    expect(screen.getByRole('button', { name: say('keep') })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: say('yesCancel') }));
+    expect(await screen.findByRole('button', { name: say('cancelling') })).toBeDisabled();
     answer({ ok: true, json: async () => ({ data: {} }) });
     await waitFor(() => expect(router.refresh).toHaveBeenCalledOnce());
   });
@@ -675,19 +678,19 @@ describe('<EditForm /> words', () => {
       'fetch',
       vi.fn(() => new Promise((resolve) => (answer = resolve))),
     );
-    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+    renderForm(4, 1, standInMessages(OTHER_LOCALE, EDIT_FORM_NAMESPACES));
 
-    fireEvent.click(screen.getByRole('button', { name: sv('save') }));
-    expect(await screen.findByRole('button', { name: sv('saving') })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: say('save') }));
+    expect(await screen.findByRole('button', { name: say('saving') })).toBeDisabled();
     answer({ ok: true, json: async () => ({ data: {} }) });
-    expect(await screen.findByRole('status')).toHaveTextContent(sv('saved'));
+    expect(await screen.findByRole('status')).toHaveTextContent(say('saved'));
   });
 
   it.each([
-    ['a save that never reaches the server', 'save', sv('saveUnreachable'), true],
-    ['a save refused with no JSON body', 'save', sv('saveUnreadable'), false],
-    ['a cancel that never reaches the server', 'cancel', sv('cancelUnreachable'), true],
-    ['a cancel refused with no JSON body', 'cancel', sv('cancelUnreadable'), false],
+    ['a save that never reaches the server', 'save', say('saveUnreachable'), true],
+    ['a save refused with no JSON body', 'save', say('saveUnreadable'), false],
+    ['a cancel that never reaches the server', 'cancel', say('cancelUnreachable'), true],
+    ['a cancel refused with no JSON body', 'cancel', say('cancelUnreadable'), false],
   ] as const)('explains %s in those messages', async (_, action, words, offline) => {
     vi.stubGlobal(
       'fetch',
@@ -702,10 +705,11 @@ describe('<EditForm /> words', () => {
             },
       ),
     );
-    renderForm(4, 1, standInMessages('sv', EDIT_FORM_NAMESPACES));
+    renderForm(4, 1, standInMessages(OTHER_LOCALE, EDIT_FORM_NAMESPACES));
 
-    fireEvent.click(screen.getByRole('button', { name: sv(action) }));
-    if (action === 'cancel') fireEvent.click(screen.getByRole('button', { name: sv('yesCancel') }));
+    fireEvent.click(screen.getByRole('button', { name: say(action) }));
+    if (action === 'cancel')
+      fireEvent.click(screen.getByRole('button', { name: say('yesCancel') }));
     expect(await screen.findByRole('alert')).toHaveTextContent(words);
   });
 

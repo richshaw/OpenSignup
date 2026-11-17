@@ -160,8 +160,9 @@ describe('query budgets for the participant hot path (db)', () => {
   // slug goes through the same cached loaders (loadPublicSignup, and
   // loadSignupRowBySlug under it), so it adds no statement and the page's
   // count is the request's. signups.cached.test.ts checks that the page gets
-  // its row that way, and not-found.test.tsx that the not-found page does, so
-  // a second read can't creep in unseen here.
+  // its row that way, not-found.test.tsx that the not-found page does, and
+  // s/[slug]/layout.test.tsx that the layout (its <html lang>, og:locale and
+  // footer) does, so a second read can't creep in unseen here.
   it('GET /s/[slug], for a returning participant', async () => {
     const committed = await commitToSlot(getDb(), slotId, {
       name: 'Pat Example',

@@ -6,7 +6,8 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
-import { ship } from '@/i18n/testing/ship';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -232,8 +233,9 @@ describe('setOpenSignupsLocale (db)', () => {
   });
 
   it('refuses a language that hasn’t shipped, or none, and changes nothing', async () => {
+    shipOnlyEnglish();
     const open = await signup({ settings: { locale: 'en' } });
-    for (const sent of ['sv', 'xx', 'EN', '', null, undefined, ['en']]) {
+    for (const sent of [OTHER_LOCALE, 'xx', 'EN', '', null, undefined, ['en']]) {
       const result = await setOpenSignupsLocale(db, patActor, sent);
       expect(result.ok, `${JSON.stringify(sent)} was accepted`).toBe(false);
       if (!result.ok) {

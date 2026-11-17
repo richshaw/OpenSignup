@@ -5,13 +5,14 @@ import { SIGNUP_PATH_HEADER, slugFromSignupPath } from '@/lib/signup-path';
 import { loadSignupRowBySlug } from '@/services/signups.cached';
 
 /**
- * The language of the signup at `slug`, for a page that can't show the signup
- * itself: a draft, an archived one, or a not-found page. Read through the
- * same cached row as `loadPublicSignup`, so on the signup page it costs no
- * statement, and only the language leaves here: that row holds the signup's
- * title, description and settings, which a visitor must never see. A deleted
- * or unknown slug has no row, so it reads as the instance's language for
- * participants.
+ * The language of the signup at `slug`, for the layout above every page under
+ * it (`<html lang>`, og:locale and the footer) and for a page that can't show
+ * the signup itself: a draft, an archived one, or a not-found page. Read
+ * through the same cached row as `loadPublicSignup`, so on the signup page it
+ * costs no statement, and only the language leaves here: that row holds the
+ * signup's title, description and settings, which a visitor must never see. A
+ * deleted or unknown slug has no row, so it reads as the instance's language
+ * for participants.
  */
 export async function signupLocaleForSlug(slug: string): Promise<CatalogLocale> {
   const row = await loadSignupRowBySlug(slug);
@@ -27,9 +28,10 @@ export async function signupLocaleForSlug(slug: string): Promise<CatalogLocale> 
  *
  * Next renders a segment's not-found page on every request under it, not only
  * on a 404, so this runs on every signup, edit and unsubscribe page. The slug
- * is the one the signup page reads, so there it shares that page's cached
- * read; the edit and unsubscribe pages read by token, so it is one statement
- * there, which the unsubscribe page's own call shares.
+ * is the one the signup page and the layout (./layout.tsx) read, so it shares
+ * their cached read: on the signup page that read is the page's own, and on
+ * the edit and unsubscribe pages, which read by token, it is the one
+ * statement the layout's language costs there.
  */
 export async function requestedSignupLocale(): Promise<CatalogLocale> {
   const slug = slugFromSignupPath((await headers()).get(SIGNUP_PATH_HEADER));

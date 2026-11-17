@@ -92,7 +92,7 @@ import { rateLimits } from '@/db/schema/rate-limits';
 import { getEmailTransport } from '@/email';
 import type { EmailMessage } from '@/email/transport';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { signIn } from './config';
@@ -167,6 +167,8 @@ describe('signInEmailLocale', () => {
   });
 
   describe.each(OTHER_LANGUAGES)('with %s', (locale) => {
+    beforeEach(shipOnlyEnglish);
+
     it('is the language stored on the account, once it has shipped to organizers', async () => {
       const email = await address({ locale });
       expect(await signInEmailLocale(db, email)).toBe('en');

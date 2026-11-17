@@ -6,7 +6,8 @@ import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
-import { ship } from '@/i18n/testing/ship';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
@@ -306,7 +307,8 @@ describe('notifyCommitmentCreated (db)', () => {
     });
 
     it('stays English while the signup’s language has not shipped', async () => {
-      const mail = await confirmation('Loppis', { stored: { locale: 'sv' } });
+      shipOnlyEnglish();
+      const mail = await confirmation('Loppis', { stored: { locale: OTHER_LOCALE } });
       expect(mail.subject).toBe(
         "You're signed up: Loppis · Sat, May 2 · 1:00\u00a0PM · Front desk",
       );

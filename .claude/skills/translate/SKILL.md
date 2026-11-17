@@ -40,13 +40,15 @@ pnpm install --frozen-lockfile && pnpm db:migrate
 List what needs doing, namespace by namespace:
 
 ```bash
-pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs sv
+pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs <code>
 ```
 
-It compares `src/messages/sv.json` with `en.json` in the participant
-namespaces (`participant`, `email`, `common`), using Swedish's record of the
-English each message was translated from (`src/i18n/translated-from/sv.json`,
-"Stale translations" in the guide), and lists each message as:
+`<code>` is the language's code, as its catalog is named (`sv` for Swedish).
+It compares `src/messages/<code>.json` with `en.json` in the participant
+namespaces (`participant`, `email`, `common`), using the language's record of
+the English each message was translated from
+(`src/i18n/translated-from/<code>.json`, "Stale translations" in the guide),
+and lists each message as:
 
 - **missing**: English has it and the translation doesn't;
 - **stale**: its English has changed since it was translated, so it may still
@@ -62,10 +64,10 @@ List the organizer namespaces (`organizer`, `auth`, `common`) the same way,
 with `--audience organizer`:
 
 ```bash
-pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs sv --audience organizer
+pnpm exec tsx .claude/skills/translate/scripts/to-translate.mjs <code> --audience organizer
 ```
 
-Then translate what both lists name in `src/messages/<language>.json`, one
+Then translate what both lists name in `src/messages/<code>.json`, one
 namespace at a time, from `en.json`:
 
 - Keep the keys in `en.json`'s order, and `pnpm format` the file after.
@@ -95,11 +97,12 @@ English. `to-translate.mjs` ends with the command, naming the sections it
 listed:
 
 ```bash
-pnpm exec tsx .claude/skills/translate/scripts/mark-translated.mjs sv participant.dialog email.reminder
+pnpm exec tsx .claude/skills/translate/scripts/mark-translated.mjs <code> participant.dialog email.reminder
 ```
 
-It writes the English `en.json` has now into `src/i18n/translated-from/sv.json`
-for each message in those sections that `sv.json` translates, leaves the
+It writes the English `en.json` has now into
+`src/i18n/translated-from/<code>.json` for each message in those sections
+that `<code>.json` translates, leaves the
 rest of the record alone, and drops entries nothing needs. Name a section
 only once every message `to-translate.mjs` listed in it is done; name single
 keys (`participant.dialog.done`) otherwise. A stale message whose translation
@@ -117,7 +120,10 @@ pnpm lint && pnpm format:check && pnpm typecheck && pnpm knip && pnpm test
 
 The first line runs the catalog check, the two formatters' comparison and the
 email tests; the second is what CI runs. A catalog check line reads
-`<language> <key>: <what's wrong>`: fix the message it names. For a language
+`<language> <key>: <what's wrong>`: fix the message it names. A message
+"the same as English" is translated, unless it rightly reads as the English
+does: then list it, with why, in `sameAsEnglish` in
+`src/i18n/testing/language-rules.ts`. For a language
 in `SHIPPED`, that includes every stale or unrecorded message: translate it
 and mark it. For one that hasn't shipped, the catalog test only warns about
 those, and the warning doesn't show in an agent's test output (vitest hides a
@@ -126,8 +132,12 @@ it should list nothing you meant to do. If you changed `en.json`, run
 `pnpm build` (or `pnpm dev`) once so `src/messages/en.d.json.ts` is rewritten,
 and commit it.
 
-For labels in fixed boxes, also run the layout spec on the built app (below):
-`tests/e2e/slot-row-layout.spec.ts`.
+For labels in fixed boxes, also run the layout specs on the built app (below):
+`tests/e2e/slot-row-layout.spec.ts` and `tests/e2e/translated-organizer.spec.ts`,
+which measure every language with a catalog. The other e2e specs pick the
+language up too; run `tests/e2e/translated-signup.spec.ts` once the
+participant namespaces are done, and `translated-organizer.spec.ts` once the
+organizer ones are, since both fail on English left on a page.
 
 ## 3. Have a different model review it in context
 
@@ -142,18 +152,23 @@ Leave out the `-c …` part outside Claude's cloud container: it points
 Playwright at the Chromium installed there. The command writes, under
 `translation-review/` (gitignored):
 
-- `<language>/screens/chromium/*.png` and `<language>/screens/chromium-phone/*.png`:
-  each participant screen and state the Swedish e2e spec checks, at desktop
-  and phone width;
-- `en/emails/*.html` and `<language>/emails/*.html`, with a `.txt` of each
+- `<code>/screens/chromium/*.png` and `<code>/screens/chromium-phone/*.png`:
+  each participant screen and state `tests/e2e/translated-signup.spec.ts`
+  checks, and the organizer screens `tests/e2e/translated-organizer.spec.ts`
+  goes through (`organizer-…`), at desktop and phone width, for every
+  language with a catalog;
+- `en/emails/*.html` and `<code>/emails/*.html`, with a `.txt` of each
   that starts with the email's subject: every participant email and the
   sign-in email, from `scripts/lib/email-samples.ts`.
 
-It covers only participant screens and emails until its spec covers organizer
-screens. For organizer text, take the screens the batch changes by hand, at
-desktop and phone width, from an account that stores the language (as
-`createOrganizerIn` in `tests/e2e/helpers/organizer-language.ts` makes one),
-and tell the reviewer where they are.
+The organizer screens are the ones an organizer goes through to make a
+signup: Your signups, New signup and Magic Compose's first screen, the Build
+tab, its Fields dialog and a slot's editor, the share panel, Responses and
+account Settings. For organizer text on other screens, take the screens the
+batch changes by hand, at desktop and phone width, from an account that
+stores the language (as `createOrganizerIn` in
+`tests/e2e/helpers/organizer-language.ts` makes one), and tell the reviewer
+where they are.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the
@@ -194,7 +209,7 @@ and in the same pull request runs this skill for every language in `SHIPPED`
 (`src/i18n/config.ts`), for the audience whose namespaces it changed: until
 each changed message is translated again and
 marked, the catalog check fails it as stale. For a language with a catalog
-that hasn't shipped yet (Swedish today), do it too, so the language stays
+that hasn't shipped yet (none today), do it too, so the language stays
 ready to launch. A one-line change still gets the review; give the reviewer
 just the changed keys and the screens they show on.
 
@@ -205,11 +220,19 @@ record drops the old one.
 
 ## Adding a language
 
-Follow "Adding a language" in `docs/translating.md`: the catalog, its test
-signups and screenshot spec, and its glossary come before step 1. Its launch
-(adding it to `SHIPPED.participant` and `SHIPPED.organizer` together: a
-language launches for participants and organizers at once) is a pull request
-of its own, for the owner to approve.
+Follow "Adding a language" in `docs/translating.md`: its catalog and its
+glossary come before step 1, then steps 1 to 4 here. The tests pick the
+language up from its catalog, with nothing written for it: the e2e specs, the
+layout checks, the screenshots and the email samples all run for every
+language with one. A test that keeps words per language fails naming
+itself until you give it the new language's entry: `KEEP_IT_PRIVATE` in
+`pnpm test`, and `inSentence` in `pnpm typecheck` ("Adding a language" in the
+guide). The e2e no-English check fails on a page that shows one of its English
+words, naming the catalog's messages that write it: translate each, and add
+the word to `SHARED_WITH_ENGLISH` only if the language really says it, never
+for a message left in English. Its launch (adding it to `SHIPPED.participant`
+and `SHIPPED.organizer` together: a language launches for participants and
+organizers at once) is a pull request of its own, for the owner to approve.
 
 ## Report
 
