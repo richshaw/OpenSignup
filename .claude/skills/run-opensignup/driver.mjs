@@ -12,7 +12,8 @@
 //
 // Env: OPENSIGNUP_URL (default http://localhost:3000), OPENSIGNUP_LOG (the
 // web server's stdout, default /tmp/opensignup-web.log), SHOT_DIR (default
-// /tmp/opensignup-shots), CHROMIUM_PATH (browser binary override).
+// /tmp/opensignup-shots), CHROMIUM_PATH (browser binary override),
+// DRIVER_LOCALE (the browser's language, e.g. sv-SE; default the browser's own).
 import { chromium } from '@playwright/test';
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -21,6 +22,10 @@ import * as readline from 'node:readline';
 const BASE = process.env.OPENSIGNUP_URL ?? 'http://localhost:3000';
 const LOG = process.env.OPENSIGNUP_LOG ?? '/tmp/opensignup-web.log';
 const SHOT_DIR = process.env.SHOT_DIR ?? '/tmp/opensignup-shots';
+// Sets navigator.language and the Accept-Language header, which a new
+// organizer account takes its language from and the date and time boxes order
+// their placeholders by.
+const LOCALE = process.env.DRIVER_LOCALE || undefined;
 mkdirSync(SHOT_DIR, { recursive: true });
 
 // The repo pins a Playwright whose bundled Chromium may not be installed; a
@@ -49,7 +54,12 @@ async function open(kind = 'desktop', storageState = undefined) {
   browser ??= await chromium.launch({ executablePath, args: ['--no-sandbox'] });
   // A new context drops cookies: a fresh visitor (use it for the participant side).
   await context?.close();
-  context = await browser.newContext({ ...opts, baseURL: BASE, storageState });
+  context = await browser.newContext({
+    ...opts,
+    baseURL: BASE,
+    storageState,
+    ...(LOCALE ? { locale: LOCALE } : {}),
+  });
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
   page = await context.newPage();
   page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));

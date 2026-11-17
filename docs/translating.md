@@ -735,6 +735,13 @@ the link. On the organizer's side, the other screens (Connected apps, a
 signup's Settings tab, Magic Compose's later steps, a refusal) have no
 screenshot: take the ones a change touches by hand.
 
+To look at a language in the running app with the `run-opensignup` driver,
+set `DRIVER_LOCALE` (for example `DRIVER_LOCALE=sv-SE`). The driver's browser
+then asks for that language, so an organizer account it signs in for the first
+time stores it, as the table under "An organizer's language" says, and the
+date and time boxes order their placeholders by it. Without it the browser
+asks for English.
+
 ## Swedish glossary
 
 These are the words the Swedish catalog uses. A change to one of them changes
