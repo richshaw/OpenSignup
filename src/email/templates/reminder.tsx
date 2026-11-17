@@ -30,6 +30,8 @@ export interface ReminderEmailProps {
   /** The same values on one line, from `summarizeSlotValues()`, for the preview text. */
   slotSummary: string;
   notes?: string | null;
+  /** How many spots the participant took; the email says so when it's more than one. */
+  quantity?: number;
   /** Per-signup opt-out link. It silences reminders and slot-change emails. */
   unsubscribeUrl: string;
   /**
@@ -48,6 +50,7 @@ export function ReminderEmail({
   slotDetails,
   slotSummary,
   notes,
+  quantity,
   unsubscribeUrl,
   changed = false,
 }: ReminderEmailProps) {
@@ -60,7 +63,7 @@ export function ReminderEmail({
     >
       <EmailHeading>{changed ? t('changed.heading') : t('heading')}</EmailHeading>
       <EmailIntro>{changed ? t.rich('changed.intro', intro) : t.rich('intro', intro)}</EmailIntro>
-      <SlotDetailsText locale={locale} details={slotDetails} />
+      <SlotDetailsText locale={locale} details={slotDetails} spots={quantity} />
       <NotesText locale={locale} notes={notes} />
       <ManageButton locale={locale} href={manageUrl} />
       <Text className="mt-6 text-xs text-[#8a93a4]">{t('keep')}</Text>

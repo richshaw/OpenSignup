@@ -528,6 +528,25 @@ describe('selectDueReminders (db)', () => {
     }
   });
 
+  it('says how many spots the participant took when it is more than one', async () => {
+    const several = await makeScenario(fx, 'Spots taken', { slotInHours: 20 });
+    const one = await makeScenario(fx, 'One spot taken', { slotInHours: 20 });
+    await fx.db
+      .update(commitments)
+      .set({ quantity: 3 })
+      .where(eq(commitments.id, several.commitmentId));
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId: several.commitmentId });
+      await sendReminderJob({ commitmentId: one.commitmentId });
+      const [forSeveral, forOne] = send.mock.calls.map(([mail]) => mail);
+      expect(forSeveral?.text).toContain('Spots: 3');
+      expect(forOne?.text).not.toContain('Spots:');
+    } finally {
+      send.mockRestore();
+    }
+  });
+
   it('writes the reminder in the signup’s language', async () => {
     ship('participant', ['en', 'sv']);
     const english = await makeScenario(fx, 'Spring fair', { slotInHours: 20, dated: true });
