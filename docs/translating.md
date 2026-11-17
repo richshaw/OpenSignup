@@ -741,6 +741,14 @@ the link. On the organizer's side, Magic Compose's later steps and the
 refusals other than the Settings tab's have no screenshot: take the ones a
 change touches by hand.
 
+To look at a language in the running app with the `run-opensignup` driver,
+set `DRIVER_LOCALE` (for example `DRIVER_LOCALE=sv-SE`). The driver's browser
+then asks for that language, so an organizer account it signs in for the first
+time stores it, as the table under "An organizer's language" says. The
+native date and time boxes don't follow it: they keep the browser's own
+language, so they can't be checked this way. Without it the browser asks for
+English.
+
 ## Swedish glossary
 
 These are the words the Swedish catalog uses. A change to one of them changes
