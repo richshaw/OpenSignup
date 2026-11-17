@@ -132,6 +132,32 @@ describe('each email, from the catalogs as the web process gets them', () => {
   );
 });
 
+/**
+ * The preview text an email's HTML carries, the line inboxes show after the
+ * subject: the text at the start of React Email's hidden preview block,
+ * unescaped.
+ */
+function previewText(html: string): string | undefined {
+  const preview = /<div style="display:none[^"]*">([^<]*)</.exec(html)?.[1];
+  return preview
+    ?.replaceAll('&#x27;', "'")
+    .replaceAll('&quot;', '"')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
+}
+
+describe('each participant email', () => {
+  it.each(
+    emailSamples
+      .filter(({ name }) => !name.startsWith('magic-link'))
+      .map((sample) => [sample.name, sample] as const),
+  )('previews %s with its subject', async (_name, { element, subject }) => {
+    const { html } = await render(element, { web: false });
+    expect(previewText(html)).toBe(subject);
+  });
+});
+
 describe('the confirmation', () => {
   it('promises the reminder when REMINDER_LEAD_WORDS says it goes out', async () => {
     const { text } = await render(

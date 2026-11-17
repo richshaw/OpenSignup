@@ -10,8 +10,13 @@
  *
  * Each participant one takes a translator for `email.subject` in the email's language,
  * `getServerTranslator(locale, 'email.subject')`, and a slot summary made in
- * that language too (`slotText` in ./commitment-row.ts).
+ * that language too (`slotText` in ./commitment-row.ts). `subjectOf` makes
+ * each from the email's own props; the template's preview text, its `send*`
+ * function and its sample in scripts/lib/email-samples.ts all go through it,
+ * so a new input reaches all three at once.
  */
+import type { CatalogLocale } from '@/i18n/config';
+import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
 
 type SubjectTranslator = Translator<'email.subject'>;
@@ -51,6 +56,28 @@ export function reminderSubject(
   const title = { title: signupTitle };
   return withSummary(t, changed ? t('timeChanged', title) : t('reminder', title), slotSummary);
 }
+
+/** The props of a participant email that its subject is made from. */
+interface SubjectProps {
+  locale: CatalogLocale;
+  signupTitle: string;
+  slotSummary: string;
+}
+
+/** Each participant email's subject, from its props, in the email's language. */
+export const subjectOf = {
+  confirmation: ({ locale, signupTitle, slotSummary }: SubjectProps) =>
+    confirmationSubject(getServerTranslator(locale, 'email.subject'), signupTitle, slotSummary),
+  reminder: ({ locale, signupTitle, slotSummary, changed }: SubjectProps & { changed?: boolean }) =>
+    reminderSubject(
+      getServerTranslator(locale, 'email.subject'),
+      signupTitle,
+      slotSummary,
+      changed,
+    ),
+  slotChanged: ({ locale, signupTitle, slotSummary }: SubjectProps) =>
+    slotChangedSubject(getServerTranslator(locale, 'email.subject'), signupTitle, slotSummary),
+};
 
 /**
  * The sign-in email's subject, from `auth.email` in the email's language:

@@ -1,5 +1,5 @@
 import { Text } from '@react-email/components';
-import { slotChangedSubject } from '../subjects';
+import { subjectOf } from '../subjects';
 import { getServerTranslator } from '@/i18n/server';
 import {
   EmailHeading,
@@ -31,11 +31,7 @@ export function SlotChangedEmail({
   return (
     <EmailLayout
       locale={locale}
-      preview={slotChangedSubject(
-        getServerTranslator(locale, 'email.subject'),
-        signupTitle,
-        slotSummary,
-      )}
+      preview={subjectOf.slotChanged({ locale, signupTitle, slotSummary })}
     >
       <EmailHeading>{t('heading')}</EmailHeading>
       <EmailIntro>
