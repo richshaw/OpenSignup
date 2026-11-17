@@ -14,12 +14,12 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Check, ChevronLeft, Minus, Plus, Sparkles, X } from 'lucide-react';
 import {
-  EARLIEST_DATE_YEAR,
   HOW_MANY_MAX,
   WHAT_ITEM_MAX_LENGTH,
   WHAT_ITEMS_MAX,
   WHEN_TEXT_MAX_LENGTH,
 } from '@/lib/magic-compose/limits';
+import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
 import type { FollowUp, MagicComposeQuestions, WhenAnswer } from '@/lib/magic-compose/questions';
 import {
   addPending,
@@ -454,7 +454,7 @@ function When({ answers, update, locale }: Part & { locale: CatalogLocale }) {
           <input
             id={`${id}date`}
             type="date"
-            min={`${EARLIEST_DATE_YEAR}-01-01`}
+            min={`${MIN_DATE_YEAR}-01-01`}
             max="9999-12-31"
             value={answers.date}
             onChange={(e) => set({ date: e.target.value })}
