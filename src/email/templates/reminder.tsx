@@ -1,5 +1,5 @@
 import { Text } from '@react-email/components';
-import { reminderSubject } from '../subjects';
+import { subjectOf } from '../subjects';
 import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import type { SlotDetail } from '@/lib/slot-label';
@@ -56,12 +56,7 @@ export function ReminderEmail({
   return (
     <EmailLayout
       locale={locale}
-      preview={reminderSubject(
-        getServerTranslator(locale, 'email.subject'),
-        signupTitle,
-        slotSummary,
-        changed,
-      )}
+      preview={subjectOf.reminder({ locale, signupTitle, slotSummary, changed })}
     >
       <EmailHeading>{changed ? t('changed.heading') : t('heading')}</EmailHeading>
       <EmailIntro>{changed ? t.rich('changed.intro', intro) : t.rich('intro', intro)}</EmailIntro>

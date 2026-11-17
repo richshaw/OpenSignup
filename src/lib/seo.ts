@@ -21,8 +21,8 @@ export const INDEXABLE_ROUTES: readonly string[] = [
 ];
 
 // The share image files (`public/opengraph-image.png`, the same picture as
-// `twitter-image.png`, made by `scripts/generate-og-image.mjs`) and their
-// `.alt.txt`. `seo.test.ts` checks these against the files.
+// `twitter-image.png`, made by `scripts/generate-og-image.mjs`). `seo.test.ts`
+// checks the size against the files.
 export const SHARE_IMAGE = {
   width: 1200,
   height: 630,
