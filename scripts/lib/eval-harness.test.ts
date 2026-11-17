@@ -486,6 +486,145 @@ describe('the language cases, ev_042 to ev_045', () => {
   });
 });
 
+describe('the Swedish cases, ev_046 to ev_050', () => {
+  const field = (ref: string, label: string, fieldType: 'text' | 'date' | 'time' = 'text') => ({
+    ref,
+    label,
+    fieldType,
+    choices: undefined,
+  });
+  const told = (reply: Produced) => ({ ...runner(reply), tellsOrganizerLanguage: true });
+  const failures = async (reply: Produced, id: string) =>
+    failed((await runOneCase(told(reply), devCase(id))).checks);
+  const draftIn = (reply: Produced) => (reply as Extract<Produced, { status: 'draft' }>).draft;
+
+  it('are Swedish organizers on the cases about them, and not on the shift and fika cases', () => {
+    for (const id of ['ev_046', 'ev_049', 'ev_050']) {
+      expect(devCase(id).organizerLanguage, id).toBe('sv');
+    }
+    for (const id of ['ev_047', 'ev_048']) {
+      expect(devCase(id).organizerLanguage, id).toBeUndefined();
+    }
+  });
+
+  it('pass ev_046 on a Swedish potluck with a slot per dish, and fail English labels or 2pm', async () => {
+    const dish = (ratt: string, capacity: number) => ({
+      values: { ratt, datum: '2027-12-11', tid: '11:00' },
+      capacity,
+    });
+    const swedish = draftOf({
+      title: 'Knytkalas för 3B:s familjer',
+      description: 'Ta med något till knytkalaset i matsalen.',
+      fields: [field('ratt', 'Rätt'), field('datum', 'Datum', 'date'), field('tid', 'Tid', 'time')],
+      slots: [dish('Sallad', 2), dish('Varmrätt', 3), dish('Bröd', 1), dish('Efterrätt', 1)],
+    });
+    expect(await failures(swedish, 'ev_046')).toEqual([]);
+
+    const englishLabels = draftOf({
+      ...draftIn(swedish),
+      fields: [field('ratt', 'Item'), field('datum', 'Date', 'date'), field('tid', 'Time', 'time')],
+    });
+    expect(await failures(englishLabels, 'ev_046')).toEqual(['fields.labels_must_not_match_any']);
+
+    const twelveHour = draftOf({
+      ...draftIn(swedish),
+      description: 'Ta med något till knytkalaset, 11am till 2pm.',
+    });
+    expect(await failures(twelveHour, 'ev_046')).toEqual(['raw_output_must_not_match_patterns']);
+  });
+
+  it('pass ev_047 on three shifts a day, two volunteers each, and fail a row per volunteer', async () => {
+    const shifts = ['2027-04-17', '2027-04-18'].flatMap((datum) =>
+      ['10:00', '12:00', '14:00'].map((tid) => ({
+        values: { uppgift: 'Kassan', datum, tid },
+        capacity: 2,
+      })),
+    );
+    const swedish = draftOf({
+      title: 'Volontärer till loppisen',
+      description: 'Två volontärer per pass i kassan.',
+      fields: [
+        field('uppgift', 'Uppgift'),
+        field('datum', 'Datum', 'date'),
+        field('tid', 'Starttid', 'time'),
+      ],
+      slots: shifts,
+    });
+    expect(await failures(swedish, 'ev_047')).toEqual([]);
+
+    const perVolunteer = draftOf({
+      ...draftIn(swedish),
+      slots: shifts.flatMap((s) => [
+        { ...s, capacity: 1 },
+        { ...s, capacity: 1 },
+      ]),
+    });
+    expect(await failures(perVolunteer, 'ev_047')).toEqual([
+      'slots.count',
+      'slots.all_capacities_equal',
+    ]);
+  });
+
+  it('pass ev_048 on every Saturday in the range, and fail one that drops 1 May', async () => {
+    const saturdays = ['2027-04-24', '2027-05-01', '2027-05-08', '2027-05-15', '2027-05-22'];
+    const rota = (dates: string[]) =>
+      draftOf({
+        title: 'Fikalista för P12:s hemmamatcher',
+        description: 'En familj per lördag tar med fika till kiosken.',
+        fields: [field('datum', 'Datum', 'date')],
+        slots: dates.map((datum) => ({ values: { datum }, capacity: 1 })),
+        groupBy: undefined,
+      });
+    expect(await failures(rota([...saturdays, '2027-05-29']), 'ev_048')).toEqual([]);
+    expect(
+      await failures(
+        rota([...saturdays.filter((d) => d !== '2027-05-01'), '2027-05-29']),
+        'ev_048',
+      ),
+    ).toEqual(['slots.count', 'slot_dates.set_must_equal']);
+  });
+
+  it('pass ev_049 on asking when with fika as the option, and fail English options', async () => {
+    expect(
+      await failures(asks({ topics: ['when', 'how_many'], whatOptions: ['Fika'] }), 'ev_049'),
+    ).toEqual([]);
+    expect(
+      await failures(
+        asks({ topics: ['when', 'how_many'], whatOptions: ['Bring snacks'] }),
+        'ev_049',
+      ),
+    ).toEqual(['questions.options_must_mention_any', 'questions.options_must_not_mention_any']);
+    expect(await failures(drafted, 'ev_049')).toEqual(['expected_questions_but_drafted']);
+  });
+
+  it('pass ev_050 on an English draft that keeps sill, and fail a Swedish one', async () => {
+    const picnic = (title: string, description: string, sak: string, items: string[]) =>
+      draftOf({
+        title,
+        description,
+        fields: [field('item', sak), field('date', 'Datum', 'date')],
+        slots: items.map((item) => ({ values: { item, date: '2027-06-26' }, capacity: 2 })),
+      });
+    const english = picnic(
+      'Midsommar picnic in the park',
+      'Two families bring each item.',
+      'Item',
+      ['Sill', 'New potatoes', 'Strawberries', 'Drinks'],
+    );
+    expect(await failures(english, 'ev_050')).toEqual([]);
+    const swedish = picnic('Midsommarpicknick i parken', 'Två familjer tar med varje sak.', 'Sak', [
+      'Sill',
+      'Färskpotatis',
+      'Jordgubbar',
+      'Dricka',
+    ]);
+    expect(await failures(swedish, 'ev_050')).toEqual([
+      'language_must_be',
+      'slot_values_must_cover_all',
+    ]);
+  });
+});
+
 describe('askedBeforeCreating', () => {
   it('passes a reply that asks, with a "?" or by asking for details', () => {
     for (const reply of [
