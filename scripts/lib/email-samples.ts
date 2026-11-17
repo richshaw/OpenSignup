@@ -12,12 +12,7 @@ import { createElement, type ReactElement } from 'react';
 import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import { TEST_LOCALES, type TestLocale } from '@/i18n/testing/locales';
-import {
-  confirmationSubject,
-  reminderSubject,
-  signInSubject,
-  slotChangedSubject,
-} from '@/email/subjects';
+import { signInSubject, subjectOf } from '@/email/subjects';
 import {
   CommitmentConfirmationEmail,
   type CommitmentConfirmationEmailProps,
@@ -53,24 +48,21 @@ export interface EmailSample {
  * src/email/send.ts builds them, with the subject in the email's language.
  */
 function confirmation(props: CommitmentConfirmationEmailProps) {
-  const t = getServerTranslator(props.locale, 'email.subject');
   return {
     element: createElement(CommitmentConfirmationEmail, props),
-    subject: confirmationSubject(t, props.signupTitle, props.slotSummary),
+    subject: subjectOf.confirmation(props),
   };
 }
 function reminder(props: ReminderEmailProps) {
-  const t = getServerTranslator(props.locale, 'email.subject');
   return {
     element: createElement(ReminderEmail, props),
-    subject: reminderSubject(t, props.signupTitle, props.slotSummary, props.changed),
+    subject: subjectOf.reminder(props),
   };
 }
 function slotChanged(props: SlotChangedEmailProps) {
-  const t = getServerTranslator(props.locale, 'email.subject');
   return {
     element: createElement(SlotChangedEmail, props),
-    subject: slotChangedSubject(t, props.signupTitle, props.slotSummary),
+    subject: subjectOf.slotChanged(props),
   };
 }
 
