@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { ClientMessages } from '@/i18n/ClientMessages';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { englishMessages, standInMessages } from '@/i18n/testing/client-messages';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getTranslator, messagesFor } from '@/i18n/translator';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
@@ -895,6 +896,51 @@ describe('<CommitDialog /> sheet', () => {
     }
   });
 
+  // The link and "Pick another slot." answer one question, `offersAlternatives`
+  // (#806). The dialog used to ask it for itself, as `remaining === 0`, so a
+  // `remaining` below 0 got the words and no link.
+  it('offers See alternatives with "Pick another slot." when remaining is below 0', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: {
+            code: 'capacity_full',
+            message: 'slot is full',
+            details: {
+              remaining: -1,
+              requested: 1,
+              capacity: 2,
+              alternatives: [{ id: 'slot_2', ref: 'slot_2', slotAt: null }],
+            },
+          },
+        }),
+      })),
+    );
+    Element.prototype.scrollIntoView = vi.fn();
+
+    try {
+      openSheet();
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(alert).toHaveTextContent('Sorry, this slot just filled up.');
+      expect(alert).toHaveTextContent('Pick another slot.');
+      expect(within(alert).getByRole('link', { name: 'See alternatives' })).toHaveAttribute(
+        'href',
+        '/s/example',
+      );
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
   // A phone that loses its connection after the POST got through says it
   // couldn't reach the server for a sign-up the server did make. Pressing Confirm again
   // must be recognisably the same sign-up, so the server hands that one back
@@ -1076,12 +1122,12 @@ describe('<CommitDialog /> sheet', () => {
   });
 
   // The page passes the sheet its messages in the signup's language. These
-  // stand in for Swedish's: each reads as where it was asked for
+  // stand in for another language's: each reads as where it was asked for
   // ("participant.dialog.done in sv"). Every word the sheet shows,
   // or gives a screen reader, has to be one of them, or the test's own data.
   describe('in the signup’s language', () => {
-    const say = (key: string) => `participant.${key} in sv`;
-    const swedish = standInMessages('sv', COMMIT_DIALOG_NAMESPACES);
+    const say = (key: string) => `participant.${key} in ${OTHER_LOCALE}`;
+    const inOther = standInMessages(OTHER_LOCALE, COMMIT_DIALOG_NAMESPACES);
     const editUrl = 'https://example.test/s/example/c/com_1';
     // What the test gives the sheet, which it shows as given.
     const DATA = ['Cookies', 'Sat, May 16 · Vinland Elementary', editUrl];
@@ -1092,13 +1138,13 @@ describe('<CommitDialog /> sheet', () => {
         ['aria-label', 'placeholder', 'title', 'alt'].map((name) => el.getAttribute(name) ?? ''),
       );
       let text = [element.textContent ?? '', ...attributes].join(' ');
-      text = text.replace(/participant\.[\w.]+ in sv/g, ' ');
+      text = text.replace(new RegExp(`participant\\.[\\w.]+ in ${OTHER_LOCALE}`, 'g'), ' ');
       for (const value of DATA) text = text.split(value).join(' ');
       return text.replace(/[^\p{L}]+/gu, ' ').trim();
     }
 
-    function openInSwedish(options: Parameters<typeof openSheet>[0] = {}) {
-      openSheet({ ...options, wrapper: swedish, trigger: say('dialog.signUpFor') });
+    function openInOther(options: Parameters<typeof openSheet>[0] = {}) {
+      openSheet({ ...options, wrapper: inOther, trigger: say('dialog.signUpFor') });
     }
 
     async function confirmWith(response: unknown) {
@@ -1119,7 +1165,7 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     it('asks for the button, the heading and the form in it', async () => {
-      openInSwedish({ spotsLeft: 3, capacity: 5, requireEmail: false, sendsReminder: true });
+      openInOther({ spotsLeft: 3, capacity: 5, requireEmail: false, sendsReminder: true });
       const dialog = await screen.findByRole('dialog', {}, settle);
       // Behind the sheet, so hidden from assistive tech while it is open.
       const trigger = screen.getByRole('button', { name: say('dialog.signUpFor'), hidden: true });
@@ -1146,13 +1192,13 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     it('asks for the required email’s label in it', async () => {
-      openInSwedish();
+      openInOther();
       expect(await screen.findByLabelText(say('fields.email'), {}, settle)).toBeRequired();
     });
 
     it('asks for an error, its suggestion and See alternatives in it', async () => {
       Element.prototype.scrollIntoView = vi.fn();
-      openInSwedish({ requireEmail: false });
+      openInOther({ requireEmail: false });
       await confirmWith({
         ok: false,
         json: async () => ({
@@ -1172,7 +1218,7 @@ describe('<CommitDialog /> sheet', () => {
 
     it('asks for a refused input, and an error it has no copy for, in it', async () => {
       Element.prototype.scrollIntoView = vi.fn();
-      openInSwedish({ requireEmail: false });
+      openInOther({ requireEmail: false });
       await confirmWith({
         ok: false,
         json: async () => ({
@@ -1204,7 +1250,7 @@ describe('<CommitDialog /> sheet', () => {
 
     it('asks for an answer it can’t read in it', async () => {
       Element.prototype.scrollIntoView = vi.fn();
-      openInSwedish({ requireEmail: false });
+      openInOther({ requireEmail: false });
       await confirmWith({
         ok: false,
         json: async () => {
@@ -1220,7 +1266,7 @@ describe('<CommitDialog /> sheet', () => {
 
     it('asks for a sign-up that never reached the server in it', async () => {
       Element.prototype.scrollIntoView = vi.fn();
-      openInSwedish({ requireEmail: false });
+      openInOther({ requireEmail: false });
       await confirmWith({
         then: (_: unknown, reject: (reason: unknown) => void) =>
           reject(new TypeError('Failed to fetch')),
@@ -1232,7 +1278,7 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     it('asks for Signing up in it while the sign-up is on its way', async () => {
-      openInSwedish({ requireEmail: false });
+      openInOther({ requireEmail: false });
       await confirmWith(new Promise(() => {}));
       expect(
         await screen.findByRole('button', { name: say('dialog.signingUp') }, settle),
@@ -1240,7 +1286,7 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     it('asks for the screen after a sign-up with an email in it', async () => {
-      openInSwedish({ slotAt: '2030-04-06T12:00:00.000Z' });
+      openInOther({ slotAt: '2030-04-06T12:00:00.000Z' });
       fireEvent.change(await screen.findByLabelText(say('fields.email'), {}, settle), {
         target: { value: 'jordan@example.test' },
       });
@@ -1257,7 +1303,7 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     it('asks for the calendar file’s description and the share text in it', async () => {
-      openInSwedish({ slotAt: '2030-04-06T12:00:00.000Z' });
+      openInOther({ slotAt: '2030-04-06T12:00:00.000Z' });
       fireEvent.change(await screen.findByLabelText(say('fields.email'), {}, settle), {
         target: { value: 'jordan@example.test' },
       });
@@ -1277,7 +1323,7 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     it('asks for the screen after a sign-up without an email, and its copy lines, in it', async () => {
-      openInSwedish({ requireEmail: false });
+      openInOther({ requireEmail: false });
       await confirmWith({
         ok: true,
         json: async () => ({ data: { commitment: { id: 'com_1' }, editUrl } }),
@@ -1314,10 +1360,10 @@ describe('<CommitDialog /> sheet', () => {
     /**
      * The words in each language's share text that say to keep the link
      * private. Whoever has the link can change or cancel the spot, so a
-     * translation that drops the warning fails here, and a new language fails
-     * typecheck until it names the words that carry it.
+     * translation that drops the warning fails here, and a language with a
+     * catalog fails until it names the words that carry it.
      */
-    const KEEP_IT_PRIVATE: Record<CatalogLocale, string> = {
+    const KEEP_IT_PRIVATE: { readonly [L in CatalogLocale]?: string } = {
       en: 'so keep it private',
       sv: 'så dela inte länken med någon',
     };
@@ -1380,10 +1426,15 @@ describe('<CommitDialog /> sheet', () => {
     });
 
     it.each(CATALOG_LOCALES)('say to keep the link private in %s', async (locale) => {
+      const words = KEEP_IT_PRIVATE[locale];
+      expect(
+        words,
+        `KEEP_IT_PRIVATE has no entry for ${locale}: add the words in its participant.dialog.shareText that say to keep the link private`,
+      ).toBeDefined();
       const dialog = await signUpIn(locale);
       const text = (await shared(dialog('saveYourLink')))?.text;
       expect(text).toContain(slotName);
-      expect(text).toContain(KEEP_IT_PRIVATE[locale]);
+      expect(text).toContain(words);
     });
   });
 });

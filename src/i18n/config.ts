@@ -37,8 +37,8 @@ export type Audience = keyof typeof AUDIENCE_NAMESPACES;
  * outside the app (phase 3).
  */
 export const SHIPPED = {
-  participant: ['en'],
-  organizer: ['en'],
+  participant: ['en', 'sv'],
+  organizer: ['en', 'sv'],
   site: ['en'],
 } as const satisfies Record<Audience, readonly CatalogLocale[]>;
 

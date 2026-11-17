@@ -16,7 +16,16 @@
  *   translated from. Like completeness, that fails only where the language is
  *   shipped; elsewhere `catalogNotes` reports it. An entry the record doesn't
  *   need fails in every language;
- * - every English message is used by the app (`findUsedKeys` in ./used-keys).
+ * - every English message is used by the app (`findUsedKeys` in ./used-keys);
+ * - a translation's plurals have a branch for every plural category its
+ *   language has (`Intl.PluralRules`);
+ * - a translation isn't a copy of its English, unless it has no letters
+ *   outside its placeholders and tags or its language's rules list it;
+ * - a translation of English that names the product (`PRODUCT_NAME`) names it
+ *   too;
+ * - a translation has none of the words its language's glossary rules out.
+ *   The last four apply in every language, shipped or not; each language's
+ *   lists are in ./language-rules.ts.
  *
  * Each problem comes back as one line, `<locale> <key>: <what's wrong>`.
  */
@@ -24,6 +33,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import compile from 'icu-minify/compile';
 import { AUDIENCE_NAMESPACES, type Audience } from '../config';
+import type { LanguageRules } from './language-rules';
 
 export type Catalog = { [key: string]: string | Catalog };
 
@@ -49,6 +59,7 @@ export function checkCatalogs({
   shipped,
   used,
   translatedFrom,
+  rules,
 }: {
   catalogs: Readonly<Record<string, Catalog>>;
   shipped: Readonly<Record<Audience, readonly string[]>>;
@@ -56,6 +67,8 @@ export function checkCatalogs({
   used: ReadonlySet<string>;
   /** Each translated language's record of the English it was translated from. */
   translatedFrom: Readonly<Record<string, TranslatedFrom>>;
+  /** Each language's own rules (./language-rules.ts); a language without any has none. */
+  rules: Readonly<Record<string, LanguageRules>>;
 }): string[] {
   const problems: string[] = [];
   const english = catalogs.en;
@@ -81,8 +94,11 @@ export function checkCatalogs({
 
   for (const [locale, catalog] of Object.entries(catalogs)) {
     if (locale === 'en') continue;
-    for (const [key, message] of messagesOf(locale, catalog, problems)) {
-      if (messageAt(english, key) === undefined) {
+    const own = rules[locale] ?? NO_RULES;
+    const messages = messagesOf(locale, catalog, problems);
+    for (const [key, message] of messages) {
+      const englishMessage = messageAt(english, key);
+      if (englishMessage === undefined) {
         problems.push(`${locale} ${key}: not in en.json; delete it`);
         continue;
       }
@@ -91,6 +107,17 @@ export function checkCatalogs({
       if (!shape || !englishShape) continue;
       for (const difference of differences(englishShape, shape)) {
         problems.push(`${locale} ${key}: ${difference}`);
+      }
+      for (const broken of brokenRules(locale, key, message, englishMessage, own)) {
+        problems.push(`${locale} ${key}: ${broken}`);
+      }
+    }
+    for (const key of Object.keys(own.sameAsEnglish)) {
+      const message = messages.get(key);
+      if (message === undefined || message !== messageAt(english, key)) {
+        problems.push(
+          `${locale} ${key}: listed in sameAsEnglish in src/i18n/testing/language-rules.ts, but ${locale}.json has no copy of its English; take it off the list`,
+        );
       }
     }
 
@@ -287,6 +314,118 @@ function messageAt(catalog: Catalog, key: string): string | undefined {
 
 const isSection = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** The product's name, which every language keeps as it is. */
+const PRODUCT_NAME = 'OpenSignup';
+
+const NO_RULES: LanguageRules = { sameAsEnglish: {}, banned: [] };
+
+/**
+ * The rules a translation that compiles, and matches its English's shape,
+ * can still break: plural branches its language needs, a copy of the English,
+ * the product's name, and the words its glossary rules out.
+ */
+function brokenRules(
+  locale: string,
+  key: string,
+  message: string,
+  english: string,
+  rules: LanguageRules,
+): string[] {
+  const broken: string[] = [];
+  // A message with no placeholders or tags compiles to its text alone.
+  const compiled = compile(message) as unknown;
+  const nodes: readonly unknown[] = Array.isArray(compiled) ? compiled : [compiled];
+
+  const needed = new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
+  for (const { name, branches } of pluralsIn(nodes)) {
+    const lacking = needed.filter(
+      (category) =>
+        !branches.has(category) &&
+        !(category === 'one' && branches.has('=1') && oneIsOnlyOne(locale)),
+    );
+    if (lacking.length > 0) {
+      broken.push(
+        `{${name}, plural} has no ${lacking.join(', ')} branch, which ${locale} needs (it has ${needed.join(', ')})`,
+      );
+    }
+  }
+
+  const text = textIn(nodes);
+  if (
+    message === english &&
+    text.some((run) => /\p{L}/u.test(run)) &&
+    !Object.hasOwn(rules.sameAsEnglish, key)
+  ) {
+    broken.push(
+      `the same as English; translate it, or list it in sameAsEnglish in src/i18n/testing/language-rules.ts with why`,
+    );
+  }
+
+  if (english.includes(PRODUCT_NAME) && !message.includes(PRODUCT_NAME)) {
+    broken.push(`drops "${PRODUCT_NAME}", the product's name, which stays as it is`);
+  }
+
+  const namespace = key.split('.')[0] ?? key;
+  for (const { pattern, namespaces, glossary, reason } of rules.banned) {
+    if (namespaces && !namespaces.includes(namespace)) continue;
+    for (const run of text) {
+      const match = pattern.exec(run);
+      if (match) {
+        broken.push(`has "${match[0]}", which the glossary rules out: ${reason} (${glossary})`);
+        break;
+      }
+    }
+  }
+  return broken;
+}
+
+/**
+ * Whether the language's `one` holds no number but 1, so a `=1` branch can
+ * stand in for it. French's `one` holds 0 too, and Russian's 21 and 101.
+ */
+function oneIsOnlyOne(locale: string): boolean {
+  const rules = new Intl.PluralRules(locale);
+  return rules.select(1) === 'one' && [0, 21, 101].every((n) => rules.select(n) !== 'one');
+}
+
+/** Every plural in compiled nodes, nested ones included, with its branch names. */
+function pluralsIn(nodes: readonly unknown[]): { name: string; branches: Set<string> }[] {
+  const found: { name: string; branches: Set<string> }[] = [];
+  const walk = (node: unknown): void => {
+    if (!Array.isArray(node)) return;
+    const [name, type, options] = node as [string, unknown, unknown];
+    if (type === PLURAL && isSection(options)) {
+      found.push({ name, branches: new Set(Object.keys(options)) });
+    }
+    if (typeof type === 'number' && type !== POUND && isSection(options)) {
+      for (const branch of Object.values(options)) if (Array.isArray(branch)) branch.forEach(walk);
+    } else if (typeof type !== 'number' || type === POUND) {
+      node.slice(1).forEach(walk);
+    }
+  };
+  nodes.forEach(walk);
+  return found;
+}
+
+/** The runs of a compiled message's own text: what's left once placeholders and tag names are taken out. */
+function textIn(nodes: readonly unknown[]): string[] {
+  const runs: string[] = [];
+  const walk = (node: unknown): void => {
+    if (typeof node === 'string') return void runs.push(node);
+    if (!Array.isArray(node)) return;
+    const [, type, options] = node as [string, unknown, unknown];
+    if (typeof type === 'number' && type !== POUND) {
+      if (isSection(options))
+        for (const branch of Object.values(options))
+          if (Array.isArray(branch)) branch.forEach(walk);
+    } else {
+      node.slice(1).forEach(walk);
+    }
+  };
+  nodes.forEach(walk);
+  return runs;
+}
 
 /** The kind of value a placeholder takes from the code. */
 type ValueKind = 'text' | 'number' | 'date';

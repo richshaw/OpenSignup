@@ -8,7 +8,7 @@ import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -251,6 +251,7 @@ describe('createSignupAction (db)', () => {
   }
 
   it('stores no language, and records none, while only English has shipped', async () => {
+    shipOnlyEnglish();
     request.locale = 'en';
     request.instanceDefault = 'en';
     await submit('English only');

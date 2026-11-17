@@ -38,8 +38,9 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   const { id } = await params;
   const session = await requireOrganizerSession();
   const actor = toActor(session);
-  // The header's language. It changes only with a full page load (#938), so
-  // this layout not re-rendering between tabs leaves it right.
+  // The header's language. It changes only when the organizer saves one in
+  // account Settings, a server action whose redirect renders every layout
+  // again (#938), so this layout not re-rendering between tabs leaves it right.
   const locale = localeOfOrganizer(session);
   const result = await loadSignupForOrganizer(actor, id);
   if (!result.ok) {

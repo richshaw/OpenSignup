@@ -25,7 +25,7 @@ export interface ReminderFields {
  * The ref tiebreak is a plain code-point comparison (refs are lowercase kebab),
  * the same order migration 0005 gets from `COLLATE "C"`.
  */
-function byOrder(a: AnchorCandidate, b: AnchorCandidate): number {
+export function byOrder(a: AnchorCandidate, b: AnchorCandidate): number {
   if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
   return a.ref < b.ref ? -1 : a.ref > b.ref ? 1 : 0;
 }

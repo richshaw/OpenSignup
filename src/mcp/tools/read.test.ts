@@ -5,6 +5,7 @@ import { connectTestClient } from '../testing/client';
 import { signupRow, unitContext } from '../testing/fixtures';
 import { getSignup, listSignups } from './signups-read';
 import { listWorkspaces } from './workspaces';
+import { CATALOG_LOCALES } from '@/i18n/config';
 
 const READ_TOOLS = [listWorkspaces, listSignups, getSignup];
 
@@ -199,7 +200,7 @@ describe('read tools', () => {
 
   // As stored, like every setting it shows: a language that hasn't shipped
   // (participants get the instance's) is shown as it is, and none as none.
-  it.each(['en', 'sv'])('get_signup shows a stored language as stored: %s', async (locale) => {
+  it.each(CATALOG_LOCALES)('get_signup shows a stored language as stored: %s', async (locale) => {
     getSignupForOrganizer.mockResolvedValueOnce(
       ok({
         ...row,
