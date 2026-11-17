@@ -63,5 +63,5 @@ export async function createSignupAction(
     { localeSource: language?.source },
   );
   if (!result.ok) return { error: refusalText(t, result.error), title, description };
-  redirect(`/app/signups/${result.value.id}`);
+  redirect(`/app/signups/${result.value.id}/build`);
 }
