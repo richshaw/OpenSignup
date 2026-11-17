@@ -32,10 +32,11 @@ How it looks in place, under `<repo root>/translation-review/`:
 
 - `<code>/screens/chromium/` and `<code>/screens/chromium-phone/`: a screenshot
   of each participant screen and state, and of the organizer screens on the
-  way to a published signup (`organizer-…`), at desktop and phone width (390
-  pixels), named for what it shows (`page-open`, `sheet-error-filled-up`,
-  `edit-page-closed`, `unsubscribe-confirm`, `organizer-build-slot` …). Look
-  at the images.
+  way to a published signup and the states around them (`organizer-…`), at
+  desktop and phone width (390 pixels), named for what it shows (`page-open`,
+  `sheet-error-filled-up`, `edit-page-closed`, `unsubscribe-confirm`,
+  `organizer-build-slot`, `organizer-signup-settings-saved`,
+  `organizer-consent` …). Look at the images.
 - `<code>/emails/*.html` and `*.txt`: each participant email. Its English is
   in `en/emails/`, under the same name without `-<code>` (`reminder-sv.txt`
   and `reminder.txt`). Each `.txt` starts with a `Subject:` line: the email's
