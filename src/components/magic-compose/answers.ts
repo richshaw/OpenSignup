@@ -1,11 +1,11 @@
 import type { Translator } from '@/i18n/translator';
 import {
-  EARLIEST_DATE_YEAR,
   HOW_MANY_MAX,
   WHAT_ITEM_MAX_LENGTH,
   WHAT_ITEMS_MAX,
   WHEN_TEXT_MAX_LENGTH,
 } from '@/lib/magic-compose/limits';
+import { isRealDate } from '@/lib/reminder-fields';
 import {
   followUpItems,
   tidyText,
@@ -182,11 +182,10 @@ export function answersProblem(
   if (questions.topics.includes('when') && answers.when === 'one_day' && (date || from || to)) {
     // With no date the answer would go as "not decided", and the times with it.
     if (!date) return t('noDate');
-    // A short year is an easy slip in a date box (202 becomes 0202), and the
-    // server refuses a year before EARLIEST_DATE_YEAR, or one that isn't four
-    // digits, as not a real day.
-    const year = date.split('-')[0] ?? '';
-    if (year.length !== 4 || Number(year) < EARLIEST_DATE_YEAR) return t('year');
+    // A short year is an easy slip in a date box (202 becomes 0202). This is
+    // the server's own rule for a real day, so whatever it would refuse is
+    // stopped here first.
+    if (!isRealDate(date)) return t('year');
     if (from && to && from >= to) return t('timeOrder');
   }
   // A count isn't rounded, so 2.5 is stopped here rather than sent as 3.
