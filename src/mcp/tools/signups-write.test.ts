@@ -324,6 +324,10 @@ describe('create_signup and the signup’s language', () => {
     expect(tool?.inputSchema.required).not.toContain('locale');
     expect(tool?.description).toContain('locale sets the language');
     expect(tool?.description).toContain(`one of: ${SIGNUP_LANGUAGES}.`);
+    // A fixed language, not one from the list the tool reads, so a tool that
+    // listed the wrong languages fails here. Swedish has shipped, so this
+    // stays right at the next launch.
+    expect(tool?.description).toMatch(/\bsv\b/);
   });
 
   it('stores a language the assistant sends, as sent by the caller', async () => {
@@ -528,6 +532,8 @@ describe('update_signup', () => {
       `as a language code, one of: ${SIGNUP_LANGUAGES}.`,
     );
     expect(settings?.properties?.locale?.description).toContain('null removes it');
+    // A fixed language, as in create_signup's test above.
+    expect(settings?.properties?.locale?.description).toMatch(/\bsv\b/);
   });
 
   // updateSignup refuses one that hasn't shipped, with the REST API's message
