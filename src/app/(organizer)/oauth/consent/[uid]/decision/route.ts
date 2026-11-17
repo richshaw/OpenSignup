@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { loginUrl } from '@/auth/callback-url';
 import { getOrganizerSession, toActor } from '@/auth/session';
 import { getDb } from '@/db/client';
 import type { CatalogLocale } from '@/i18n/config';
@@ -39,7 +40,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
   const session = await getOrganizerSession();
   const actor = toActor(session);
   if (actor.kind !== 'organizer') {
-    redirect(`/login?callbackUrl=${encodeURIComponent(consentPath(uid))}`);
+    redirect(loginUrl(consentPath(uid)));
   }
   const locale = localeOfOrganizer(session);
   const t = getServerTranslator(locale, 'auth.consent.decision');
