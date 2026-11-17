@@ -22,9 +22,9 @@ import * as readline from 'node:readline';
 const BASE = process.env.OPENSIGNUP_URL ?? 'http://localhost:3000';
 const LOG = process.env.OPENSIGNUP_LOG ?? '/tmp/opensignup-web.log';
 const SHOT_DIR = process.env.SHOT_DIR ?? '/tmp/opensignup-shots';
-// Sets navigator.language and the Accept-Language header, which a new
-// organizer account takes its language from and the date and time boxes order
-// their placeholders by.
+// Sets navigator.language, Intl formatting in the page and the Accept-Language
+// header, which a new organizer account takes its language from. The native
+// date and time boxes ignore it: they follow the browser's own UI language.
 const LOCALE = process.env.DRIVER_LOCALE || undefined;
 mkdirSync(SHOT_DIR, { recursive: true });
 

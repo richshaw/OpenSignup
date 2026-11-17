@@ -180,7 +180,8 @@ where they are.
 To take them with the `run-opensignup` driver, run it with `DRIVER_LOCALE`
 set to the language (`DRIVER_LOCALE=sv-SE node .claude/skills/run-opensignup/driver.mjs`)
 and sign in with an address that has no account yet: its first sign-in
-stores that language, and the date and time boxes follow it too.
+stores that language. The native date and time boxes don't follow it: they
+keep the browser's own language, so don't count them as checked.
 
 Open a few of the images yourself first, to be sure they show what they say.
 If a spec fails on `rate_limited` after several runs in an hour, empty the

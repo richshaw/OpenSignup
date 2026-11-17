@@ -744,9 +744,10 @@ change touches by hand.
 To look at a language in the running app with the `run-opensignup` driver,
 set `DRIVER_LOCALE` (for example `DRIVER_LOCALE=sv-SE`). The driver's browser
 then asks for that language, so an organizer account it signs in for the first
-time stores it, as the table under "An organizer's language" says, and the
-date and time boxes order their placeholders by it. Without it the browser
-asks for English.
+time stores it, as the table under "An organizer's language" says. The
+native date and time boxes don't follow it: they keep the browser's own
+language, so they can't be checked this way. Without it the browser asks for
+English.
 
 ## Swedish glossary
 
