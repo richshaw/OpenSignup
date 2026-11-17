@@ -22,7 +22,7 @@ test.describe('organizer flow', () => {
       .locator(`a[href^="/app/signups/"]`, { hasText: seed.publicTitle })
       .first();
     await expect(published.getByText(`/s/${seed.publicSlug}`, { exact: true })).toBeVisible();
-    const draft = page.locator(`a[href="/app/signups/${seed.draftSignupId}"]`);
+    const draft = page.locator(`a[href="/app/signups/${seed.draftSignupId}/build"]`);
     await expect(draft.getByText('Only you can see this draft', { exact: true })).toBeVisible();
     await expect(draft.getByText(/\/s\//)).toHaveCount(0);
   });

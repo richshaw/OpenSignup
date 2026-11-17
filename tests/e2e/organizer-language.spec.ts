@@ -412,7 +412,7 @@ for (const stored of STORED) {
       // own two store none, so they're in the instance's, English, marked
       // only where that isn't the page's.
       await page.goto('/app');
-      const row = page.locator(`a[href="/app/signups/${elsewhere.id}"]`);
+      const row = page.locator(`a[href="/app/signups/${elsewhere.id}/build"]`);
       const rowTitle = row.getByText(elsewhere.title, { exact: true });
       await expect(rowTitle).toHaveAttribute('lang', signupLocale);
       expect(await languageOf(row.getByText(`/s/${elsewhere.slug}`)), unshippedHint).toBe(locale);

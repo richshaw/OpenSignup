@@ -59,7 +59,6 @@ const TRANSLATED_FILES = [
   'src/app/(organizer)/app/(chrome)/layout.tsx',
   'src/app/(organizer)/app/(chrome)/page.tsx',
   'src/app/(organizer)/app/(chrome)/@crumbs/settings/page.tsx',
-  'src/app/(organizer)/app/(chrome)/@crumbs/signups/[id]/edit/page.tsx',
   'src/components/chrome/Crumb.tsx',
   'src/components/signup/SignupLoadError.tsx',
   'src/app/(organizer)/app/(chrome)/signups/new/page.tsx',

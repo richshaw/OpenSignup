@@ -46,7 +46,7 @@ async function chooseFromYourSignups(page: Page, id: string): Promise<void> {
   await page.goto('/app');
   await expect(page.getByRole('heading', { name: UI.yourSignups })).toBeVisible();
   // Every run makes a signup with this title, so this one is found by where it goes.
-  await page.locator(`a[href="/app/signups/${id}"]`).click();
+  await page.locator(`a[href="/app/signups/${id}/build"]`).click();
   await page.waitForURL(new RegExp(`/app/signups/${id}/build$`));
 }
 

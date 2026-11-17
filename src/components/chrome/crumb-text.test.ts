@@ -29,11 +29,10 @@ describe('crumbTranslator', () => {
   it('words the crumbs as before for an organizer with no language stored', async () => {
     request.session = { locale: null };
     const t = (await crumbTranslator())!;
-    expect([t('settings'), t('connectedApps'), t('newSignup'), t('edit')]).toEqual([
+    expect([t('settings'), t('connectedApps'), t('newSignup')]).toEqual([
       'Settings',
       'Connected apps',
       'New signup',
-      'Edit',
     ]);
   });
 
