@@ -4,7 +4,7 @@ import { getTranslator, type Namespace } from '@/i18n/translator';
 import { COMMIT_COOKIE_NAME, serializeReturningCommits } from '@/lib/returning-participant';
 import { BASE_URL } from './fixtures';
 import type { Remembered } from './seed';
-import { UNSHIPPED_LOCALES } from './unshipped-locales';
+import { unshippedHint } from './unshipped-locales';
 
 /**
  * `namespace`'s messages in `locale`, from its catalog, formatted as vitest
@@ -33,7 +33,7 @@ export async function gotoIn(page: Page, locale: TestLocale, path: string): Prom
   await page.goto(path);
   await expect(
     page.locator('main'),
-    `the signup in ${locale} is in English: start the server with E2E_UNSHIPPED_LOCALES=${UNSHIPPED_LOCALES}`,
+    `the signup in ${locale} is in English: ${unshippedHint(locale)}`,
   ).toHaveAttribute('lang', locale);
 }
 

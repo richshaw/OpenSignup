@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
 import { INSTANCE_NAME } from '@/lib/site-config';
@@ -150,6 +150,7 @@ describe('the public signup page, in its signup’s language', () => {
 
   // As the Settings tab shows it: the choice there is the language here.
   it('reads a stored language that hasn’t shipped as the instance’s', async () => {
+    shipOnlyEnglish();
     storeSignup({ settings: { locale: OTHER_LOCALE } });
     await renderPage();
     expect(screen.getByRole('main')).toHaveAttribute('lang', 'en');

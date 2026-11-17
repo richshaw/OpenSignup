@@ -9,7 +9,7 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { ok } from '@/lib/result';
@@ -388,6 +388,7 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
   }
 
   it('stores no language, and records none, while only English has shipped', async () => {
+    shipOnlyEnglish();
     route.locale = 'en';
     route.instanceDefault = 'en';
     const { settings, telemetry, system } = await compose('en');
@@ -400,6 +401,7 @@ describe('POST /api/signups/magic-compose starts the signup in the organizer’s
   });
 
   it('tells the model English while only English has shipped, whatever the organizer stored or their browser asks for', async () => {
+    shipOnlyEnglish();
     route.locale = OTHER_LOCALE;
     const { system } = await compose(OTHER_LOCALE);
     expect(system).toContain(writesIn('English'));

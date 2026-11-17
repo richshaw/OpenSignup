@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
 // The instance's DEFAULT_LOCALE (none unless a test sets one).
 const request = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
@@ -75,6 +75,8 @@ describe('ConfirmLoginPage', () => {
   });
 
   describe.each(OTHER_LANGUAGES)('with DEFAULT_LOCALE=%s', (other) => {
+    beforeEach(shipOnlyEnglish);
+
     it('stays English while that language hasn’t shipped to organizers', async () => {
       request.defaultLocale = other;
       const { frame } = await renderPage();

@@ -28,7 +28,7 @@ the browser:
   draft: participants cannot see it until you publish it, though other people
   in the same workspace can. It starts in your language for new signups, as
   one you make in the browser does, unless the assistant names a language
-  OpenSignup offers for signups (only English so far). Your language is the
+  OpenSignup offers for signups (English or Swedish). Your language is the
   one stored on your account (the one you chose in Settings, or, on a site
   with no default language, your browser's language when you created the
   account, if OpenSignup offers it and it isn't English), else your site's
@@ -38,7 +38,7 @@ the browser:
   reminders go out, how slots are grouped, how many hours before its start a
   slot stops taking sign-ups, which date field reminders are timed from, and
   the signup's language. An assistant sees the language as saved, and can
-  set it to one OpenSignup offers for signups (only English so far) or clear
+  set it to one OpenSignup offers for signups (English or Swedish) or clear
   it, so the signup follows your site's default language.
 - **Publish, close, reopen, archive, or delete** a signup.
 

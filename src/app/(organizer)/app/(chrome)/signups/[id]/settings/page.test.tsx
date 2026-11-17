@@ -2,12 +2,12 @@
 
 import '@testing-library/jest-dom/vitest';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { CATALOG_LOCALES, languageName } from '@/i18n/config';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
 // Unit tests have no server environment. The instance sets no language
 // unless a test sets one. English comes from the catalog; any other language
@@ -107,6 +107,8 @@ describe('Settings tab: a refused save or delete', () => {
 });
 
 describe('Settings tab: Signup language', () => {
+  beforeEach(shipOnlyEnglish);
+
   it('isn’t there while one language has shipped to participants', async () => {
     await renderTab();
     expect(screen.getByRole('region', { name: 'Sign-up form' })).toBeInTheDocument();
@@ -192,6 +194,7 @@ describe('Settings tab: one Save', () => {
   });
 
   it('has the email choice alone while one language has shipped, with the same one Save', async () => {
+    shipOnlyEnglish();
     await renderTab();
     const form = formOf(screen.getByRole('radio', { name: 'Required' }));
     expect(screen.getAllByRole('button', { name: 'Save' })).toEqual([

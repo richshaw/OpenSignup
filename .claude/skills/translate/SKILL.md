@@ -209,7 +209,7 @@ and in the same pull request runs this skill for every language in `SHIPPED`
 (`src/i18n/config.ts`), for the audience whose namespaces it changed: until
 each changed message is translated again and
 marked, the catalog check fails it as stale. For a language with a catalog
-that hasn't shipped yet (Swedish today), do it too, so the language stays
+that hasn't shipped yet (none today), do it too, so the language stays
 ready to launch. A one-line change still gets the review; give the reviewer
 just the changed keys and the screens they show on.
 

@@ -9,7 +9,7 @@ import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
 import { makeId } from '@/lib/ids';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
@@ -508,6 +508,7 @@ describe('signups service (db)', () => {
     it.each([OTHER_LOCALE, 'xx', 'EN', 'en-GB', '', 'x'.repeat(36), 7])(
       'refuses a sent language that has not shipped to participants: %j',
       async (locale) => {
+        shipOnlyEnglish();
         const title = `Locale ${locale || 'empty'}`;
         const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
           ...validCreateInput(title),
@@ -573,6 +574,7 @@ describe('signups service (db)', () => {
       });
 
       it('in English while the instance’s language hasn’t shipped', async () => {
+        shipOnlyEnglish();
         instance.defaultLocale = OTHER_LOCALE;
         expect(await columns(validCreateInput('Not yet'))).toEqual([
           ['what', 'What'],
@@ -1274,6 +1276,7 @@ describe('signups service (db)', () => {
     // The e2e run's server shows each seeded signup in its language, from a
     // row the seed writes directly. Its flag must not let anyone store one.
     it('refuses a language that has not shipped on the e2e run’s server too', async () => {
+      shipOnlyEnglish();
       vi.stubEnv('E2E_UNSHIPPED_LOCALES', OTHER_LOCALE);
       try {
         const sent = await createSignup(fx.db, fx.actor, fx.workspaceId, {

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { CatalogLocale } from '@/i18n/config';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
 import { ok } from '@/lib/result';
 import { formatSlotDate } from '@/lib/slot-label';
@@ -138,6 +138,7 @@ describe("the edit page in its signup's language", () => {
   });
 
   it("stays English for a stored language that hasn't shipped", async () => {
+    shipOnlyEnglish();
     request.signupLocale = OTHER_LOCALE;
     await renderPage();
     expect(services.editLimitsForCommitment).toHaveBeenCalledWith({}, expect.anything(), 'en');

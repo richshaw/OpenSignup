@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { BUILD_TAB_NAMESPACES } from '@/components/build-wysiwyg/client-namespaces';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { messagesFor } from '@/i18n/translator';
 
 // Unit tests have no server environment. The instance sets no language
@@ -113,6 +113,7 @@ describe('Build tab: the signup’s language', () => {
   });
 
   it('stays English for a stored language that hasn’t shipped', async () => {
+    shipOnlyEnglish();
     stored.settings = { locale: OTHER_LOCALE };
     expect((await handedDown()).locale).toBe('en');
   });

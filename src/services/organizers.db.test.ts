@@ -3,7 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { organizers } from '@/db/schema/organizers';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
-import { ship } from '@/i18n/testing/ship';
+import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
@@ -81,6 +81,7 @@ describe('updateOrganizerLocale (db)', () => {
   });
 
   it('refuses a language that hasn’t shipped, or none, and keeps the stored one', async () => {
+    shipOnlyEnglish();
     await store(mine, 'en');
     // The first has a catalog but hasn't shipped; the rest name no language as
     // the list writes them. Organizers only ever pick from that list.
