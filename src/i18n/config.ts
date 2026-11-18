@@ -50,16 +50,10 @@ export function isShipped(audience: Audience, value: unknown): value is CatalogL
 /**
  * Which step of `resolveLocale` chose a language, in the order they're tried:
  * the stored language, the instance's `DEFAULT_LOCALE`, or English.
- * `signup.created` records it, so don't rename the values.
+ * `signup.created` records it next to a new signup's language, or `api` when
+ * the caller sent one (`createSignup`), so don't rename the values.
  */
 type LocaleSource = 'setting' | 'instance' | 'default';
-
-/**
- * Which step chose a new signup's language: one of `resolveLocale`'s, or the
- * caller, which sent one (`api`). `signup.created` records it next to the
- * language.
- */
-export type SignupLocaleSource = LocaleSource | 'api';
 
 /**
  * The rule for which language anybody gets: `stored` once it has shipped to

@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { localeOfOrganizer, newSignupLocale } from '@/i18n/locale';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { waitMinutes } from '@/lib/format-duration';
 import { refusalText } from '@/lib/organizer-errors';
@@ -49,18 +49,12 @@ export async function createSignupAction(
     const error = t('tooManySignups', { minutes: waitMinutes(retryAfter) });
     return { error, title, description };
   }
-  const language = newSignupLocale(s);
   const result = await createSignup(
     db,
     actor,
     s.defaultWorkspaceId,
-    {
-      title,
-      description,
-      visibility: 'unlisted',
-      ...(language ? { settings: { locale: language.locale } } : {}),
-    },
-    { localeSource: language?.source },
+    { title, description, visibility: 'unlisted' },
+    { organizer: s },
   );
   if (!result.ok) return { error: refusalText(t, result.error), title, description };
   redirect(`/app/signups/${result.value.id}/build`);
