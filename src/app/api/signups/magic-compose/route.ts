@@ -356,7 +356,7 @@ export async function POST(req: NextRequest) {
 
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
-      ...(language ? { locale: language } : {}),
+      organizer: session,
     });
     if (!persisted.ok) {
       await recordFailed(db, actor, session.defaultWorkspaceId, 'not_saved');
