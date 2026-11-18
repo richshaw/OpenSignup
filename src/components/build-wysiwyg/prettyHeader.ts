@@ -1,4 +1,4 @@
-import type { CatalogLocale } from '@/i18n/config';
+import { labelInSentence, type CatalogLocale } from '@/i18n/config';
 import type { Translator } from '@/i18n/translator';
 import { renderFieldValue } from '@/lib/slot-label';
 import type { FieldType } from '@/schemas/slot-fields';
@@ -23,7 +23,7 @@ export function prettyHeader(
   fieldLabel?: string,
 ): string {
   if (!rawKey) {
-    return emptyHeaderCopy(t, fieldType, fieldLabel);
+    return emptyHeaderCopy(t, fieldType, locale, fieldLabel);
   }
   return (
     renderFieldValue({ ref: '', label: fieldLabel ?? '', fieldType }, rawKey, locale) ?? rawKey
@@ -34,15 +34,17 @@ export function prettyHeader(
  * Action-prompt copy for an empty-bucket group header.
  * date/time get a fixed phrase; other types derive from the field label when
  * provided so an "Item" field reads "Set item" rather than the bland fallback.
- * The label goes in lowercased, as the organizer's English has always read.
+ * The label goes in as `labelInSentence` writes it in `locale`, the signup's
+ * language, which the organizer wrote it in: "Set role", "Set Rolle".
  */
 export function emptyHeaderCopy(
   t: Translator<'organizer.build'>,
   fieldType: FieldType,
+  locale: CatalogLocale,
   fieldLabel?: string,
 ): string {
   if (fieldType === 'date') return t('empty.date');
   if (fieldType === 'time') return t('empty.time');
   const trimmed = fieldLabel?.trim();
-  return trimmed ? t('empty.named', { label: trimmed.toLowerCase() }) : t('empty.other');
+  return trimmed ? t('empty.named', { label: labelInSentence(trimmed, locale) }) : t('empty.other');
 }

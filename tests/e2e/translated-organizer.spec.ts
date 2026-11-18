@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { isShipped } from '@/i18n/config';
+import { isShipped, labelInSentence } from '@/i18n/config';
 import { englishName, TEST_LOCALES } from '@/i18n/testing/locales';
 import type { Namespace } from '@/i18n/translator';
 import { loginAsSeededOrganizer } from './helpers/auth';
@@ -162,7 +162,9 @@ for (const locale of TEST_LOCALES) {
 
       // Its slot, filled in.
       const row = page.locator('[data-slot-row]').first();
-      await expect(row).toContainText(build('empty.named', { label: what.toLowerCase() }));
+      await expect(row).toContainText(
+        build('empty.named', { label: labelInSentence(what, locale) }),
+      );
       await row.click();
       const editor = page.locator('[data-slot-editor]');
       await editor
