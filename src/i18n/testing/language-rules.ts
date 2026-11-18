@@ -63,6 +63,7 @@ export const LANGUAGE_RULES: Readonly<Record<string, LanguageRules>> = {
       'common.footer.license': 'the site’s name and the licence’s, which stay as they are',
       'common.footer.cookies': 'German uses the English word',
       'participant.defaults.firstChoice': 'German uses the English word, Option',
+      'organizer.build.fieldForm.name': 'German uses the English word',
       'organizer.signupSettings.signupForm.optional': 'German uses the English word',
       'organizer.responses.table.name': 'German uses the English word',
       'organizer.responses.csv.name': 'German uses the English word',

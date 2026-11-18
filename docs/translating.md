@@ -1211,25 +1211,25 @@ _Aufgabe_, _Platz_, _Eintrag_), and these for the words only organizers see.
 
 ### Sign-in and connecting an app
 
-| English                                         | German                                       | Notes                                                                   |
-| ----------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| Sign in to OpenSignup                           | Bei OpenSignup anmelden                      | The page's heading and the email's subject and heading, the same words  |
-| magic link; sign-in link                        | Anmeldelink                                  | "Anmeldelink schicken". _Magischer Link_ is a calque                    |
-| the six-digit code                              | der Code; der sechsstellige Code             | Not _Einmalcode_: the English never says one-time                       |
-| request (a new link); Too many sign-in requests | anfordern; Zu viele Anmeldelinks angefordert | "Neuen Link anfordern"                                                  |
-| Too many requests (the OAuth pages)             | Zu viele Versuche                            |                                                                         |
-| expires in {duration}; works for {duration}     | läuft in {duration} ab; gilt {duration} lang | The app writes the duration; translate the sentence around it           |
-| Check your email; your inbox                    | Schau in deine E-Mails; dein Posteingang     |                                                                         |
-| click (a link, a button)                        | klick auf                                    | "Klick unten auf die Schaltfläche"                                      |
-| Continue with {provider}; a provider            | Weiter mit {provider}; ein Anbieter          |                                                                         |
-| Allow; Don't allow                              | Zulassen; Nicht zulassen                     |                                                                         |
-| approve (permissions, on Connected apps)        | freigeben                                    | "die Berechtigungen, die du freigegeben hast"                           |
-| was set up by the people who run this site      | wurde von dieser Website eingerichtet        | Neutral; not _von den Betreibern_                                       |
-| Connection request                              | Verbindungsanfrage                           |                                                                         |
-| app, application                                | App                                          |                                                                         |
-| It will be able to                              | Die App kann                                 | The permission lines below it end on their verb: "Deine Listen ansehen" |
-| It acts as you                                  | Die App handelt in deinem Namen              |                                                                         |
-| Go to your dashboard                            | Zur Übersicht                                |                                                                         |
+| English                                         | German                                       | Notes                                                                                        |
+| ----------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Sign in to OpenSignup                           | Bei OpenSignup anmelden                      | The page's heading and the email's subject and heading, the same words                       |
+| magic link; sign-in link                        | Anmeldelink                                  | "Anmeldelink schicken". _Magischer Link_ is a calque                                         |
+| the six-digit code                              | der Code; der sechsstellige Code             | Not _Einmalcode_: the English never says one-time                                            |
+| request (a new link); Too many sign-in requests | anfordern; Zu viele Anmeldelinks angefordert | "Neuen Link anfordern"                                                                       |
+| Too many requests (the OAuth pages)             | Zu viele Versuche                            |                                                                                              |
+| expires in {duration}; works for {duration}     | gilt {duration} lang                         | Both: the app writes the duration ("7 Tage"), so _läuft in {duration} ab_ would need _Tagen_ |
+| Check your email; your inbox                    | Schau in deine E-Mails; dein Posteingang     |                                                                                              |
+| click (a link, a button)                        | klick auf                                    | "Klick unten auf die Schaltfläche"                                                           |
+| Continue with {provider}; a provider            | Weiter mit {provider}; ein Anbieter          |                                                                                              |
+| Allow; Don't allow                              | Zulassen; Nicht zulassen                     |                                                                                              |
+| approve (permissions, on Connected apps)        | freigeben                                    | "die Berechtigungen, die du freigegeben hast"                                                |
+| was set up by the people who run this site      | wurde von dieser Website eingerichtet        | Neutral; not _von den Betreibern_                                                            |
+| Connection request                              | Verbindungsanfrage                           |                                                                                              |
+| app, application                                | App                                          |                                                                                              |
+| It will be able to                              | Die App kann                                 | The permission lines below it end on their verb: "Deine Listen ansehen"                      |
+| It acts as you                                  | Die App handelt in deinem Namen              |                                                                                              |
+| Go to your dashboard                            | Zur Übersicht                                |                                                                                              |
 
 ### Style
 

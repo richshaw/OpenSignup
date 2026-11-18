@@ -277,6 +277,80 @@
     }
   },
   "organizer": {
+    "publicPage": {
+      "strip": {
+        "label": "Verwaltung",
+        "note": "<b>Deine Liste.</b> Nur wer sie organisiert, sieht diese Leiste.",
+        "responses": "Einträge ansehen",
+        "edit": "Liste bearbeiten"
+      },
+      "ownDraft": {
+        "title": "Nur du kannst diesen Entwurf sehen",
+        "body": "Wer diesen Link öffnet, sieht „{title}“, bis du den Entwurf veröffentlichst. Benennst du den Entwurf um, bekommt er einen neuen Link. Teile den Link also erst, wenn die Liste veröffentlicht ist.",
+        "open": "Deinen Entwurf öffnen"
+      }
+    },
+    "preview": {
+      "title": "Vorschau",
+      "body": "{status, select, draft {So sieht die Liste für andere aus, sobald du sie veröffentlicht hast. Einträge werden nicht gespeichert.} closed {Diese Liste ist geschlossen. Unten siehst du die Seite, wie andere sie sehen.} archived {Diese Liste ist archiviert und für Teilnehmende nicht sichtbar.} other {Diese Liste ist offen. Unten siehst du die Seite, wie andere sie sehen.}}",
+      "signUpDisabled": "{status, select, draft {Vorschau: Veröffentliche die Liste, damit sich andere eintragen können} other {Vorschau: Andere tragen sich über den öffentlichen Link ein}}"
+    },
+    "chrome": {
+      "tabTitle": "Übersicht",
+      "breadcrumb": "Du bist hier",
+      "help": "Hilfe",
+      "account": "Konto",
+      "settings": "Einstellungen",
+      "signOut": "Abmelden"
+    },
+    "crumbs": {
+      "settings": "Einstellungen",
+      "connectedApps": "Verbundene Apps",
+      "newSignup": "Neue Liste"
+    },
+    "dashboard": {
+      "title": "Deine Listen",
+      "none": "Noch keine Listen. Unten kannst du eine erstellen.",
+      "total": "Insgesamt {count, number}",
+      "newSignup": "Neue Liste",
+      "emptyPitch": "Organisiere Snacks, Fahrgemeinschaften, Mitbringbuffets, Schichten für Freiwillige oder etwas ganz anderes.",
+      "createFirst": "Deine erste Liste erstellen",
+      "draftOnlyYou": "Nur du kannst diesen Entwurf sehen",
+      "noWorkspace": {
+        "title": "Willkommen bei {instance}",
+        "body": "Dein Arbeitsbereich ist noch nicht eingerichtet. Melde dich ab und wieder an, damit die Einrichtung abgeschlossen wird."
+      }
+    },
+    "loadError": {
+      "tabTitle": "Liste nicht gefunden",
+      "notFound": {
+        "title": "Wir finden diese Liste nicht",
+        "body": "Vielleicht wurde sie gelöscht, oder sie gehört zu einem anderen Konto. Du bist angemeldet als <account>{email}</account>."
+      },
+      "failed": {
+        "title": "Wir konnten diese Liste nicht öffnen",
+        "body": "Bei uns ist etwas schiefgelaufen. Lade die Seite neu, um es noch einmal zu versuchen."
+      },
+      "goToSignups": "Zu deinen Listen",
+      "switchAccount": "Mit einer anderen E-Mail-Adresse anmelden"
+    },
+    "errors": {
+      "code": {
+        "forbidden": "Du hast keine Berechtigung zum Bearbeiten.",
+        "unauthorized": "Melde dich noch einmal an, um zu speichern.",
+        "conflict": "Lade die Seite neu, um die neuesten Änderungen zu sehen.",
+        "capacity_full": "Die Aufgabe ist voll.",
+        "closed": "Diese Liste ist geschlossen.",
+        "not_found": "Nicht mehr verfügbar.",
+        "invalid_input": "Einige Werte wurden nicht angenommen.",
+        "rate_limited": "Warte kurz und versuch es dann noch einmal.",
+        "already_consumed": "Wurde schon verwendet.",
+        "internal": "Speichern hat nicht geklappt."
+      },
+      "titleTooShort": "Der Titel muss mindestens {min, number} Zeichen lang sein.",
+      "tooManySignups": "Du hast in der letzten Stunde viele Listen erstellt. Versuch es in etwa {minutes, plural, one {{minutes, number} Minute} other {{minutes, number} Minuten}} noch einmal.",
+      "disconnectFailed": "Die App konnte nicht getrennt werden. Versuch es noch einmal."
+    },
     "signupSettings": {
       "signupForm": {
         "title": "Formular zum Eintragen",
@@ -302,6 +376,116 @@
         "confirm": "Ja, Liste löschen",
         "deleting": "Wird gelöscht…",
         "cancel": "Abbrechen"
+      }
+    },
+    "saveNotice": {
+      "saved": "Gespeichert"
+    },
+    "build": {
+      "rail": {
+        "editing": "Bearbeitung",
+        "fields": "Felder ({count, number})",
+        "saving": "Wird gespeichert…"
+      },
+      "sheet": {
+        "titlePlaceholder": "Liste ohne Titel",
+        "titleLabel": "Titel der Liste",
+        "descriptionPlaceholder": "Kurze Beschreibung für alle, die sich eintragen",
+        "descriptionLabel": "Beschreibung der Liste",
+        "addDate": "Datum hinzufügen"
+      },
+      "group": {
+        "header": "Gruppenüberschrift – {heading}",
+        "renameFailed": "Die Änderung wurde nicht gespeichert, die Überschrift ist also wieder wie vorher. Versuch es noch einmal.",
+        "addSlot": "Aufgabe hinzufügen"
+      },
+      "empty": {
+        "date": "Datum festlegen",
+        "time": "Uhrzeit festlegen",
+        "named": "{label} festlegen",
+        "other": "Wert festlegen"
+      },
+      "slot": {
+        "untitled": "Aufgabe",
+        "row": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} bearbeiten, {count}",
+        "edit": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} bearbeiten",
+        "duplicate": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} duplizieren",
+        "delete": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} löschen",
+        "editing": "Du bearbeitest {kind, select, time {die Aufgabe um {name} Uhr} named {die Aufgabe „{name}“} other {die Aufgabe}}",
+        "taken": "{taken, number} belegt",
+        "takenOf": "{taken, number} von {capacity, number} belegt"
+      },
+      "editor": {
+        "title": "Aufgabe bearbeiten",
+        "duplicate": "Duplizieren",
+        "delete": "Löschen",
+        "done": "Fertig",
+        "signedUp": "{taken, plural, one {Hier ist {taken, number} Person eingetragen.} other {Hier sind {taken, number} Personen eingetragen.}} {reminders, select, on {Wenn du Datum oder Uhrzeit änderst, {taken, plural, one {bekommt die Person} other {bekommen sie}} eine E-Mail dazu.} other {Die Erinnerungen sind abgestellt, deshalb {taken, plural, one {bekommt die Person} other {bekommen sie}} keine E-Mail, wenn du Datum oder Uhrzeit änderst.}}",
+        "value": "Wert für {field}",
+        "spots": "Plätze",
+        "noLimit": "Unbegrenzt",
+        "spotsHelp": "Wie viele Plätze die Aufgabe hat. Lass das Feld leer, wenn es keine Grenze geben soll.",
+        "noTime": "Keine Uhrzeit"
+      },
+      "placeholder": {
+        "text": "z. B. Servietten mitbringen",
+        "date": "JJJJ-MM-TT",
+        "number": "z. B. 12"
+      },
+      "fieldType": {
+        "text": "Kurztext",
+        "date": "Datum",
+        "time": "Uhrzeit",
+        "number": "Zahl",
+        "enum": "Auswahl"
+      },
+      "list": {
+        "choose": "Auswählen…",
+        "empty": "Noch keine Optionen.",
+        "newItem": "Neue Option",
+        "newItemLabel": "Name der neuen Option",
+        "count": "{length, number}/{max, number}{atMax, select, yes { · Maximum} other {}}",
+        "add": "Hinzufügen",
+        "maxLength": "Höchstens {max, number} Zeichen",
+        "full": "Eine Auswahl kann höchstens {max, number} Optionen haben.",
+        "addToList": "Option hinzufügen"
+      },
+      "fields": {
+        "label": "Felder",
+        "title": "Felder · {count, number}",
+        "editTitle": "Feld bearbeiten",
+        "newTitle": "Neues Feld",
+        "close": "Schließen",
+        "groupBy": "Aufgaben gruppieren nach",
+        "noGroup": "Nicht gruppieren",
+        "reorder": "Zum Sortieren ziehen",
+        "add": "Feld hinzufügen",
+        "empty": "Noch keine Felder – füge eins hinzu, um loszulegen.",
+        "reminder": "Erinnerungen werden {hours, plural, =24 {am Tag vor diesem Datum} one {# Stunde vor diesem Datum} other {# Stunden vor diesem Datum}} verschickt",
+        "typeCount": "{type} · {count, number}",
+        "delete": "{field} löschen"
+      },
+      "fieldForm": {
+        "backLabel": "Zurück zu den Feldern",
+        "back": "Zurück",
+        "name": "Name",
+        "namePlaceholder": "z. B. Lehrkraft, Fach, Gegenstand",
+        "nameLabel": "Name des Felds",
+        "type": "Typ",
+        "reminder": "Vor diesem Datum eine Erinnerung per E-Mail schicken",
+        "reminderHelp": "Wird {hours, plural, =24 {am Vortag} one {# Stunde vorher} other {# Stunden vorher}} verschickt. Pro Liste richten sich die Erinnerungen nach einem einzigen Datumsfeld, und Teilnehmende können jede Erinnerung abbestellen, die sie bekommen.",
+        "reminderTaken": "<field>{label}</field> ist schon das Erinnerungsfeld dieser Liste. Stell die Erinnerung dort ab, um stattdessen dieses Feld zu verwenden.",
+        "remove": "Feld entfernen",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "add": "Feld hinzufügen"
+      },
+      "refusal": {
+        "dateTooEarly": "Das Datum muss im Jahr {year, number, ::group-off} oder später liegen.",
+        "slotsMoved": "Die Aufgaben wurden in einem anderen Fenster geändert, die neue Reihenfolge wurde also nicht gespeichert. Zieh die Aufgabe noch einmal.",
+        "fieldsMoved": "Die Felder wurden in einem anderen Fenster geändert, die neue Reihenfolge wurde also nicht gespeichert. Zieh das Feld noch einmal.",
+        "capacityBelowTaken": "{taken, plural, one {{taken, number} Platz ist schon belegt. Gib der Aufgabe mindestens {taken, number} Platz.} other {{taken, number} Plätze sind schon belegt. Gib der Aufgabe mindestens {taken, number} Plätze.}}",
+        "invalidatesSlotValues": "Einige Aufgaben haben Werte, die nicht zu dieser Änderung passen. Bearbeite diese Aufgaben zuerst."
       }
     },
     "responses": {
@@ -358,6 +542,17 @@
         "notes": "Anmerkung",
         "signedUp": "Eingetragen"
       }
+    },
+    "newSignup": {
+      "title": "Neue Liste",
+      "intro": "Aufgaben kannst du hinzufügen, sobald die Liste erstellt ist. Sichtbar wird sie erst, wenn du sie veröffentlichst.",
+      "titleLabel": "Titel",
+      "titlePlaceholder": "Kuchenbuffet – Sommerfest",
+      "descriptionLabel": "Beschreibung (optional)",
+      "descriptionPlaceholder": "Ein Absatz, der oben auf der Seite deiner Liste steht.",
+      "cancel": "Abbrechen",
+      "creating": "Wird erstellt…",
+      "create": "Liste erstellen"
     },
     "compose": {
       "eyebrow": "Neue Liste",
@@ -543,6 +738,12 @@
         "descriptionCut": "Die Beschreibung der KI war länger als {max, number} Zeichen, deshalb wurde das Ende abgeschnitten. Prüf sie unten."
       }
     },
+    "status": {
+      "draft": "Entwurf",
+      "open": "offen",
+      "closed": "geschlossen",
+      "archived": "archiviert"
+    },
     "signup": {
       "draftLine": "Nur du kannst diesen Entwurf sehen, bis du ihn veröffentlichst.",
       "preview": "Vorschau",
@@ -688,6 +889,108 @@
       "disconnect": "Trennen",
       "disconnecting": "Wird getrennt…",
       "footnote": "Wenn du eine App trennst, bekommt sie sofort keinen neuen Zugriff mehr. Zugriff, den sie schon hat, läuft innerhalb von {lifetime} von selbst ab und lässt sich nicht früher beenden."
+    }
+  },
+  "auth": {
+    "tabTitle": "Anmelden",
+    "heading": "Bei {instance} anmelden",
+    "login": {
+      "intro": "Gib deine E-Mail-Adresse ein, dann schicken wir dir einen Anmeldelink. Ganz ohne Passwort.",
+      "introWithProviders": "Wähl unten einen Anbieter, oder lass dir einen Anmeldelink per E-Mail schicken. Ganz ohne Passwort.",
+      "linkInvalid": "Dieser Anmeldelink gilt nicht mehr. Vielleicht wurde er schon verwendet, oder er ist abgelaufen. Fordere unten einen neuen an.",
+      "failed": "Etwas ist schiefgelaufen. Versuch es noch einmal.",
+      "continueWith": "Weiter mit {provider}",
+      "or": "oder"
+    },
+    "form": {
+      "email": "E-Mail",
+      "emailPlaceholder": "du@example.com",
+      "send": "Anmeldelink schicken",
+      "sending": "Wird gesendet…",
+      "sent": "Gesendet – schau in deine E-Mails",
+      "sentTo": "Wir haben den Link an {email} geschickt. Schau in deinen Posteingang.",
+      "sendAgain": "Noch einmal senden",
+      "tryAgain": "Noch einmal versuchen",
+      "errors": {
+        "invalidEmail": "Das sieht nicht nach einer gültigen E-Mail-Adresse aus.",
+        "sendFailed": "Senden hat nicht geklappt. Bitte versuch es noch einmal.",
+        "rateLimited": "Zu viele Anmeldelinks angefordert. Du musst vielleicht bis zu einer Stunde warten. Wenn wir dir schon einen Link per E-Mail geschickt haben, kannst du den verwenden."
+      }
+    },
+    "code": {
+      "label": "Hast du die E-Mail auf einem anderen Gerät geöffnet?",
+      "hint": "Gib den sechsstelligen Code aus der E-Mail ein, um dich stattdessen hier anzumelden.",
+      "submit": "Mit Code anmelden",
+      "checking": "Wird geprüft…",
+      "errors": {
+        "noEmail": "Fordere zuerst einen neuen Link an.",
+        "rateLimited": "Zu viele Versuche. Warte ein paar Minuten, oder klick auf den Link in der E-Mail.",
+        "expired": "Dieser Code ist abgelaufen. Fordere einen neuen Link an.",
+        "wrong": "Dieser Code stimmt nicht. Prüf die E-Mail und versuch es noch einmal.",
+        "failed": "Etwas ist schiefgelaufen. Versuch es noch einmal."
+      }
+    },
+    "check": {
+      "tabTitle": "Schau in deine E-Mails",
+      "heading": "Schau in deine E-Mails",
+      "body": "Wir haben dir einen Anmeldelink in deinen Posteingang geschickt. Klick darauf, um fortzufahren. Der Link gilt {duration} lang. Sobald du angemeldet bist, geht es auf dieser Seite automatisch weiter."
+    },
+    "confirm": {
+      "bodyAs": "Klick unten auf die Schaltfläche, um dich als <strong>{email}</strong> anzumelden.",
+      "body": "Klick unten auf die Schaltfläche, um dich anzumelden.",
+      "signIn": "Anmelden →",
+      "signingIn": "Wird angemeldet…",
+      "differentEmail": "Andere E-Mail-Adresse verwenden"
+    },
+    "email": {
+      "subject": "Bei OpenSignup anmelden",
+      "preview": "Als {email} bei OpenSignup anmelden",
+      "heading": "Bei OpenSignup anmelden",
+      "intro": "Klick unten auf die Schaltfläche, um dich als <b>{email}</b> anzumelden. Der Link gilt {duration} lang.",
+      "signIn": "Anmelden",
+      "code": "Liest du das auf einem anderen Gerät? Dann gib stattdessen diesen Code in dem Fenster ein, in dem du mit der Anmeldung begonnen hast. Er gilt {duration} lang:",
+      "copyUrl": "Oder kopiere diesen Link:"
+    },
+    "consent": {
+      "tabTitle": "App verbinden",
+      "request": "Verbindungsanfrage",
+      "heading": "Möchtest du zulassen, dass <host>{domain}</host> dein Konto bei {instance} verwendet?",
+      "fromNamedApp": "<strong>{name}</strong> von <strong>{domain}</strong> möchte sich mit deinem Konto verbinden. Lass das nur zu, wenn du {domain} vertraust.",
+      "fromApp": "Eine App von <strong>{domain}</strong> möchte sich mit deinem Konto verbinden. Lass das nur zu, wenn du {domain} vertraust.",
+      "setUpBySite": "<strong>{name}</strong> wurde von dieser Website eingerichtet.",
+      "permissions": "Die App kann",
+      "sensitive": "Diese Angaben haben Teilnehmende dir anvertraut, nicht dieser App. Lass das nur zu, wenn du damit einverstanden bist, dass {domain} sie verarbeitet.",
+      "actsAs": "{workspaces, select, many {Die App handelt in allen Arbeitsbereichen, zu denen du gehörst, in deinem Namen (<strong>{email}</strong>) und kann nichts tun, was du nicht auch selbst tun könntest.} other {Die App handelt in deinem Namen (<strong>{email}</strong>) und kann nichts tun, was du nicht auch selbst tun könntest.}}",
+      "allow": "Zulassen",
+      "allowing": "Wird verbunden…",
+      "deny": "Nicht zulassen",
+      "denying": "Wird abgelehnt…",
+      "disconnect": "Du kannst die App jederzeit unter <link>Verbundene Apps</link> trennen.",
+      "notYou": "Das bist nicht du?",
+      "switchAccount": "Mit einem anderen Konto anmelden",
+      "expired": {
+        "heading": "Diese Verbindungsanfrage ist abgelaufen",
+        "body": "Eine Verbindungsanfrage gilt nur wenige Minuten lang und nur in dem Browser, in dem sie gestartet wurde. Es wurde nichts verbunden. Geh zurück zur App und fang noch einmal an.",
+        "dashboard": "Zur Übersicht"
+      },
+      "decision": {
+        "tooManyAttempts": "Zu viele Verbindungsversuche. Warte {wait} und versuch es dann noch einmal.",
+        "failed": "Beim Speichern deiner Entscheidung ist etwas schiefgelaufen. Es wurde nichts verbunden."
+      }
+    },
+    "scopes": {
+      "signupsRead": "Deine Listen und ihre Aufgaben ansehen",
+      "signupsWrite": "Listen erstellen und bearbeiten",
+      "commitmentsRead": "Einträge samt Namen und E-Mail-Adressen ansehen",
+      "offlineAccess": "Verbunden bleiben, ohne dass du dich noch einmal anmelden musst"
+    },
+    "oauthErrors": {
+      "tabTitle": "Verbindung fehlgeschlagen",
+      "heading": "Diese Verbindung konnte nicht hergestellt werden",
+      "intro": "Die App, die dich hierher geschickt hat, hat eine Anfrage gestellt, die wir nicht annehmen konnten.",
+      "noDescription": "Die Anfrage konnte nicht abgeschlossen werden.",
+      "nothingConnected": "Mit deinem Konto wurde nichts verbunden. Schließ dieses Fenster und versuch es in der App noch einmal, oder <home>geh zur Startseite</home>.",
+      "tooManyRequests": "Zu viele Versuche. Warte {wait} und versuch es dann noch einmal."
     }
   }
 }
