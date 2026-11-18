@@ -22,7 +22,10 @@ vi.mock('@/auth/session', () => {
 });
 vi.mock('@/auth/sign-out', () => ({ signOutOrganizer: async () => {} }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
-vi.mock('@/services/signups', () => ({ listSignupSummariesForWorkspace: async () => ({}) }));
+vi.mock('@/services/signups', () => ({
+  countSignupsForWorkspace: async () => ({}),
+  listSignupSummaryPageForWorkspace: async () => ({}),
+}));
 vi.mock('@/i18n/server', async () => ({
   instanceDefaultLocale: () => undefined,
   getServerTranslator: (await import('@/i18n/testing/translator')).getTestServerTranslator,
@@ -39,7 +42,7 @@ describe('organizer pages on a self-hosted site', () => {
   });
 
   it('names the site on the no-workspace card', async () => {
-    const html = renderToStaticMarkup(await DashboardPage());
+    const html = renderToStaticMarkup(await DashboardPage({ searchParams: Promise.resolve({}) }));
     expect(html).toContain('Welcome to Acme Signups');
     expect(html).not.toContain('OpenSignup');
   });

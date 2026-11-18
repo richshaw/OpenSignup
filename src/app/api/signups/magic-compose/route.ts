@@ -32,6 +32,7 @@ import { answeredNothing, type FollowUp } from '@/lib/magic-compose/questions';
 import { mapMagicComposeError } from './errors';
 import { buildDraftPreview } from './preview';
 import { recordAnswered, recordAsked, type FollowUpOutcome } from './telemetry';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 const PromptBodySchema = z.object({
   prompt: z
@@ -356,7 +357,7 @@ export async function POST(req: NextRequest) {
 
     const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
-      ...(language ? { locale: language } : {}),
+      organizer: session,
     });
     if (!persisted.ok) {
       await recordFailed(db, actor, session.defaultWorkspaceId, 'not_saved');
@@ -383,7 +384,7 @@ export async function POST(req: NextRequest) {
       },
       {
         links: {
-          build: link(`/app/signups/${created.id}/build`),
+          build: link(signupTabPath(created.id, 'build')),
           self: link(`/api/signups/${created.id}`),
           public: link(publicSignupUrl(created.slug)),
         },

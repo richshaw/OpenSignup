@@ -313,12 +313,16 @@ declare const messages: {
     },
     "dashboard": {
       "title": "Your signups",
-      "none": "No signups yet. Start one below.",
-      "total": "{count, number, ::group-off} total",
       "newSignup": "New signup",
       "emptyPitch": "Coordinate snacks, carpool, potluck, volunteer shifts, or anything else.",
       "createFirst": "Create your first signup",
       "draftOnlyYou": "Only you can see this draft",
+      "pager": {
+        "label": "Signup pages",
+        "range": "{start, number, ::group-off}–{end, number, ::group-off} of {total, number, ::group-off}",
+        "newer": "Newer",
+        "older": "Older"
+      },
       "noWorkspace": {
         "title": "Welcome to {instance}",
         "body": "Your workspace isn't set up yet. Sign out and back in to finish provisioning."
@@ -352,7 +356,8 @@ declare const messages: {
       },
       "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
       "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
-      "disconnectFailed": "Could not disconnect. Try again."
+      "disconnectFailed": "Couldn’t disconnect. Try again.",
+      "alreadyDisconnected": "That app is already disconnected."
     },
     "signupSettings": {
       "signupForm": {
