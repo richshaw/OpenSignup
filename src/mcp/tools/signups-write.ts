@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { SHIPPED } from '@/i18n/config';
-import { newSignupLocale } from '@/i18n/locale';
 import { log } from '@/lib/log';
 import { persistDraft } from '@/lib/magic-compose/persist';
 import { FullDraftSchema } from '@/lib/magic-compose/prompt';
@@ -63,18 +62,14 @@ export const createSignupTool = defineTool({
     // Policy first: a viewer's attempt must not cost a create-quota unit.
     requireWorkspaceWrite(ctx.actor, ws.value);
     await consumeRateLimit(ctx.db, RateLimits.signupCreatePerOrganizer, ctx.actor.id);
-    // The language the assistant sent (`api`), else the organizer's, chosen as
-    // for a signup made in the browser (none while only one language has
-    // shipped).
-    const language =
-      sent.value === undefined
-        ? newSignupLocale({ locale: ctx.locale })
-        : { locale: sent.value, source: 'api' as const };
+    // The language the assistant sent, else the organizer's, chosen as for a
+    // signup made in the browser (`createSignup` decides).
     const persisted = await persistDraft(ctx.db, ctx.actor, ws.value, draft, {
       templateId: 'mcp',
       strict: true,
       logContext: { clientId: ctx.clientId },
-      ...(language ? { locale: language } : {}),
+      organizer: { locale: ctx.locale },
+      ...(sent.value === undefined ? {} : { locale: sent.value }),
     });
     if (!persisted.ok) return persisted;
     // Read it back so ids and order are the stored ones, exactly as get_signup

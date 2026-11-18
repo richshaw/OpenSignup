@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 /**
  * The organizer strip across the top of a signup's public page, shown only to
@@ -29,13 +30,13 @@ export function OrganizerStrip({ signupId, locale }: { signupId: string; locale:
         </p>
         <div className="flex shrink-0 gap-4">
           <Link
-            href={`/app/signups/${signupId}/responses`}
+            href={signupTabPath(signupId, 'responses')}
             className="font-medium text-ink hover:underline"
           >
             {t('responses')}
           </Link>
           <Link
-            href={`/app/signups/${signupId}/build`}
+            href={signupTabPath(signupId, 'build')}
             className="font-medium text-ink hover:underline"
           >
             {t('edit')}
