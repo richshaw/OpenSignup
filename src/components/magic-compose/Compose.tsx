@@ -96,12 +96,12 @@ export function Compose({
           {/* On a phone the two stack full width, since half a row is too narrow
               for some labels; on a wider screen they sit side by side, each as
               wide as the longer label, so they match in either language. On a
-              phone Draft goes on top, as on the questions screen. Draft's
-              transparent border gives it Skip's height. */}
+              phone Draft goes on top, as on the questions screen. Both are at
+              least 44px tall, the tap size the rest of Magic Compose uses. */}
           <div className="grid w-full grid-cols-1 gap-2 sm:ml-auto sm:w-max sm:grid-cols-2">
             <Link
               href={handFillHref(prompt, starters)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-surface-sunk bg-white px-5 py-2.5 text-sm font-medium text-ink hover:bg-surface-raised"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-surface-sunk bg-white px-5 py-2.5 text-sm font-medium text-ink hover:bg-surface-raised"
             >
               {t('skip')}
             </Link>
@@ -109,7 +109,7 @@ export function Compose({
               type="button"
               onClick={onDraft}
               disabled={!canDraft}
-              className="order-first inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-brand px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 sm:order-none"
+              className="order-first inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 sm:order-none"
             >
               <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               {t('draft')}
