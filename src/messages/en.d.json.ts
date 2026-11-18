@@ -310,8 +310,7 @@ declare const messages: {
     "crumbs": {
       "settings": "Settings",
       "connectedApps": "Connected apps",
-      "newSignup": "New signup",
-      "edit": "Edit"
+      "newSignup": "New signup"
     },
     "dashboard": {
       "title": "Your signups",
