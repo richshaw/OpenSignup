@@ -1,4 +1,5 @@
 import { getEnv } from './env';
+import { signupTabPath } from './organizer-paths';
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
@@ -27,12 +28,12 @@ export function publicSignupUrl(slug: string): string {
 
 /** The organizer's build page for a signup, absolute so an assistant can hand it to a person. */
 export function buildPageUrl(signupId: string): string {
-  return absoluteUrl(`/app/signups/${signupId}/build`);
+  return absoluteUrl(signupTabPath(signupId, 'build'));
 }
 
 /** The organizer's preview of the public page, which works while the signup is still a draft. */
 export function previewPageUrl(signupId: string): string {
-  return absoluteUrl(`/app/signups/${signupId}/preview`);
+  return absoluteUrl(signupTabPath(signupId, 'preview'));
 }
 
 /** A sign-up's edit page path, relative so a redirect stays on the origin the person came in on. */

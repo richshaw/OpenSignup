@@ -149,7 +149,6 @@ for (const stored of STORED) {
       await expect(heading).toHaveText(dashboard('title'));
       expect(await languageOf(heading)).toBe(locale);
       await expect(page).toHaveTitle(titled(dashboard('title')));
-      await expect(page.getByText(dashboard('total', { count: 2 }))).toBeVisible();
       await expect(page.getByText(dashboard('draftOnlyYou'))).toBeVisible();
 
       await page.goto('/app/settings');

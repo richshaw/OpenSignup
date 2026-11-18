@@ -1,5 +1,4 @@
 import type { Db } from '@/db/client';
-import type { CatalogLocale, SignupLocaleSource } from '@/i18n/config';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { log } from '@/lib/log';
 import type { Actor } from '@/lib/policy';
@@ -33,10 +32,10 @@ export interface PersistedDraft {
  * retryable request, so the tool refuses with `invalid_input` and creates
  * nothing — otherwise a corrected retry would make a second signup.
  *
- * `locale` is the language the signup starts in and the step that chose it,
- * as the caller decided (`newSignupLocale`, or `api` for one a caller sent).
- * It goes into the signup's settings, where `createSignup` refuses one that
- * hasn't shipped. Without it the signup stores no language.
+ * `locale` is a language the caller sent, which goes into the signup's
+ * settings, where `createSignup` refuses one that hasn't shipped. Without it
+ * the signup starts in `organizer`'s language for new signups, and with
+ * neither it stores no language (`createSignup` decides).
  */
 export async function persistDraft(
   db: Db,
@@ -47,7 +46,8 @@ export async function persistDraft(
     templateId?: string;
     strict?: boolean;
     logContext?: Record<string, unknown>;
-    locale?: { locale: CatalogLocale; source: SignupLocaleSource };
+    locale?: string;
+    organizer?: { locale: string | null };
   } = {},
 ): Promise<Result<PersistedDraft, ServiceError>> {
   const { template, groupByFieldRefs, dropped } = magicComposeToTemplate(
@@ -87,10 +87,10 @@ export async function persistDraft(
       visibility: 'unlisted',
       settings: {
         ...(groupByFieldRefs.length > 0 ? { groupByFieldRefs } : {}),
-        ...(opts.locale ? { locale: opts.locale.locale } : {}),
+        ...(opts.locale === undefined ? {} : { locale: opts.locale }),
       },
     },
-    { template, localeSource: opts.locale?.source },
+    { template, ...(opts.organizer ? { organizer: opts.organizer } : {}) },
   );
   if (!created.ok) return created;
   return ok({ signup: created.value, template, groupByFieldRefs, warnings });
