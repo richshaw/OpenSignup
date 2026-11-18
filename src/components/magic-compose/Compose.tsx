@@ -82,7 +82,7 @@ export function Compose({
           placeholder={t('placeholder')}
           className="min-h-[160px] w-full resize-none border-0 bg-white px-6 pb-3 pt-5 text-base leading-relaxed text-ink outline-none"
         />
-        <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-3 pt-2">
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-2">
           {showCount && (
             <p
               id={COUNT_ID}
@@ -93,21 +93,28 @@ export function Compose({
                 : t('count', { count: prompt.length, max: PROMPT_MAX_LENGTH })}
             </p>
           )}
-          <Link
-            href={handFillHref(prompt, starters)}
-            className="inline-flex items-center gap-2 rounded-xl border border-surface-sunk bg-white px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-raised"
-          >
-            {t('skip')}
-          </Link>
-          <button
-            type="button"
-            onClick={onDraft}
-            disabled={!canDraft}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            {t('draft')}
-          </button>
+          {/* On a phone the two stack full width, since half a row is too narrow
+              for some labels; on a wider screen they sit side by side, each as
+              wide as the longer label, so they match in either language. On a
+              phone Draft goes on top, as on the questions screen. Both are at
+              least 44px tall, the tap size the rest of Magic Compose uses. */}
+          <div className="grid w-full grid-cols-1 gap-2 sm:ml-auto sm:w-max sm:grid-cols-2">
+            <Link
+              href={handFillHref(prompt, starters)}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-surface-sunk bg-white px-5 py-2.5 text-sm font-medium text-ink hover:bg-surface-raised"
+            >
+              {t('skip')}
+            </Link>
+            <button
+              type="button"
+              onClick={onDraft}
+              disabled={!canDraft}
+              className="order-first inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 sm:order-none"
+            >
+              <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {t('draft')}
+            </button>
+          </div>
         </div>
       </div>
 
