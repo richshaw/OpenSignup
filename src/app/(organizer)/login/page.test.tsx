@@ -84,7 +84,9 @@ describe('the sign-in page', () => {
   it('is in English, word for word as it read before the catalog', async () => {
     const { frame } = await renderPage();
     expect(frame).toHaveAttribute('lang', 'en');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sign in to OpenSignup');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      `Sign in to ${INSTANCE_NAME}`,
+    );
     expect(
       screen.getByText(
         "Enter your email and we'll send you a magic link to sign in. No passwords.",
@@ -132,7 +134,9 @@ describe('the sign-in page', () => {
       request.defaultLocale = other;
       const { frame } = await renderPage();
       expect(frame).toHaveAttribute('lang', 'en');
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sign in to OpenSignup');
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        `Sign in to ${INSTANCE_NAME}`,
+      );
       expect(await generateMetadata()).toMatchObject({
         title: { absolute: `Sign in · ${INSTANCE_NAME}` },
       });

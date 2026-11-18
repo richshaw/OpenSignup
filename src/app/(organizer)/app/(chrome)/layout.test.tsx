@@ -40,7 +40,7 @@ describe('the organizer app’s header', () => {
     await renderLayout();
     const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' });
     expect(crumbs.closest('[lang]')).toHaveAttribute('lang', 'en');
-    expect(screen.getByRole('link', { name: 'OpenSignup' })).toHaveAttribute('href', '/app');
+    expect(screen.getByRole('link', { name: INSTANCE_NAME })).toHaveAttribute('href', '/app');
     expect(screen.getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help');
     const account = screen.getByTitle('Settings');
     expect(account).toHaveAttribute('href', '/app/settings');
@@ -59,7 +59,7 @@ describe('the organizer app’s header', () => {
     const crumbs = screen.getByRole('navigation', { name: ask('breadcrumb') });
     expect(crumbs.closest('[lang]')).toHaveAttribute('lang', other);
     expect(screen.getByText('Page').closest('[lang]')).toHaveAttribute('lang', other);
-    expect(screen.getByRole('link', { name: ask('home') })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: INSTANCE_NAME })).toHaveAttribute('href', '/app');
     expect(screen.getByRole('link', { name: ask('help') })).toBeInTheDocument();
     expect(screen.getByTitle(ask('settings'))).toHaveTextContent(ask('account'));
     expect(screen.getByRole('button', { name: ask('signOut') })).toBeInTheDocument();

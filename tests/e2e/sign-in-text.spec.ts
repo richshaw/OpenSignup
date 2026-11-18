@@ -1,5 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { BASE_URL } from './helpers/fixtures';
+
+/** The build's NEXT_PUBLIC_INSTANCE_NAME, which the root layout puts in this tag. */
+async function instanceName(page: Page): Promise<string> {
+  const name = await page.locator('meta[name="application-name"]').getAttribute('content');
+  expect(name, 'no application-name meta tag').toBeTruthy();
+  return name ?? '';
+}
 
 /**
  * The sign-in pages' words come from the catalog (`auth`), in the instance's
@@ -9,7 +16,8 @@ import { BASE_URL } from './helpers/fixtures';
  * why that matters), so these check the messages with an argument come out
  * whole and word for word as they read before the catalog: the address once a
  * link is sent (cut around the address on the server, and put back together
- * in the browser), the link's lifetime, and the address on the confirm page.
+ * in the browser), the link's lifetime, the address on the confirm page, and
+ * the site's name in both headings.
  */
 test.describe('the sign-in pages, in English', () => {
   test('the sign-in page, and the line under the button once a link is sent', async ({ page }) => {
@@ -18,7 +26,9 @@ test.describe('the sign-in pages, in English', () => {
     await expect(page).toHaveTitle(/^Sign in · /);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.locator('main').locator('..')).toHaveAttribute('lang', 'en');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in to OpenSignup');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      `Sign in to ${await instanceName(page)}`,
+    );
     await expect(
       page.getByText("Enter your email and we'll send you a magic link to sign in. No passwords."),
     ).toBeVisible();
@@ -51,7 +61,9 @@ test.describe('the sign-in pages, in English', () => {
     await page.goto(`${BASE_URL}/login/confirm?next=${encodeURIComponent(next)}`);
     await expect(page).toHaveTitle(/^Sign in · /);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sign in to OpenSignup');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      `Sign in to ${await instanceName(page)}`,
+    );
     const line = page.getByText(/^Click the button below/);
     await expect(line).toHaveText('Click the button below to sign in as pat@example.com.');
     await expect(line.locator('strong')).toHaveText('pat@example.com');

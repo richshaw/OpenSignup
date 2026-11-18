@@ -702,7 +702,6 @@
     "chrome": {
       "tabTitle": "Översikt",
       "breadcrumb": "Du är här",
-      "home": "OpenSignup",
       "help": "Hjälp",
       "account": "Konto",
       "settings": "Inställningar",
@@ -722,7 +721,7 @@
       "createFirst": "Skapa din första anmälningslista",
       "draftOnlyYou": "Bara du kan se det här utkastet",
       "noWorkspace": {
-        "title": "Välkommen till OpenSignup",
+        "title": "Välkommen till {instance}",
         "body": "Din arbetsyta är inte färdig ännu. Logga ut och logga in igen för att göra den klar."
       }
     },
@@ -894,7 +893,7 @@
   },
   "auth": {
     "tabTitle": "Logga in",
-    "heading": "Logga in på OpenSignup",
+    "heading": "Logga in på {instance}",
     "login": {
       "intro": "Ange din e-postadress så mejlar vi dig en inloggningslänk. Inget lösenord behövs.",
       "introWithProviders": "Fortsätt med en av tjänsterna nedan, eller få en inloggningslänk via mejl. Inget lösenord behövs.",

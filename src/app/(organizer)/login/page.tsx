@@ -81,7 +81,9 @@ export default async function LoginPage({
   return (
     <CenteredPageFrame gap="gap-8" locale={locale}>
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">{t('heading')}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {t('heading', { instance: INSTANCE_NAME })}
+        </h1>
         <p className="text-ink-muted">
           {oauthProviders.length > 0 ? t('login.introWithProviders') : t('login.intro')}
         </p>

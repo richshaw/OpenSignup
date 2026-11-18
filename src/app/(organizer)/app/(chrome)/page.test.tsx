@@ -6,6 +6,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ok } from '@/lib/result';
+import { INSTANCE_NAME } from '@/lib/site-config';
 
 // Who is signed in, and what their workspace holds.
 const request = vi.hoisted(() => ({
@@ -83,7 +84,9 @@ describe('Your signups', () => {
   it('says so, as before, when the workspace isn’t set up', async () => {
     request.session.defaultWorkspaceId = null;
     await renderPage();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Welcome to OpenSignup');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      `Welcome to ${INSTANCE_NAME}`,
+    );
     expect(
       screen.getByText(
         "Your workspace isn't set up yet. Sign out and back in to finish provisioning.",

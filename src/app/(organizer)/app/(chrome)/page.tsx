@@ -10,6 +10,7 @@ import { listSignupSummariesForWorkspace } from '@/services/signups';
 import { StatusPill } from '@/components/status-pill';
 import { signupStatusLabel } from '@/components/signup/status-label';
 import type { SignupStatus } from '@/schemas/signups';
+import { INSTANCE_NAME } from '@/lib/site-config';
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = localeOfOrganizer(await getOrganizerSession());
@@ -26,7 +27,9 @@ export default async function DashboardPage() {
   if (!workspaceId) {
     return (
       <div className="rounded-xl border border-surface-sunk bg-white p-8">
-        <h1 className="mb-2 text-2xl font-semibold">{t('noWorkspace.title')}</h1>
+        <h1 className="mb-2 text-2xl font-semibold">
+          {t('noWorkspace.title', { instance: INSTANCE_NAME })}
+        </h1>
         <p className="text-ink-muted">{t('noWorkspace.body')}</p>
       </div>
     );
