@@ -470,22 +470,80 @@ describe('signups service (db)', () => {
       return row?.payload as Record<string, unknown>;
     }
 
-    it('records the language and the step that chose it on signup.created', async () => {
-      const r = await createSignup(
-        fx.db,
-        fx.actor,
-        fx.workspaceId,
-        { ...validCreateInput('Chosen locale'), settings: { locale: 'en' } },
-        { localeSource: 'instance' },
-      );
-      if (!r.ok) throw new Error('setup failed');
-      expect(await createdPayload(r.value.id)).toMatchObject({
-        locale: 'en',
-        localeSource: 'instance',
+    describe('with no language sent, from the organizer', () => {
+      it('stores the organizer’s saved language and records its step', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('Saved locale'),
+          { organizer: { locale: OTHER_LOCALE } },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        expect(r.value.settings).toMatchObject({ locale: OTHER_LOCALE });
+        expect(await createdPayload(r.value.id)).toMatchObject({
+          locale: OTHER_LOCALE,
+          localeSource: 'setting',
+        });
+      });
+
+      it('stores the instance’s language when the organizer saved none', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        instance.defaultLocale = OTHER_LOCALE;
+        try {
+          const r = await createSignup(
+            fx.db,
+            fx.actor,
+            fx.workspaceId,
+            validCreateInput('Instance locale'),
+            { organizer: { locale: null } },
+          );
+          if (!r.ok) throw new Error('setup failed');
+          expect(await createdPayload(r.value.id)).toMatchObject({
+            locale: OTHER_LOCALE,
+            localeSource: 'instance',
+          });
+        } finally {
+          instance.defaultLocale = undefined;
+        }
+      });
+
+      it('keeps a sent language over the organizer’s, as the caller’s (api)', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          { ...validCreateInput('Sent over saved'), settings: { locale: 'en' } },
+          { organizer: { locale: OTHER_LOCALE } },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        expect(r.value.settings).toMatchObject({ locale: 'en' });
+        expect(await createdPayload(r.value.id)).toMatchObject({
+          locale: 'en',
+          localeSource: 'api',
+        });
+      });
+
+      it('stores none while only one language has shipped to participants', async () => {
+        shipOnlyEnglish();
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('One language'),
+          { organizer: { locale: OTHER_LOCALE } },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        expect(r.value.settings).not.toHaveProperty('locale');
+        const payload = await createdPayload(r.value.id);
+        expect(payload).not.toHaveProperty('locale');
+        expect(payload).not.toHaveProperty('localeSource');
       });
     });
 
-    it('records a language with no step as the caller’s (api)', async () => {
+    it('records a sent language as the caller’s (api)', async () => {
       const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
         ...validCreateInput('Sent locale'),
         settings: { locale: 'en' },
@@ -500,7 +558,6 @@ describe('signups service (db)', () => {
         fx.actor,
         fx.workspaceId,
         validCreateInput('Unstored locale'),
-        { localeSource: 'default' },
       );
       if (!r.ok) throw new Error('setup failed');
       const payload = await createdPayload(r.value.id);

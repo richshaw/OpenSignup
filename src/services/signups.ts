@@ -3,9 +3,9 @@ import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { type CatalogLocale, SHIPPED, type SignupLocaleSource, isShipped } from '@/i18n/config';
+import { type CatalogLocale, SHIPPED, isShipped } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
-import { localeOfSignup } from '@/i18n/locale';
+import { localeOfSignup, newSignupLocale } from '@/i18n/locale';
 import {
   activityActor,
   recordActivities,
@@ -119,11 +119,11 @@ export interface SignupWithSlots extends SignupRow {
 
 /**
  * Create a draft signup, with the template's fields and slots, in one
- * transaction. Its language is the `settings.locale` in `rawInput`, refused
- * unless it has shipped to participants; the route decides it (the one its
- * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
- * says which step chose it, for `signup.created`; a language with none was
- * sent by the caller (`api`). Without `opts.template` it starts from
+ * transaction. Its language is the `settings.locale` in `rawInput` if the
+ * caller sent one, refused unless it has shipped to participants, with source
+ * `api` on `signup.created`. Without one, `opts.organizer`'s language for new
+ * signups (`newSignupLocale`, which records the step that chose it), and
+ * without an organizer, none. Without `opts.template` it starts from
  * `defaultTemplate`, its columns named in the language its participants will
  * get (`localeOfSignup`).
  */
@@ -132,14 +132,20 @@ export async function createSignup(
   actor: Actor,
   workspaceId: string,
   rawInput: unknown,
-  opts: { template?: SignupTemplate; localeSource?: SignupLocaleSource } = {},
+  opts: { template?: SignupTemplate; organizer?: { locale: string | null } } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
 
   const input = parseInputSafe(SignupCreateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
   if (!input.ok) return input;
-  const data = input.value;
+  const sentLocale =
+    isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined;
+  const chosen =
+    sentLocale === undefined && opts.organizer ? newSignupLocale(opts.organizer) : null;
+  const data = chosen
+    ? { ...input.value, settings: { ...input.value.settings, locale: chosen.locale } }
+    : input.value;
 
   // A language that hasn't shipped reads as the instance's here; it's
   // refused below, so its names never reach a row.
@@ -214,9 +220,7 @@ export async function createSignup(
   if (!anchor.ok) return anchor;
   const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
   if (!grouping.ok) return grouping;
-  const locale = checkSignupLocale(
-    isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined,
-  );
+  const locale = checkSignupLocale(sentLocale);
   if (!locale.ok) return locale;
   const settings: SignupSettings =
     anchor.value === null
@@ -281,7 +285,7 @@ export async function createSignup(
         slotsAdded: template.slots.length,
         ...(settings.locale === undefined
           ? {}
-          : { locale: settings.locale, localeSource: opts.localeSource ?? 'api' }),
+          : { locale: settings.locale, localeSource: chosen?.source ?? 'api' }),
       },
     });
     return inserted;

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { useDropPendingFix } from './BuildBridge';
 import type { SignupHeaderText } from './header-text';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 const TABS = ['build', 'responses', 'settings'] as const;
 
@@ -62,7 +63,7 @@ export function TabsNav({ signupId, counts, labels }: TabsNavProps) {
           <Link
             key={id}
             ref={active ? activeRef : null}
-            href={`/app/signups/${signupId}/${id}`}
+            href={signupTabPath(signupId, id)}
             {...(id === 'build'
               ? {}
               : {
