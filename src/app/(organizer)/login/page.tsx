@@ -29,6 +29,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: { absolute: `${t('tabTitle')} · ${INSTANCE_NAME}` }, robots: { index: false } };
 }
 
+// Force dynamic so the layout's and generateMetadata's signInLocale() (→ getEnv())
+// run at request time, not during `next build` where server env is absent, as
+// the check and confirm pages do.
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage({
   searchParams,
 }: {
