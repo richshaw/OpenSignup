@@ -714,12 +714,16 @@
     },
     "dashboard": {
       "title": "Dina anmälningslistor",
-      "none": "Inga anmälningslistor ännu. Skapa en nedan.",
-      "total": "{count, number} totalt",
       "newSignup": "Ny lista",
       "emptyPitch": "Samordna fika, samåkning, knytkalas, volontärpass eller något helt annat.",
       "createFirst": "Skapa din första anmälningslista",
       "draftOnlyYou": "Bara du kan se det här utkastet",
+      "pager": {
+        "label": "Sidor med anmälningslistor",
+        "range": "{start, number}–{end, number} av {total, number}",
+        "newer": "Nyare",
+        "older": "Äldre"
+      },
       "noWorkspace": {
         "title": "Välkommen till {instance}",
         "body": "Din arbetsyta är inte färdig ännu. Logga ut och logga in igen för att göra den klar."

@@ -310,12 +310,16 @@
     },
     "dashboard": {
       "title": "Your signups",
-      "none": "No signups yet. Start one below.",
-      "total": "{count, number, ::group-off} total",
       "newSignup": "New signup",
       "emptyPitch": "Coordinate snacks, carpool, potluck, volunteer shifts, or anything else.",
       "createFirst": "Create your first signup",
       "draftOnlyYou": "Only you can see this draft",
+      "pager": {
+        "label": "Signup pages",
+        "range": "{start, number, ::group-off}–{end, number, ::group-off} of {total, number, ::group-off}",
+        "newer": "Newer",
+        "older": "Older"
+      },
       "noWorkspace": {
         "title": "Welcome to {instance}",
         "body": "Your workspace isn't set up yet. Sign out and back in to finish provisioning."

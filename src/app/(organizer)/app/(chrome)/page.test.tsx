@@ -17,6 +17,9 @@ const request = vi.hoisted(() => ({
     locale: null as string | null,
   },
   rows: [] as { id: string; title: string; slug: string; status: string; locale?: string | null }[],
+  // Where the page sits when the workspace runs to more than one.
+  paging: { offset: 0, nextBefore: null as string | null, prevAfter: null as string | null },
+  total: 0,
 }));
 vi.mock('@/auth/session', () => ({
   getOrganizerSession: async () => request.session,
@@ -25,7 +28,8 @@ vi.mock('@/auth/session', () => ({
 }));
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 vi.mock('@/services/signups', () => ({
-  listSignupSummariesForWorkspace: async () => ok(request.rows),
+  listSignupSummaryPageForWorkspace: async () => ok({ rows: request.rows, ...request.paging }),
+  countSignupsForWorkspace: async () => ok(request.total),
 }));
 // English from the catalog; any other language answers with the key it was
 // asked for and the language (`getTestServerTranslator`).
@@ -44,17 +48,25 @@ afterEach(() => {
   request.session.defaultWorkspaceId = 'ws_1';
   request.session.locale = null;
   request.rows = [];
+  request.paging = { offset: 0, nextBefore: null, prevAfter: null };
+  request.total = 0;
 });
 
 async function renderPage() {
-  render(await DashboardPage());
+  render(await DashboardPage({ searchParams: Promise.resolve({}) }));
+}
+
+/** The second of three pages: newer and older signups on either side. */
+function onAMiddlePage() {
+  request.rows = [{ id: 'sig_2', title: 'Picnic', slug: 'picnic', status: 'draft' }];
+  request.paging = { offset: 200, nextBefore: 'sig_2', prevAfter: 'sig_2' };
+  request.total = 420;
 }
 
 describe('Your signups', () => {
   it('reads as before with no signups yet', async () => {
     await renderPage();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Your signups');
-    expect(screen.getByText('No signups yet. Start one below.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'New signup' })).toHaveAttribute(
       'href',
       '/app/signups/new',
@@ -66,19 +78,36 @@ describe('Your signups', () => {
     expect(await generateMetadata()).toEqual({ title: 'Your signups' });
   });
 
-  it('counts the signups and words a draft’s row as before', async () => {
+  it('words a draft’s row as before', async () => {
     request.rows = [
       { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open' },
       { id: 'sig_2', title: 'Picnic', slug: 'picnic', status: 'draft' },
     ];
     await renderPage();
-    expect(screen.getByText('2 total')).toBeInTheDocument();
     expect(screen.getByText('/s/bake-sale')).toBeInTheDocument();
     expect(screen.getByText('Only you can see this draft')).toBeInTheDocument();
     expect(screen.queryByText('/s/picnic')).not.toBeInTheDocument();
     // Each row's status, in the words it always had.
     expect(screen.getByText('open', { exact: true })).toBeInTheDocument();
     expect(screen.getByText('draft', { exact: true })).toBeInTheDocument();
+  });
+
+  it('has no pager while every signup fits on one page', async () => {
+    request.rows = [{ id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open' }];
+    await renderPage();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
+  it('says where a page sits and steps either way', async () => {
+    onAMiddlePage();
+    await renderPage();
+    const pager = screen.getByRole('navigation', { name: 'Signup pages' });
+    expect(pager).toHaveTextContent('201–201 of 420');
+    expect(screen.getByRole('link', { name: 'Newer' })).toHaveAttribute('href', '/app');
+    expect(screen.getByRole('link', { name: 'Older' })).toHaveAttribute(
+      'href',
+      '/app?before=sig_2',
+    );
   });
 
   it('says so, as before, when the workspace isn’t set up', async () => {
@@ -154,10 +183,20 @@ describe('Your signups', () => {
     await renderPage();
     const ask = (key: string) => `organizer.dashboard.${key} in ${other}`;
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(ask('title'));
-    expect(screen.getByText(ask('total'))).toBeInTheDocument();
     expect(screen.getByText(ask('draftOnlyYou'))).toBeInTheDocument();
     expect(screen.getByText(`organizer.status.draft in ${other}`)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: ask('newSignup') })).toBeInTheDocument();
     expect(await generateMetadata()).toEqual({ title: ask('title') });
+  });
+
+  it.each(OTHER_LANGUAGES)('pages in the organizer’s language, %s', async (other) => {
+    ship('organizer', ['en', other]);
+    request.session.locale = other;
+    onAMiddlePage();
+    await renderPage();
+    const ask = (key: string) => `organizer.dashboard.pager.${key} in ${other}`;
+    expect(screen.getByRole('navigation', { name: ask('label') })).toHaveTextContent(ask('range'));
+    expect(screen.getByRole('link', { name: ask('newer') })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: ask('older') })).toBeInTheDocument();
   });
 });
