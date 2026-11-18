@@ -4,6 +4,7 @@ import { CenteredPageFrame } from '@/components/centered-page-frame';
 import { signInLocale } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { getEnv } from '@/lib/env';
+import { INSTANCE_NAME } from '@/lib/site-config';
 import { SignInLink } from './sign-in-link';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,7 +41,9 @@ export default async function ConfirmLoginPage({
   return (
     <CenteredPageFrame locale={locale}>
       <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">{t('heading')}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {t('heading', { instance: INSTANCE_NAME })}
+        </h1>
         <p className="text-ink-muted">
           {email
             ? t.rich('confirm.bodyAs', { email, strong: (chunks) => <strong>{chunks}</strong> })

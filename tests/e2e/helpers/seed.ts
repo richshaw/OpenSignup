@@ -65,6 +65,8 @@ export interface SeedData {
   /** Published signup whose settings make the email optional, with an open slot. */
   optionalEmailSlug: string;
   optionalEmailSlotLabel: string;
+  /** The unsubscribe link of someone on a signup of its own who has turned reminders off. */
+  optedOutUnsubscribePath: string;
   /**
    * In each test language (`TEST_LOCALES`): an open signup, a draft for its
    * Build tab, and a closed and an archived signup (see makeSignupsIn), and
@@ -851,6 +853,24 @@ export async function seedE2E(): Promise<SeedData> {
     { requireEmail: false },
   );
 
+  // A signup of its own, so nothing else counts the sign-up on it: its
+  // person has turned reminders off, for the unsubscribe page's opted-out state.
+  const optedOutSignup = await makePublishedSignup(db, actor, workspaceId, 'Reading Rota', [
+    { label: 'Monday story time', capacity: 4 },
+  ]);
+  const optedOut = unwrap(
+    await commitToSlot(db, optedOutSignup.slotIds[0]!, {
+      name: 'Morgan Quiet',
+      email: 'morgan@example.test',
+      quantity: 1,
+    }),
+    'commitToSlot(Monday story time)',
+  ).commitment.participantId;
+  unwrap(
+    await optOutOfReminders(db, optedOut, reminderOptOutTokenFor(optedOut)),
+    'optOutOfReminders(Reading Rota)',
+  );
+
   const languages = {} as Record<TestLocale, LanguageSeed>;
   for (const locale of TEST_LOCALES) {
     languages[locale] = {
@@ -890,6 +910,11 @@ export async function seedE2E(): Promise<SeedData> {
     deletedToken: deletedCommit.editToken,
     optionalEmailSlug: optionalEmailSignup.slug,
     optionalEmailSlotLabel: 'Park gate',
+    optedOutUnsubscribePath: unsubscribePath(
+      optedOutSignup.slug,
+      optedOut,
+      reminderOptOutTokenFor(optedOut),
+    ),
     languages,
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));

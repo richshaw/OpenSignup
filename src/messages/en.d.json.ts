@@ -301,7 +301,6 @@ declare const messages: {
     "chrome": {
       "tabTitle": "Dashboard",
       "breadcrumb": "Breadcrumb",
-      "home": "OpenSignup",
       "help": "Help",
       "account": "Account",
       "settings": "Settings",
@@ -325,7 +324,7 @@ declare const messages: {
         "older": "Older"
       },
       "noWorkspace": {
-        "title": "Welcome to OpenSignup",
+        "title": "Welcome to {instance}",
         "body": "Your workspace isn't set up yet. Sign out and back in to finish provisioning."
       }
     },
@@ -901,7 +900,7 @@ declare const messages: {
   },
   "auth": {
     "tabTitle": "Sign in",
-    "heading": "Sign in to OpenSignup",
+    "heading": "Sign in to {instance}",
     "login": {
       "intro": "Enter your email and we'll send you a magic link to sign in. No passwords.",
       "introWithProviders": "Continue with a provider below, or get a magic link by email. No passwords.",
