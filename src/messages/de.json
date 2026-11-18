@@ -1,0 +1,279 @@
+{
+  "common": {
+    "footer": {
+      "license": "{instance} · AGPL-3.0",
+      "label": "Fußzeile",
+      "help": "Hilfe",
+      "privacy": "Datenschutz",
+      "terms": "Nutzungsbedingungen",
+      "cookies": "Cookies",
+      "source": "Quellcode",
+      "contact": "Kontakt"
+    }
+  },
+  "participant": {
+    "signupPage": {
+      "title": "Eintragen",
+      "description": "Eintragen über {instance}",
+      "draft": {
+        "title": "Diese Liste ist noch nicht fertig",
+        "body": "Die Liste wurde noch nicht veröffentlicht. Sobald das passiert, funktioniert dieser Link. Schau also später noch einmal vorbei."
+      },
+      "archived": {
+        "title": "Diese Liste ist nicht mehr verfügbar",
+        "body": "Diese Liste wurde archiviert. Wenn du sie noch brauchst, bitte die Person, die sie organisiert, um einen neuen Link."
+      }
+    },
+    "signupView": {
+      "closedBanner": {
+        "title": "Geschlossen",
+        "body": "Für diese Liste kannst du dich nicht mehr eintragen.",
+        "keepsYours": "Niemand kann sich mehr neu eintragen, aber {count, plural, one {dein Platz gehört} other {deine Plätze gehören}} weiterhin dir."
+      },
+      "signedUp": "{count, plural, =1 {<b>Du bist eingetragen:</b> <slot>{name}</slot>} other {<b>Du bist eingetragen:</b> <slot>{count, number} Einträge</slot>}}",
+      "editOrCancel": "Ändern oder austragen",
+      "manage": "Verwalten",
+      "untitledSlot": "Aufgabe ohne Namen",
+      "edit": "Ändern",
+      "editFor": "Deinen Eintrag für {slot} ändern",
+      "full": "Voll",
+      "closed": "Geschlossen"
+    },
+    "slot": {
+      "noValue": "(ohne {label})",
+      "left": "{left, number} frei",
+      "leftOf": "{left, number} von {capacity, plural, one {{capacity, number} Platz} other {{capacity, number} Plätzen}} frei",
+      "signedUp": "{count, number} eingetragen"
+    },
+    "fields": {
+      "name": "Dein Name",
+      "email": "E-Mail",
+      "emailOptional": "E-Mail (optional)",
+      "notes": "Anmerkung (optional)",
+      "spots": "Plätze"
+    },
+    "defaults": {
+      "what": "Was",
+      "date": "Datum",
+      "untitledField": "Unbenannt",
+      "firstChoice": "Option 1"
+    },
+    "dialog": {
+      "signUp": "Eintragen",
+      "signUpFor": "Für {slot} eintragen",
+      "close": "Schließen",
+      "cancel": "Abbrechen",
+      "confirm": "Bestätigen",
+      "signingUp": "Wird eingetragen…",
+      "didYouMean": "Meintest du <suggestion>{email}</suggestion>?",
+      "emailHelp": "Wir schicken dir per E-Mail einen Link zum Ändern oder Austragen{reminder, select, yes { und eine Erinnerung, bevor es so weit ist} other {}}. Gibst du keine E-Mail an, speichere dir den Link, den wir dir nach dem Eintragen zeigen.",
+      "notesPlaceholder": "Allergien, Wünsche usw.",
+      "seeAlternatives": "Alternativen ansehen",
+      "unreachable": {
+        "message": "Der Server ist nicht erreichbar.",
+        "suggestion": "Prüf deine Verbindung und versuch es noch einmal."
+      },
+      "unreadable": {
+        "message": "Etwas ist schiefgelaufen.",
+        "suggestion": "Drück noch einmal auf Bestätigen."
+      },
+      "youreIn": "Du bist eingetragen.",
+      "savedEmailed": "Dein Eintrag für <b>{slot}</b> ist gespeichert, und wir haben dir diesen Link an <email>{address}</email> geschickt. Speichere ihn als Lesezeichen, um später etwas zu ändern oder dich auszutragen:",
+      "savedNotEmailed": "Dein Eintrag für <b>{slot}</b> ist gespeichert. <b>Speichere diesen Link jetzt: Wir schicken ihn nicht per E-Mail, und nur dieser Browser merkt ihn sich.</b>{calendar, select, yes { Wenn du den Eintrag zum Kalender hinzufügst, wird der Link dort auch gespeichert.} other {}}",
+      "addToCalendar": "Zum Kalender hinzufügen",
+      "calendarTitle": "{title} – {slot}",
+      "calendarDescription": "Ändern oder austragen: {url}",
+      "saveYourLink": "Link speichern",
+      "shareText": "Mein Eintrag für {slot} – mit diesem Link kann ich ihn ändern oder mich austragen, also gib den Link nicht weiter.",
+      "copyLink": "Link kopieren",
+      "linkCopied": "Link kopiert",
+      "copied": "Link kopiert.",
+      "copyFailed": "Kopieren hat nicht geklappt. Markiere den Link oben und kopiere ihn selbst.",
+      "done": "Fertig"
+    },
+    "errors": {
+      "capacity": {
+        "filledUp": "Leider ist das gerade voll geworden.",
+        "pickAnother": "Wähl etwas anderes.",
+        "onlyLeft": "Es {remaining, plural, one {ist nur noch {remaining, number} Platz} other {sind nur noch {remaining, number} Plätze}} frei, und du hast {requested, number} gewählt.",
+        "askForOne": "Wähl stattdessen 1.",
+        "askForOrFewer": "Wähl {remaining, number} oder weniger.",
+        "full": "Das ist voll, du kannst also keine weiteren Plätze dazunehmen.",
+        "atMost": "Du kannst hier höchstens {remaining, plural, one {{remaining, number} Platz} other {{remaining, number} Plätze}} haben, und du hast {requested, number} gewählt.",
+        "keepYourOne": "Behalte deinen Platz."
+      },
+      "keepNumber": "Bleib bei deiner bisherigen Anzahl.",
+      "closed": {
+        "join": "Hier kann sich jetzt niemand mehr neu eintragen.",
+        "reload": "Lade die Seite neu, um zu sehen, was noch frei ist.",
+        "change": "Du kannst jetzt keine weiteren Plätze dazunehmen."
+      },
+      "conflict": {
+        "message": "Du bist hier schon eingetragen.",
+        "suggestion": "Nutze den Link in deiner Bestätigungs-E-Mail, um etwas zu ändern oder dich auszutragen.",
+        "change": "Dieser Eintrag kann nicht mehr geändert werden."
+      },
+      "gone": {
+        "message": "Leider ist das nicht mehr verfügbar.",
+        "suggestion": "Lade die Seite neu, um zu sehen, was sich geändert hat."
+      },
+      "name": "Gib deinen Namen ein, höchstens {max, number} Zeichen.",
+      "email": {
+        "required": "Für diese Liste ist jetzt eine E-Mail-Adresse nötig.",
+        "addIt": "Gib deine ein und versuch es noch einmal.",
+        "invalid": "Diese E-Mail-Adresse sieht nicht richtig aus.",
+        "check": "Prüf sie und versuch es noch einmal."
+      },
+      "notes": "Kürze deine Anmerkung auf höchstens {max, number} Zeichen.",
+      "quantity": "Gib als Anzahl der Plätze eine ganze Zahl von 1 bis {max, number} ein.",
+      "input": "Prüf deine Angaben und versuch es noch einmal.",
+      "rateLimit": {
+        "message": "Zu viele Versuche in kurzer Zeit.",
+        "wait": "Versuch es in etwa {minutes, plural, one {{minutes, number} Minute} other {{minutes, number} Minuten}} noch einmal.",
+        "waitAWhile": "Versuch es in ein paar Minuten noch einmal."
+      },
+      "failed": {
+        "join": "Etwas ist schiefgelaufen, du bist also noch nicht eingetragen.",
+        "save": "Etwas ist schiefgelaufen, deine Änderungen wurden also nicht gespeichert.",
+        "cancel": "Etwas ist schiefgelaufen, du bist also noch nicht ausgetragen.",
+        "tryAgain": "Versuch es noch einmal."
+      }
+    },
+    "gonePage": {
+      "signup": {
+        "title": "Leider ist diese Liste nicht mehr verfügbar",
+        "body": "Wende dich an die Person, die die Liste organisiert, um zu erfahren, was sich geändert hat, oder um einen neuen Link zu bekommen."
+      },
+      "editLink": {
+        "title": "Leider funktioniert dieser Link nicht",
+        "body": "Vielleicht gibt es deinen Eintrag nicht mehr, oder der Link ist unvollständig. Wende dich an die Person, die die Liste organisiert, um zu erfahren, was sich geändert hat. Wenn du eine Bestätigungs-E-Mail bekommen hast, kannst du es auch noch einmal mit dem Link darin versuchen."
+      }
+    },
+    "editPage": {
+      "title": "Dein Eintrag",
+      "back": "← Zurück zur Liste",
+      "editingAs": "Du bist eingetragen als {name}.",
+      "editingAsWithEmail": "Du bist eingetragen als {name} ({email}).",
+      "closedBanner": {
+        "title": "Geschlossen für neue Einträge",
+        "body": "Du kannst jetzt keine weiteren Plätze dazunehmen, aber du kannst deine Angaben noch ändern, Plätze zurückgeben oder dich austragen."
+      }
+    },
+    "editForm": {
+      "spotsMax": "Du kannst hier höchstens {max, plural, one {{max, number} Platz} other {{max, number} Plätze}} haben.",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "saved": "Gespeichert.",
+      "saveUnreachable": "Der Server ist nicht erreichbar. Prüf deine Verbindung und drück noch einmal auf Speichern.",
+      "saveUnreadable": "Etwas ist schiefgelaufen. Drück noch einmal auf Speichern.",
+      "cancel": "Austragen",
+      "confirmCancel": "Austragen bestätigen",
+      "cancelQuestion": "Möchtest du dich wirklich austragen?",
+      "keep": "Behalten",
+      "yesCancel": "Ja, austragen",
+      "cancelling": "Wird ausgetragen…",
+      "cancelUnreachable": "Der Server ist nicht erreichbar. Prüf deine Verbindung und drück noch einmal auf Austragen.",
+      "cancelUnreadable": "Etwas ist schiefgelaufen. Drück noch einmal auf Austragen."
+    },
+    "cancelledPage": {
+      "title": "Du hast dich ausgetragen",
+      "open": "Es ist noch Platz frei, falls du dich wieder eintragen möchtest.",
+      "full": "Inzwischen ist es voll.",
+      "slotClosed": "Die Aufgabe ist geschlossen.",
+      "signupClosed": "Die Liste ist geschlossen.",
+      "removed": {
+        "title": "Du wurdest von dieser Aufgabe ausgetragen",
+        "body": "Wenn du denkst, dass das ein Fehler ist, wende dich an die Person, die die Liste organisiert."
+      },
+      "moved": {
+        "title": "Dein Eintrag wurde zu einer anderen Aufgabe verschoben",
+        "body": "Du bist weiterhin eingetragen. Über den Link unten kannst du deinen Eintrag ansehen oder ändern.",
+        "link": "Deinen neuen Eintrag ansehen"
+      },
+      "back": "Zurück zur Liste"
+    },
+    "unsubscribe": {
+      "title": "Erinnerungs-E-Mails",
+      "incomplete": {
+        "title": "Dieser Link ist unvollständig",
+        "body": "Links zum Abbestellen funktionieren nur vollständig. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte darum, sie abzustellen."
+      },
+      "invalid": {
+        "title": "Dieser Link ist ungültig",
+        "body": "Vielleicht ist der Link unvollständig, oder die Liste wurde gelöscht. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte darum, sie abzustellen."
+      },
+      "confirm": {
+        "title": "Erinnerungs-E-Mails abbestellen?",
+        "body": "Wir schicken dir dann keine Erinnerungen mehr für <b>{title}</b> und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden. Das gilt nur für diese Liste, und dein Eintrag bleibt, wie er ist.",
+        "bodyWithEmail": "Wir schicken dann an {email} keine Erinnerungen mehr für <b>{title}</b> und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden. Das gilt nur für diese Liste, und dein Eintrag bleibt, wie er ist."
+      },
+      "stop": "Abbestellen",
+      "keep": "Behalten",
+      "turnOffFailed": "Wir konnten deine Erinnerungen nicht abstellen. Bitte versuch es noch einmal.",
+      "turnedOff": {
+        "title": "Erinnerungen abgestellt",
+        "body": "Du bekommst keine Erinnerungen mehr für <b>{title}</b> und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden. Dein Eintrag bleibt bestehen – wenn du dich auch austragen möchtest, öffne den Link in deiner Bestätigungs-E-Mail und trag dich dort aus."
+      },
+      "areOff": {
+        "title": "Erinnerungen sind abgestellt",
+        "body": "Die Erinnerungen für <b>{title}</b> sind abgestellt. Du bekommst dazu keine Erinnerungen und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden.",
+        "bodyWithEmail": "Die Erinnerungen für <b>{title}</b> sind für {email} abgestellt. Du bekommst dazu keine Erinnerungen und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden."
+      },
+      "turnBackOn": "Erinnerungen wieder einschalten",
+      "turnOnFailed": "Wir konnten deine Erinnerungen nicht wieder einschalten. Bitte versuch es noch einmal.",
+      "turnedOn": {
+        "title": "Erinnerungen wieder eingeschaltet",
+        "body": "Du bekommst wieder Erinnerungen für <b>{title}</b> und E-Mails, wenn Datum oder Uhrzeit geändert werden. Über den Link in jeder dieser E-Mails kannst du sie jederzeit wieder abbestellen.",
+        "bodyWithEmail": "Du bekommst an {email} wieder Erinnerungen für <b>{title}</b> und E-Mails, wenn Datum oder Uhrzeit geändert werden. Über den Link in jeder dieser E-Mails kannst du sie jederzeit wieder abbestellen."
+      },
+      "back": "Zurück zur Liste"
+    },
+    "share": {
+      "signUp": "Trag dich hier ein, ganz ohne Konto: {url}",
+      "spotsOpen": "{count, plural, one {{count, number, ::group-off} Platz frei} other {{count, number, ::group-off} Plätze frei}}",
+      "spotsLeft": "{count, plural, one {noch {count, number, ::group-off} Platz frei} other {noch {count, number, ::group-off} Plätze frei}}",
+      "dayAndTime": "{day}, {time}",
+      "dayRange": "{first} bis {last}",
+      "twoDays": "{first} und {second}",
+      "threeDays": "{first}, {second} und {third}"
+    }
+  },
+  "email": {
+    "subject": {
+      "signedUp": "Du bist eingetragen: {title}",
+      "reminder": "Erinnerung: {title}",
+      "timeChanged": "Neue Zeit: {title}",
+      "withSlot": "{subject} · {slot}"
+    },
+    "common": {
+      "manage": "Deinen Eintrag ansehen oder ändern",
+      "notes": "<b>Deine Anmerkung:</b> {notes}",
+      "stillConfirmed": "Wenn du dich für etwas Neues einträgst, bekommst du trotzdem eine Bestätigung."
+    },
+    "slotDetails": {
+      "line": "<b>{label}:</b> {value}",
+      "spots": "Plätze"
+    },
+    "confirmation": {
+      "heading": "Du bist eingetragen",
+      "intro": "Danke, {name}, du hast dich für <b>{title}</b> eingetragen.",
+      "keep": "Heb diese E-Mail auf. Mit der Schaltfläche oben kannst du später etwas ändern oder dich austragen, ganz ohne Passwort. Wer diesen Link hat, kann deinen Eintrag ändern, also gib die E-Mail nicht weiter.{reminder, select, yes { Außerdem schicken wir dir {hours, plural, =24 {am Vortag} one {# Stunde vorher} other {# Stunden vorher}} eine Erinnerung.} other {}}"
+    },
+    "reminder": {
+      "heading": "Bald ist es so weit",
+      "intro": "Hallo {name}, wir möchten dich daran erinnern, dass du dich für <b>{title}</b> eingetragen hast.",
+      "changed": {
+        "heading": "Die Zeit hat sich geändert",
+        "intro": "Hallo {name}, seit unserer letzten E-Mail wurde die Zeit für <b>{title}</b> geändert. Hier sind die neuen Angaben."
+      },
+      "keep": "Musst du etwas ändern oder dich austragen? Verwende die Schaltfläche oben. Sie öffnet direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
+      "stop": "Erinnerungen für {title} abbestellen"
+    },
+    "slotChanged": {
+      "heading": "Die Zeit hat sich geändert",
+      "intro": "Hallo {name}, bei <b>{title}</b> wurde deine Aufgabe auf ein neues Datum oder eine neue Uhrzeit verschoben. Hier sind die neuen Angaben.",
+      "keep": "Passt dir die neue Zeit nicht? Verwende die Schaltfläche oben, um etwas zu ändern oder dich auszutragen. Sie öffnet direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
+      "stop": "Erinnerungen und Benachrichtigungen für {title} abbestellen"
+    }
+  }
+}

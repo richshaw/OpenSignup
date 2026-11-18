@@ -1366,6 +1366,7 @@ describe('<CommitDialog /> sheet', () => {
     const KEEP_IT_PRIVATE: { readonly [L in CatalogLocale]?: string } = {
       en: 'so keep it private',
       sv: 'så dela inte länken med någon',
+      de: 'gib den Link nicht weiter',
     };
 
     afterEach(() => {

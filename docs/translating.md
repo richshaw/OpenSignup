@@ -289,10 +289,12 @@ typographic one (’).
 ### Field labels in "(no …)"
 
 The heading over slots with no value for a field reads "(no date)": the field's
-label goes into `participant.slot.noValue` lowercased
-(`src/app/s/[slug]/slot-format.ts`). That suits English and Swedish. A
-language that capitalizes nouns, like German, would lose the capital: change
-`slot-format.ts` when the first one comes.
+label goes into `participant.slot.noValue` in lower case, as English and
+Swedish write a common noun in a sentence. The Build tab's "Set {label}"
+(`organizer.build.empty.named`) does the same. A language that capitalizes
+nouns, like German, keeps the label as the organizer wrote it ("(ohne
+Datum)"): `labelInSentence` in `src/i18n/config.ts` decides, from a table
+every language with a catalog has a row in.
 
 ### A name at the end of a sentence
 
@@ -1231,10 +1233,13 @@ _Aufgabe_, _Platz_, _Eintrag_), and these for the words only organizers see.
 
 ### Style
 
-Patterns for `LANGUAGE_RULES.de.banned`, the rules a pattern can tell: _Sie_
-or _Ihr_, _Ihnen_, _Ihre_ … with a capital after a sentence's start (the
-formal address; _sie_, she or they, is lower case there), _AI_ as a word, and
-"...".
+The catalog check enforces the rules a pattern can tell
+(`LANGUAGE_RULES.de.banned` in `src/i18n/testing/language-rules.ts`):
+_Sie_, _Ihnen_ or _Ihr_… with a capital after a sentence's start (the formal
+address; _sie_, she or they, is lower case there, and a sentence's first word
+can't be told apart, so the review catches those), _anmelden_ in participant
+text and emails, _Slot_, _AI_ as a word, and "...". Changing one of those
+lines means changing that list, and the other way round.
 
 - **Tone.** _Du_, never _Sie_, as German helper-list and bring-list sites
   write. _Du_, _dich_, _dir_, _dein_ in lower case. Plain and friendly, as the

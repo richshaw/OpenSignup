@@ -33,6 +33,7 @@ import {
   type NamespaceKeys,
   type NestedKeyOf,
 } from 'use-intl/core';
+import de from '@/messages/de.json';
 import en from '@/messages/en.json';
 import sv from '@/messages/sv.json';
 import type { CatalogLocale } from './config';
@@ -60,7 +61,7 @@ function isSection(value: unknown): value is Catalog {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const CATALOGS: Record<CatalogLocale, Catalog> = { en, sv };
+const CATALOGS: Record<CatalogLocale, Catalog> = { en, sv, de };
 
 /** What `messagesFor` has built, by language and namespace. */
 const built = new Map<string, Catalog>();

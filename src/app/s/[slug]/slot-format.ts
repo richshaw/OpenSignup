@@ -1,7 +1,7 @@
 // Type-only: the 'use client' commit dialog imports this module, and a value
 // import of the translator would put every catalog in its bundle. The page's
 // server components make the translators and pass them in.
-import type { CatalogLocale } from '@/i18n/config';
+import { labelInSentence, type CatalogLocale } from '@/i18n/config';
 import type { Translator } from '@/i18n/translator';
 import type { SignupViewField, SignupViewSlot } from './signup-view-types';
 // Single implementation, shared with the emails so a slot reads the same in
@@ -24,7 +24,7 @@ export function formatGroupLabel(
 ): string {
   return (
     renderFieldValue(field, raw, locale) ??
-    t('noValue', { label: field.label.toLocaleLowerCase(locale) })
+    t('noValue', { label: labelInSentence(field.label, locale) })
   );
 }
 

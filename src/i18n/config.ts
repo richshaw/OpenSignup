@@ -11,7 +11,7 @@
  * the translator fills its gaps with English. Having a catalog doesn't make a
  * language one anybody gets or can choose: that's `SHIPPED`.
  */
-export const CATALOG_LOCALES = ['en', 'sv'] as const;
+export const CATALOG_LOCALES = ['en', 'sv', 'de'] as const;
 
 export type CatalogLocale = (typeof CATALOG_LOCALES)[number];
 
@@ -132,6 +132,24 @@ function capitalized(name: string, locale: CatalogLocale): string {
  */
 export function languageName(locale: CatalogLocale, inLocale: CatalogLocale = locale): string {
   return capitalized(cldrLanguageName(locale, inLocale), inLocale);
+}
+
+/**
+ * Whether a language writes every noun with a capital, wherever it falls in a
+ * sentence. Each language with a catalog decides, so a new one can't be
+ * forgotten.
+ */
+const CAPITALIZES_NOUNS: Record<CatalogLocale, boolean> = { en: false, sv: false, de: true };
+
+/**
+ * An organizer's field label as it reads inside a sentence, "(no date)" or
+ * "Set role": in lower case, as English and Swedish write a common noun there,
+ * but as the organizer wrote it in a language that capitalizes nouns, as
+ * German does ("(ohne Datum)", "Rolle festlegen"). `locale` is the language
+ * the label is in, the signup's.
+ */
+export function labelInSentence(label: string, locale: CatalogLocale): string {
+  return CAPITALIZES_NOUNS[locale] ? label : label.toLocaleLowerCase(locale);
 }
 
 /**
