@@ -266,13 +266,13 @@
         "heading": "Die Zeit hat sich geändert",
         "intro": "Hallo {name}, seit unserer letzten E-Mail wurde die Zeit für <b>{title}</b> geändert. Hier sind die neuen Angaben."
       },
-      "keep": "Musst du etwas ändern oder dich austragen? Verwende die Schaltfläche oben. Sie öffnet direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
+      "keep": "Musst du etwas ändern oder dich austragen? Verwende die Schaltfläche oben. Damit öffnest du direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
       "stop": "Erinnerungen für {title} abbestellen"
     },
     "slotChanged": {
       "heading": "Die Zeit hat sich geändert",
       "intro": "Hallo {name}, bei <b>{title}</b> wurde dein Eintrag auf ein neues Datum oder eine neue Uhrzeit verschoben. Hier sind die neuen Angaben.",
-      "keep": "Passt dir die neue Zeit nicht? Verwende die Schaltfläche oben, um etwas zu ändern oder dich auszutragen. Sie öffnet direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
+      "keep": "Passt dir die neue Zeit nicht? Verwende die Schaltfläche oben, um etwas zu ändern oder dich auszutragen. Damit öffnest du direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
       "stop": "Erinnerungen und Benachrichtigungen für {title} abbestellen"
     }
   },
@@ -358,7 +358,7 @@
         "required": "Erforderlich",
         "optional": "Optional",
         "requiredHelp": "Alle bekommen per E-Mail ihren Link zum Ändern oder Austragen.",
-        "optionalHelp": "Teilnehmende können das E-Mail-Feld leer lassen. Dann bekommen sie keine E-Mails, auch keine Erinnerungen, und müssen sich ihren Link selbst speichern. Geht er verloren, können sie sich neu eintragen, und du kannst den alten Eintrag im Tab Einträge entfernen."
+        "optionalHelp": "Teilnehmende können das E-Mail-Feld leer lassen. Dann bekommen sie keine E-Mails, auch keine Erinnerungen, und müssen sich ihren Link selbst speichern. Geht er verloren, können sie sich neu eintragen, und du kannst den alten Eintrag im Tab „Einträge“ entfernen."
       },
       "language": {
         "title": "Sprache",
@@ -385,7 +385,7 @@
       "rail": {
         "editing": "Bearbeitung",
         "fields": "Felder ({count, number})",
-        "saving": "Wird gespeichert…"
+        "saving": "Speichert…"
       },
       "sheet": {
         "titlePlaceholder": "Liste ohne Titel",
@@ -416,7 +416,7 @@
         "takenOf": "{taken, number} von {capacity, number} belegt"
       },
       "editor": {
-        "title": "Aufgabe bearbeiten",
+        "title": "Aufgabe",
         "duplicate": "Duplizieren",
         "delete": "Löschen",
         "done": "Fertig",
@@ -596,7 +596,7 @@
         },
         "gotchas": {
           "title": "Denk an Besonderheiten",
-          "body": "Allergien, Treffpunkt, was gilt, wenn jemand nicht kommt. Alles, was die Teilnehmenden wissen sollten."
+          "body": "Allergien, Orte, was gilt, wenn jemand nicht kommt. Alles, was die Teilnehmenden wissen sollten."
         }
       },
       "steps": {
@@ -637,15 +637,15 @@
         "oneBlank": "Eine Frage offen",
         "twoBlank": "Zwei Fragen offen",
         "what": "Was",
-        "whatBlank": "Leer gelassen. Der Entwurf verwendet Platzhalter für die Aufgaben, die du später ausfüllen kannst.",
+        "whatBlank": "Leer gelassen. Der Entwurf verwendet Platzhalter-Aufgaben, die du später ausfüllen kannst.",
         "when": "Wann",
-        "whenBlank": "Noch offen. Der Entwurf verwendet Platzhalter für die Datumsangaben, die du später ausfüllen kannst.",
+        "whenBlank": "Noch offen. Der Entwurf verwendet Platzhalter, die du später durch Datumsangaben ersetzen kannst.",
         "noLimit": "Unbegrenzt",
         "people": "{count, plural, one {{count, number} Person} other {{count, number} Personen}}",
         "dayAndTimes": "{day} · {times}"
       },
       "errors": {
-        "questionsUnavailable": "Die Fragen konnten nicht angezeigt werden. Lade die Seite neu und versuch es noch einmal – kopiere vorher deine Beschreibung, wenn du sie behalten möchtest.",
+        "questionsUnavailable": "Die Fragen konnten nicht angezeigt werden. Lade die Seite neu und versuch es noch einmal – kopier vorher deine Beschreibung, wenn du sie behalten möchtest.",
         "slow": "Der KI-Entwurf dauert länger als erwartet. Versuch es noch einmal oder vereinfache deine Beschreibung.",
         "slowWithAnswers": "Der KI-Entwurf dauert länger als erwartet. Versuch es noch einmal.",
         "hourlyLimit": "Du hast alle KI-Entwürfe für diese Stunde verbraucht. Versuch es in {minutes, plural, one {{minutes, number} Minute} other {{minutes, number} Minuten}} noch einmal, oder <link>füll die Liste selbst aus</link>.",
@@ -695,11 +695,11 @@
           "noTime": "Keine Uhrzeit",
           "whichDays": "Welche Tage?",
           "whichDaysPlaceholder": "Welche Tage? Zum Beispiel: jeden Samstag im Mai, 9 bis 11 Uhr",
-          "notDecidedHint": "Der Entwurf verwendet Platzhalter für die Datumsangaben, die du später ausfüllen kannst."
+          "notDecidedHint": "Der Entwurf verwendet Platzhalter, die du später durch Datumsangaben ersetzen kannst."
         },
         "howMany": {
           "ask": "Wie viele Personen brauchst du?",
-          "hint": "Für jeden Punkt oben. Leer gelassen heißt unbegrenzt.",
+          "hint": "Für jeden Punkt oben. Bleibt das Kästchen leer, gibt es keine Begrenzung.",
           "pickFirst": "Wähl zuerst oben etwas aus oder füg etwas hinzu.",
           "fewer": "Weniger Personen für {item}",
           "people": "Personen für {item}",
@@ -758,12 +758,12 @@
         "label": "Veröffentlichen und teilen",
         "checking": "Wird geprüft…",
         "ready": "Veröffentliche und teile die Liste, wenn du so weit bist.",
-        "unsaved": "Eine Änderung wurde nicht gespeichert. Korrigiere sie und veröffentliche die Liste dann."
+        "unsaved": "Eine Änderung wurde nicht gespeichert. Behebe das und veröffentliche die Liste dann."
       },
       "check": {
         "title": "Noch nichts zum Eintragen",
         "noSlots": "Es gibt noch keine Aufgaben. Füg eine hinzu und veröffentliche die Liste dann.",
-        "noFields": "Füg ein Feld hinzu, das sagt, wofür sich Teilnehmende eintragen, und veröffentliche die Liste dann.",
+        "noFields": "Füg ein Feld hinzu, das angibt, wofür man sich einträgt, und veröffentliche die Liste dann.",
         "allBlank": "{count, plural, one {Die Aufgabe ist leer.} other {Alle Aufgaben sind leer.}} Schreib, wofür sich Teilnehmende eintragen, und veröffentliche die Liste dann.",
         "addSlot": "Aufgabe hinzufügen",
         "fillIn": "Ausfüllen",
@@ -794,7 +794,7 @@
       },
       "announce": {
         "closed": "Geschlossen. Zurzeit kann sich niemand eintragen.",
-        "reopened": "Wieder geöffnet. Alle können sich jetzt eintragen."
+        "reopened": "Wieder geöffnet. Man kann sich wieder eintragen."
       },
       "tabs": {
         "label": "Bereiche der Liste",
@@ -841,7 +841,7 @@
       "shareMenuSent": "Über das Teilen-Menü deines Handys verschickt.",
       "unavailable": "Die anderen Möglichkeiten zum Teilen konnten nicht geladen werden. Lade die Seite neu, um es noch einmal zu versuchen.",
       "qr": {
-        "alt": "{title}: QR-Code mit dem Link zum Eintragen",
+        "alt": "QR-Code mit dem Link zur Liste „{title}“",
         "lead": "Ein QR-Code für einen Flyer oder einen Infostand.",
         "download": "Herunterladen",
         "downloadLabel": "QR-Code herunterladen",
@@ -869,12 +869,12 @@
       },
       "language": {
         "legend": "Sprache",
-        "help": "Die App und deine neuen Listen verwenden diese Sprache. Die Sprache einer einzelnen Liste änderst du im Tab Einstellungen der Liste.",
+        "help": "OpenSignup und deine neuen Listen verwenden diese Sprache. Die Sprache einer einzelnen Liste änderst du im Tab „Einstellungen“ dieser Liste.",
         "save": "Speichern",
-        "toSwitch": "{count, plural, one {{count, number} deiner Listen ist offen und noch nicht auf <language>{name}</language>.} other {{count, number} deiner Listen sind offen und noch nicht auf <language>{name}</language>.}}",
+        "toSwitch": "{count, plural, one {Eine deiner Listen ist offen und noch nicht auf <language>{name}</language>.} other {{count, number} deiner Listen sind offen und noch nicht auf <language>{name}</language>.}}",
         "switch": "{count, plural, one {Liste auf <language>{name}</language> umstellen} other {Listen auf <language>{name}</language> umstellen}}",
         "switchNote": "Nur die Texte von OpenSignup selbst ändern sich: Schaltflächen, Meldungen, Datumsangaben und E-Mails. Titel, Aufgaben und Felder, die du geschrieben hast, bleiben, wie sie sind. Wer schon eingetragen ist, sieht ebenfalls die neue Sprache.",
-        "switched": "Gespeichert. {count, plural, one {{count, number} deiner Listen ist offen und jetzt auf <language>{name}</language>.} other {{count, number} deiner Listen sind offen und jetzt alle auf <language>{name}</language>.}}"
+        "switched": "Gespeichert. {count, plural, one {Eine deiner Listen ist offen und jetzt auf <language>{name}</language>.} other {{count, number} deiner Listen sind offen und jetzt alle auf <language>{name}</language>.}}"
       }
     },
     "connectedApps": {
@@ -885,7 +885,7 @@
         "title": "Keine verbundenen Apps",
         "body": "Wenn du einen KI-Assistenten wie Claude oder ChatGPT mit deinem Konto verbindest, erscheint er hier."
       },
-      "dates": "Freigegeben am {approved}{used, select, yes { · zuletzt genutzt am {lastUsed}} other { · noch nicht genutzt}}{expiring, select, yes { · läuft ohne Verlängerung am {expires} ab} other {}}",
+      "dates": "Freigegeben am {approved}{used, select, yes { · zuletzt genutzt am {lastUsed}} other { · noch nicht genutzt}}{expiring, select, yes { · endet ohne Verlängerung am {expires}} other {}}",
       "disconnect": "Trennen",
       "disconnecting": "Wird getrennt…",
       "footnote": "Wenn du eine App trennst, bekommt sie sofort keinen neuen Zugriff mehr. Zugriff, den sie schon hat, läuft innerhalb von {lifetime} von selbst ab und lässt sich nicht früher beenden."
@@ -905,7 +905,7 @@
     "form": {
       "email": "E-Mail",
       "emailPlaceholder": "du@example.com",
-      "send": "Anmeldelink schicken",
+      "send": "Anmeldelink senden",
       "sending": "Wird gesendet…",
       "sent": "Gesendet – schau in deine E-Mails",
       "sentTo": "Wir haben den Link an {email} geschickt. Schau in deinen Posteingang.",
@@ -949,7 +949,7 @@
       "intro": "Klick unten auf die Schaltfläche, um dich als <b>{email}</b> anzumelden. Der Link gilt {duration} lang.",
       "signIn": "Anmelden",
       "code": "Liest du das auf einem anderen Gerät? Dann gib stattdessen diesen Code in dem Fenster ein, in dem du mit der Anmeldung begonnen hast. Er gilt {duration} lang:",
-      "copyUrl": "Oder kopiere diesen Link:"
+      "copyUrl": "Oder kopier diesen Link:"
     },
     "consent": {
       "tabTitle": "App verbinden",
@@ -966,7 +966,7 @@
       "deny": "Nicht zulassen",
       "denying": "Wird abgelehnt…",
       "disconnect": "Du kannst die App jederzeit unter <link>Verbundene Apps</link> trennen.",
-      "notYou": "Das bist nicht du?",
+      "notYou": "Nicht du?",
       "switchAccount": "Mit einem anderen Konto anmelden",
       "expired": {
         "heading": "Diese Verbindungsanfrage ist abgelaufen",
