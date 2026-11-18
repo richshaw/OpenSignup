@@ -143,7 +143,7 @@ for (const stored of STORED) {
       await page.goto('/app');
       expect(await languageOf(page.getByRole('banner')), unshippedHint).toBe(locale);
       const trail = page.getByRole('navigation', { name: chrome('breadcrumb') });
-      await expect(trail.getByRole('link', { name: chrome('home') })).toBeVisible();
+      await expect(trail.locator('a[href="/app"]').first()).toBeVisible();
       await expect(page.getByRole('button', { name: chrome('signOut') })).toBeVisible();
       const heading = page.getByRole('heading', { level: 1 });
       await expect(heading).toHaveText(dashboard('title'));

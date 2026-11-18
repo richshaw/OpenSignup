@@ -38,7 +38,6 @@ export const LANGUAGE_RULES: Readonly<Record<string, LanguageRules>> = {
       'common.footer.cookies': 'Swedish uses the English word',
       'organizer.responses.table.status': 'Swedish uses the English word',
       'organizer.responses.csv.status': 'Swedish uses the English word',
-      'organizer.chrome.home': 'the product’s name, which stays as it is',
     },
     banned: [
       {
