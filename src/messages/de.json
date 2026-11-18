@@ -30,7 +30,7 @@
         "body": "Für diese Liste kannst du dich nicht mehr eintragen.",
         "keepsYours": "Niemand kann sich mehr neu eintragen, aber {count, plural, one {dein Platz gehört} other {deine Plätze gehören}} weiterhin dir."
       },
-      "signedUp": "{count, plural, =1 {<b>Du bist eingetragen:</b> <slot>{name}</slot>} other {<b>Du bist eingetragen:</b> <slot>{count, number} Einträge</slot>}}",
+      "signedUp": "{count, plural, =1 {<b>Du bist eingetragen:</b> <slot>{name}</slot>} other {<b>Du bist eingetragen</b> für <slot>{count, number} Aufgaben</slot>.}}",
       "editOrCancel": "Ändern oder austragen",
       "manage": "Verwalten",
       "untitledSlot": "Aufgabe ohne Namen",
@@ -135,7 +135,7 @@
       "failed": {
         "join": "Etwas ist schiefgelaufen, du bist also noch nicht eingetragen.",
         "save": "Etwas ist schiefgelaufen, deine Änderungen wurden also nicht gespeichert.",
-        "cancel": "Etwas ist schiefgelaufen, du bist also noch nicht ausgetragen.",
+        "cancel": "Etwas ist schiefgelaufen, du bist also weiterhin eingetragen.",
         "tryAgain": "Versuch es noch einmal."
       }
     },
@@ -196,11 +196,11 @@
       "title": "Erinnerungs-E-Mails",
       "incomplete": {
         "title": "Dieser Link ist unvollständig",
-        "body": "Links zum Abbestellen funktionieren nur vollständig. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte darum, sie abzustellen."
+        "body": "Links zum Abbestellen funktionieren nur vollständig. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte die Person, die die Liste organisiert, sie abzustellen."
       },
       "invalid": {
         "title": "Dieser Link ist ungültig",
-        "body": "Vielleicht ist der Link unvollständig, oder die Liste wurde gelöscht. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte darum, sie abzustellen."
+        "body": "Vielleicht ist der Link unvollständig, oder die Liste wurde gelöscht. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte die Person, die die Liste organisiert, sie abzustellen."
       },
       "confirm": {
         "title": "Erinnerungs-E-Mails abbestellen?",
@@ -271,7 +271,7 @@
     },
     "slotChanged": {
       "heading": "Die Zeit hat sich geändert",
-      "intro": "Hallo {name}, bei <b>{title}</b> wurde deine Aufgabe auf ein neues Datum oder eine neue Uhrzeit verschoben. Hier sind die neuen Angaben.",
+      "intro": "Hallo {name}, bei <b>{title}</b> wurde dein Eintrag auf ein neues Datum oder eine neue Uhrzeit verschoben. Hier sind die neuen Angaben.",
       "keep": "Passt dir die neue Zeit nicht? Verwende die Schaltfläche oben, um etwas zu ändern oder dich auszutragen. Sie öffnet direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
       "stop": "Erinnerungen und Benachrichtigungen für {title} abbestellen"
     }

@@ -1268,6 +1268,9 @@ lines means changing that list, and the other way round.
 - **Punctuation.** „…“ for a quotation; a spaced en dash (–) inside a
   sentence; an ellipsis is one character. No no-break hyphens.
 - **A channel takes _per_:** "per E-Mail", "per SMS".
+- **A button in an email** is "die Schaltfläche oben" with _verwenden_, not
+  _tippen_, since an email is read on a computer as often as on a phone (as
+  Swedish decided).
 
 ### Settled before translating
 
@@ -1289,3 +1292,14 @@ lines means changing that list, and the other way round.
    appointment times, and participants seldom see it.
 5. **Neutral wording for people**, and **"Hallo {name}"** for the emails'
    greeting.
+
+### Open questions
+
+1. **"Gesperrt" or "Beendet"** for a closed slot's row
+   (`participant.signupView.closed`), from the participant pages' first
+   review: _Geschlossen_ doesn't fit at 320 pixels. _Gesperrt_ can read as a
+   lock put on the slot; _Beendet_ is closer to "no longer taking sign-ups",
+   but can read as the event being over. The catalog keeps _Gesperrt_.
+2. **"Zum Kalender hinzufügen"** wraps to two lines in its half-width button
+   on a phone, beside the one-line "Link kopieren". Nothing is cut off, so it
+   stays; "Zum Kalender" would fit but loses the verb.
