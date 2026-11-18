@@ -11,6 +11,7 @@ import { StatusPill } from '@/components/status-pill';
 import { signupStatusLabel } from '@/components/signup/status-label';
 import type { SignupStatus } from '@/schemas/signups';
 import { INSTANCE_NAME } from '@/lib/site-config';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = localeOfOrganizer(await getOrganizerSession());
@@ -68,7 +69,7 @@ export default async function DashboardPage() {
           {rows.map((r) => (
             <li key={r.id}>
               <Link
-                href={`/app/signups/${r.id}/build`}
+                href={signupTabPath(r.id, 'build')}
                 className="block px-5 py-4 transition hover:bg-surface"
               >
                 <div className="flex items-center justify-between gap-4">
