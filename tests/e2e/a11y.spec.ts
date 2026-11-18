@@ -159,6 +159,45 @@ test.describe('accessibility', () => {
     });
   }
 
+  // With reminders off, the unsubscribe page offers two small text actions,
+  // one above the other. WCAG 2.2's Target Size (Minimum) wants them far
+  // enough apart, whatever their labels say, so this runs axe's
+  // `target-size` rule (not among the WCAG 2.1 tags above) on each way the
+  // page shows that state, at desktop and phone widths.
+  for (const { name, path, locale } of [
+    { name: 'English', path: seed.optedOutUnsubscribePath, locale: null },
+    ...TEST_LOCALES.map((locale) => ({
+      name: englishName(locale),
+      path: seed.languages[locale].open.optedOutUnsubscribePath,
+      locale,
+    })),
+  ]) {
+    test(`the ${name} unsubscribe page with reminders off spaces its targets apart`, async ({
+      page,
+    }) => {
+      for (const width of [1280, 390, 320]) {
+        await page.setViewportSize({ width, height: 800 });
+        for (const query of ['', '&done=off', '&error=on']) {
+          if (locale) await gotoIn(page, locale, `${path}${query}`);
+          else await page.goto(`${path}${query}`);
+          await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+          const results = await new AxeBuilder({ page }).withRules(['target-size']).analyze();
+
+          expect(
+            results.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })),
+            `at ${width}px${query ? `, with ${query.slice(1)}` : ''}`,
+          ).toEqual([]);
+          // The rule found both actions to measure, so it can't pass on an
+          // empty page.
+          expect(
+            results.passes.find((rule) => rule.id === 'target-size')?.nodes.length ?? 0,
+          ).toBeGreaterThanOrEqual(2);
+        }
+      }
+    });
+  }
+
   test('Remove confirmation on the Responses tab has no WCAG A/AA violations', async ({
     page,
     context,
