@@ -353,7 +353,8 @@
       },
       "titleTooShort": "Der Titel muss mindestens {min, number} Zeichen lang sein.",
       "tooManySignups": "Du hast in der letzten Stunde viele Listen erstellt. Versuch es in etwa {minutes, plural, one {{minutes, number} Minute} other {{minutes, number} Minuten}} noch einmal.",
-      "disconnectFailed": "Die App konnte nicht getrennt werden. Versuch es noch einmal."
+      "disconnectFailed": "Die App konnte nicht getrennt werden. Versuch es noch einmal.",
+      "alreadyDisconnected": "Diese App ist schon getrennt."
     },
     "signupSettings": {
       "signupForm": {
