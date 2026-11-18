@@ -32,6 +32,7 @@ import { answeredNothing, type FollowUp } from '@/lib/magic-compose/questions';
 import { mapMagicComposeError } from './errors';
 import { buildDraftPreview } from './preview';
 import { recordAnswered, recordAsked, type FollowUpOutcome } from './telemetry';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 const PromptBodySchema = z.object({
   prompt: z
@@ -383,7 +384,7 @@ export async function POST(req: NextRequest) {
       },
       {
         links: {
-          build: link(`/app/signups/${created.id}/build`),
+          build: link(signupTabPath(created.id, 'build')),
           self: link(`/api/signups/${created.id}`),
           public: link(publicSignupUrl(created.slug)),
         },

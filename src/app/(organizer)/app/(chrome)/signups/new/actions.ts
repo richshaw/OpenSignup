@@ -11,6 +11,7 @@ import { requireWorkspaceWrite } from '@/lib/policy';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { createSignup } from '@/services/signups';
 import { lfLineBreaks } from './line-breaks';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 /**
  * Why the form was refused, in the organizer's language, with what was typed
@@ -57,5 +58,5 @@ export async function createSignupAction(
     { organizer: s },
   );
   if (!result.ok) return { error: refusalText(t, result.error), title, description };
-  redirect(`/app/signups/${result.value.id}/build`);
+  redirect(signupTabPath(result.value.id, 'build'));
 }
