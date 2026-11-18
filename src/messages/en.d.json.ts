@@ -356,7 +356,8 @@ declare const messages: {
       },
       "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
       "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
-      "disconnectFailed": "Could not disconnect. Try again."
+      "disconnectFailed": "Couldn’t disconnect. Try again.",
+      "alreadyDisconnected": "That app is already disconnected."
     },
     "signupSettings": {
       "signupForm": {

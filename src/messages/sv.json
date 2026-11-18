@@ -292,7 +292,8 @@
       },
       "titleTooShort": "Titeln måste ha minst {min, number} tecken.",
       "tooManySignups": "Du har skapat många anmälningslistor den senaste timmen. Försök igen om ungefär {minutes, plural, one {{minutes, number} minut} other {{minutes, number} minuter}}.",
-      "disconnectFailed": "Det gick inte att koppla från. Försök igen."
+      "disconnectFailed": "Det gick inte att koppla från. Försök igen.",
+      "alreadyDisconnected": "Appen är redan frånkopplad."
     },
     "signupSettings": {
       "signupForm": {
