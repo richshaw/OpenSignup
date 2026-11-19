@@ -425,6 +425,11 @@ declare const messages: {
       },
       "editor": {
         "title": "Editing slot",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "moved": "Moved to {position, number, ::group-off} of {count, number, ::group-off}",
+        "atTop": "Already at the top",
+        "atBottom": "Already at the bottom",
         "duplicate": "Duplicate",
         "delete": "Delete",
         "done": "Done",

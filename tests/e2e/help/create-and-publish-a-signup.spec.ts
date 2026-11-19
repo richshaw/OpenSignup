@@ -119,6 +119,21 @@ test.describe('help: create and publish your first signup', () => {
     await page.reload();
     await expect(rows.nth(0)).toContainText('Apr 6');
     await expect(rows.nth(1)).toContainText('Apr 13');
+    // "open a slot and choose Move up or Move down"
+    await page
+      .getByRole('button', { name: /^Edit slot — Fruit and water, / })
+      .nth(1)
+      .click();
+    // The open slot shows its date in a box, so it's found by its editor.
+    await slotEditor.getByRole('button', { name: UI.moveUp }).click();
+    await expect(rows.nth(0).locator(slotEditor)).toBeVisible();
+    await expect(rows.nth(1)).toContainText('Apr 6');
+    await slotEditor.getByRole('button', { name: UI.moveDown }).click();
+    await expect(rows.nth(0)).toContainText('Apr 6');
+    await expect(rows.nth(1).locator(slotEditor)).toBeVisible();
+    await slotEditor.getByRole('button', { name: UI.done }).click();
+    await expect(rows.nth(1)).toContainText('Apr 13');
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
     await page.getByText(UI.emptySlot, { exact: true }).click();
     await slotEditor.getByRole('button', { name: UI.delete }).click();
     await expect(page.getByRole('button', { name: /^Edit slot.*taken$/ })).toHaveCount(2);

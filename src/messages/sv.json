@@ -361,6 +361,11 @@
       },
       "editor": {
         "title": "Ändra pass",
+        "moveUp": "Flytta upp",
+        "moveDown": "Flytta ner",
+        "moved": "Flyttat till position {position, number} av {count, number}",
+        "atTop": "Redan överst",
+        "atBottom": "Redan underst",
         "duplicate": "Duplicera",
         "delete": "Radera",
         "done": "Klart",

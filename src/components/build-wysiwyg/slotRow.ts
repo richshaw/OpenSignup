@@ -58,3 +58,19 @@ export function takenText(
 ): string {
   return capacity === null ? t('slot.taken', { taken }) : t('slot.takenOf', { taken, capacity });
 }
+
+/**
+ * The slot a slot swaps places with when it moves `direction` in its group:
+ * the one just before or after it in `groupRows`, or null at that end. Moves
+ * stay inside the group, since crossing into the next day would also change
+ * the slot's date.
+ */
+export function neighborInGroup(
+  groupRows: readonly { id: string }[],
+  rowId: string,
+  direction: 'up' | 'down',
+): string | null {
+  const idx = groupRows.findIndex((r) => r.id === rowId);
+  if (idx < 0) return null;
+  return groupRows[direction === 'up' ? idx - 1 : idx + 1]?.id ?? null;
+}

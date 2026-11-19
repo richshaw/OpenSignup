@@ -429,6 +429,14 @@ function BuildSheet({
                     config: { fieldType: 'enum', choices: [...field.config.choices, value] },
                   });
                 }}
+                onMoveRow={(rowId, neighborId) => {
+                  // Into the neighbor's place: moving up lands just before
+                  // it, moving down just after, as a drag onto it does.
+                  const fromIdx = state.rows.findIndex((r) => r.id === rowId);
+                  const toIdx = state.rows.findIndex((r) => r.id === neighborId);
+                  if (fromIdx < 0 || toIdx < 0) return;
+                  void moveRow(fromIdx, toIdx);
+                }}
                 onDuplicateRow={(rowId) => {
                   // Open the copy: the next thing changed is usually its date (#557).
                   void duplicateRow(rowId).then((copyId) => {

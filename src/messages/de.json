@@ -422,6 +422,11 @@
       },
       "editor": {
         "title": "Aufgabe",
+        "moveUp": "Nach oben",
+        "moveDown": "Nach unten",
+        "moved": "Auf Position {position, number} von {count, number} verschoben",
+        "atTop": "Schon ganz oben",
+        "atBottom": "Schon ganz unten",
         "duplicate": "Duplizieren",
         "delete": "Löschen",
         "done": "Fertig",

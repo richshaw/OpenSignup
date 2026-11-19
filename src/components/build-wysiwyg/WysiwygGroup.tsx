@@ -6,6 +6,7 @@ import { Editable } from './Editable';
 import { EnumPicker } from './EnumPicker';
 import { WysiwygSlot } from './WysiwygSlot';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
+import { neighborInGroup } from './slotRow';
 import { useSignupLanguage } from './signup-language';
 import { FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
@@ -43,6 +44,11 @@ type WysiwygGroupProps = {
   onSetCapacity: (rowId: string, capacity: number | null) => void;
   /** Threaded through to EnumPicker. */
   onAddEnumOption: (fieldId: string, value: string) => void;
+  /**
+   * Move up or Move down in a slot's editor: put the slot in `neighborId`'s
+   * place, the slot before or after it in this group.
+   */
+  onMoveRow: (rowId: string, neighborId: string) => void;
   onDuplicateRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
   onAddSlot: (groupKey: string) => void;
@@ -67,6 +73,7 @@ export function WysiwygGroup({
   onEditCell,
   onSetCapacity,
   onAddEnumOption,
+  onMoveRow,
   onDuplicateRow,
   onDeleteRow,
   onAddSlot,
@@ -107,7 +114,7 @@ export function WysiwygGroup({
           bottom edge, hiding "Add to list". The rows and the button below round
           their own corners instead, at 11px: rounded-xl less the 1px border. */}
       <div className="flex flex-col gap-0 rounded-xl border border-surface-sunk bg-white">
-        {group.rows.map((row) => (
+        {group.rows.map((row, i) => (
           <WysiwygSlot
             key={row.id}
             row={row}
@@ -123,6 +130,12 @@ export function WysiwygGroup({
             onEditCell={(ref, v) => onEditCell(row.id, ref, v)}
             onSetCapacity={(c) => onSetCapacity(row.id, c)}
             onAddEnumOption={onAddEnumOption}
+            position={i + 1}
+            groupSize={group.rows.length}
+            onMove={(direction) => {
+              const neighborId = neighborInGroup(group.rows, row.id, direction);
+              if (neighborId) onMoveRow(row.id, neighborId);
+            }}
             onDuplicate={() => onDuplicateRow(row.id)}
             onDelete={() => onDeleteRow(row.id)}
             {...(reorder ? { reorder } : {})}
