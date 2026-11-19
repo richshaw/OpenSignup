@@ -42,11 +42,11 @@ export type BuildSlot = {
 /**
  * A refused save, as the server's `{ error }` envelope (see
  * `lib/api-response.ts`) gives it: the closed `ErrorCode`, and the `details`
- * whose `reason` names the case, with `field` and `received` for the words
- * some reasons print. The rail words it from these (`saveErrorMessage`), so
- * the envelope's English `message` and `suggestion` are left behind.
+ * whose `reason` names the case. The rail words it from these
+ * (`saveErrorMessage`), so the envelope's English `message` and `suggestion`
+ * are left behind, and so are `field` and `received`, which nothing reads.
  */
-export type SaveError = Pick<ServiceError, 'code' | 'field' | 'received' | 'details'>;
+export type SaveError = Pick<ServiceError, 'code' | 'details'>;
 
 export type SaveStatus =
   | { kind: 'idle' }
@@ -59,11 +59,9 @@ const SAVED: SaveStatus = { kind: 'saved' };
 const IDLE: SaveStatus = { kind: 'idle' };
 
 /** What the rail needs of a refusal, and nothing else: `internal` when it names no code. */
-function toSaveError({ code, field, received, details }: Partial<SaveError>): SaveError {
+function toSaveError({ code, details }: Partial<SaveError>): SaveError {
   return {
     code: code ?? 'internal',
-    ...(field !== undefined ? { field } : {}),
-    ...(received !== undefined ? { received } : {}),
     ...(details !== undefined ? { details } : {}),
   };
 }
@@ -210,7 +208,6 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 /** A title the tab refuses before sending it, as the server would. */
 const TITLE_TOO_SHORT: SaveError = {
   code: 'invalid_input',
-  field: 'title',
   details: { reason: 'title_too_short' },
 };
 
