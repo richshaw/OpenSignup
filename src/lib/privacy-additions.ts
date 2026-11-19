@@ -15,8 +15,8 @@ type PrivacySection = {
   paragraphs: readonly [string, ...string[]];
   /**
    * An item for "Why we use your data": what it's for, then what allows it,
-   * as the page's own items say it. "To ask a new organizer how their first
-   * signup went. (Our legitimate interest in helping organizers.)"
+   * as the page's own items say it. "To take a donation you choose to make.
+   * (Necessary to take it, and to keep the accounts the law requires.)"
    */
   why: string;
   /** An item for "How long we keep it": what's kept, and for how long. */

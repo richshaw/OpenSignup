@@ -67,13 +67,13 @@ describe("an instance's additions", () => {
     lastUpdated: '2999-01-01',
     sections: [
       {
-        heading: 'Check-in emails',
+        heading: 'Donations',
         paragraphs: [
-          'A few days after you make your first signup, we may email you once to ask how it went.',
-          'We keep a record that we sent it for as long as your account exists.',
+          'If you donate to keep this site running, our payment provider takes your payment.',
+          'We keep your name, email address and the amount, but never your card details.',
         ],
-        why: 'To ask a new organizer how their first signup went. (Our legitimate interest in helping organizers.)',
-        kept: 'Records of check-in emails: for as long as the account exists.',
+        why: 'To take a donation you choose to make. (Necessary to take it, and to keep the accounts the law requires.)',
+        kept: 'Donation records: for seven years, as tax law requires.',
       },
     ],
   };
@@ -92,9 +92,9 @@ describe("an instance's additions", () => {
     const headings = screen.getAllByRole('heading').map((h) => h.textContent);
     const added = headings.indexOf('Added on this site');
     expect(added).toBeGreaterThan(headings.indexOf('Third parties'));
-    expect(headings[added + 1]).toBe('Check-in emails');
+    expect(headings[added + 1]).toBe('Donations');
     expect(headings[added + 2]).toBe('Why we use your data');
-    expect(screen.getByRole('heading', { level: 3, name: 'Check-in emails' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Donations' })).toBeInTheDocument();
     for (const paragraph of additions.sections[0].paragraphs) {
       expect(screen.getByText(paragraph)).toBeInTheDocument();
     }
