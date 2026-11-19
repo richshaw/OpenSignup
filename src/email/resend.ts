@@ -14,8 +14,9 @@ export class ResendTransport implements EmailTransport {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: this.from,
+        from: msg.from ?? this.from,
         to: [msg.to],
+        reply_to: msg.replyTo,
         subject: msg.subject,
         html: msg.html,
         text: msg.text,

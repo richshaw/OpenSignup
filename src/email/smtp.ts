@@ -115,7 +115,8 @@ export class SmtpTransport implements EmailTransport {
   async send(msg: EmailMessage): Promise<EmailResult> {
     try {
       const info = await this.transporter.sendMail({
-        from: this.cfg.from,
+        from: msg.from ?? this.cfg.from,
+        replyTo: msg.replyTo,
         to: msg.to,
         subject: msg.subject,
         html: msg.html,

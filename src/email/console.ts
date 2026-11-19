@@ -42,7 +42,8 @@ export class ConsoleTransport implements EmailTransport {
       {
         emailId: id,
         to: msg.to,
-        from: this.from,
+        from: msg.from ?? this.from,
+        replyTo: msg.replyTo,
         subject: msg.subject,
         urls,
         textPreview: text.slice(0, 600),

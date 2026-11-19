@@ -1,6 +1,6 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import nodemailer from 'nodemailer';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SmtpTransport, smtpTransportOptions } from './smtp';
 
 const cfg = { host: 'smtp.example.com', port: 587, from: 'hello@example.com' };
@@ -313,5 +313,39 @@ describe('smtpTransportOptions with the real nodemailer', () => {
       /^File access rejected for package\.json/,
     );
     expect(server?.delivered).toEqual([]);
+  });
+});
+
+describe('SmtpTransport addresses', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The options nodemailer's sendMail got for `msg`. */
+  async function sentWith(msg: Parameters<SmtpTransport['send']>[0]) {
+    const sendMail = vi.fn(async (_options: Record<string, unknown>) => ({ messageId: 'm1' }));
+    vi.spyOn(nodemailer, 'createTransport').mockReturnValue({
+      sendMail,
+    } as unknown as ReturnType<typeof nodemailer.createTransport>);
+    await new SmtpTransport(cfg).send(msg);
+    return sendMail.mock.calls[0]?.[0];
+  }
+
+  const message = { to: 'pat@example.com', subject: 'Hello', html: '<p>Hi</p>', text: 'Hi' };
+
+  it('sends from EMAIL_FROM, with no reply-to, when the email names neither', async () => {
+    const options = await sentWith(message);
+    expect(options?.from).toBe('hello@example.com');
+    expect(options?.replyTo).toBeUndefined();
+  });
+
+  it("sends from the email's own address, with its reply-to, when it names them", async () => {
+    const options = await sentWith({
+      ...message,
+      from: 'Pat at Example <pat@example.com>',
+      replyTo: 'pat.inbox@example.com',
+    });
+    expect(options?.from).toBe('Pat at Example <pat@example.com>');
+    expect(options?.replyTo).toBe('pat.inbox@example.com');
   });
 });
