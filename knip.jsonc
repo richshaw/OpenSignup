@@ -2,8 +2,14 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // Run by hand or by agents, never imported. Globbed rather than listed, so
   // a repo that merges this one can add scripts and skills of its own without
-  // editing this file.
-  "entry": ["scripts/**/*.{ts,mjs}", ".claude/skills/**/*.{js,mjs,ts}"],
+  // editing this file. The worker imports a site's own jobs from
+  // src/jobs/extensions/ by listing the folder, so nothing imports them by
+  // name either (src/jobs/registry.ts).
+  "entry": [
+    "scripts/**/*.{ts,mjs}",
+    ".claude/skills/**/*.{js,mjs,ts}",
+    "src/jobs/extensions/*.jobs.ts",
+  ],
   "ignore": [
     // A design reference kit, not part of the app.
     "design-system/**",

@@ -1,0 +1,278 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
+import { log } from '@/lib/log';
+import {
+  EXTENSIONS_DIR,
+  loadExtensions,
+  registerJobs,
+  startJobs,
+  unscheduleOthers,
+  type JobBoss,
+  type JobDefinition,
+} from './registry';
+
+type Handler = (batch: { data: object }[]) => Promise<unknown>;
+
+/** A pg-boss stand-in that records what was asked of it. */
+function fakeBoss(existingSchedules: string[] = []) {
+  const calls: string[] = [];
+  const handlers = new Map<string, Handler>();
+  const schedules = new Set(existingSchedules);
+  const boss = {
+    createQueue: vi.fn(async (name: string) => {
+      calls.push(`createQueue ${name}`);
+    }),
+    schedule: vi.fn(async (name: string, cron: string) => {
+      if (cron === 'not a cron') throw new Error(`${cron} is not a cron expression`);
+      calls.push(`schedule ${name} ${cron}`);
+      schedules.add(name);
+    }),
+    work: vi.fn(async (name: string, handler: Handler) => {
+      calls.push(`work ${name}`);
+      handlers.set(name, handler);
+      return `worker-${name}`;
+    }),
+    getSchedules: vi.fn(async () => [...schedules].map((name) => ({ name, cron: '* * * * *' }))),
+    unschedule: vi.fn(async (name: string) => {
+      schedules.delete(name);
+    }),
+  };
+  return { boss: boss as unknown as JobBoss, calls, handlers, schedules };
+}
+
+const noop = async () => {};
+
+/** `log.error` as the registry calls it: fields, then a message. */
+let errors: MockInstance<(fields: object, message: string) => void>;
+beforeEach(() => {
+  errors = vi.spyOn(log, 'error').mockImplementation(() => undefined) as unknown as typeof errors;
+  vi.spyOn(log, 'info').mockImplementation(() => undefined);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** The messages `log.error` was called with. */
+const errorMessages = () => errors.mock.calls.map((call) => call[1]);
+
+describe('registerJobs', () => {
+  it('creates every queue and schedule before working any queue', async () => {
+    const { boss, calls } = fakeBoss();
+    await registerJobs(boss, [
+      { name: 'site.a', schedule: '0 * * * *', run: noop },
+      { name: 'site.b', run: noop },
+    ]);
+    expect(calls).toEqual([
+      'createQueue site.a',
+      'schedule site.a 0 * * * *',
+      'createQueue site.b',
+      'work site.a',
+      'work site.b',
+    ]);
+  });
+
+  it("runs each job in a batch with that job's data", async () => {
+    const { boss, handlers } = fakeBoss();
+    const run = vi.fn(noop);
+    await registerJobs(boss, [{ name: 'site.a', run }]);
+    await handlers.get('site.a')?.([{ data: { id: 1 } }, { data: { id: 2 } }]);
+    expect(run.mock.calls).toEqual([[{ id: 1 }], [{ id: 2 }]]);
+  });
+
+  it('logs a failure with its message and fields, then throws it so pg-boss retries', async () => {
+    const { boss, handlers } = fakeBoss();
+    const failure = new Error('mail server down');
+    await registerJobs(boss, [
+      {
+        name: 'site.send',
+        run: async () => {
+          throw failure;
+        },
+        failureMessage: 'site send failed',
+        logFields: (data: { thingId?: string }) => ({ thingId: data.thingId }),
+      },
+    ]);
+    await expect(handlers.get('site.send')?.([{ data: { thingId: 'thg_1' } }])).rejects.toBe(
+      failure,
+    );
+    expect(errors).toHaveBeenCalledWith(
+      { err: failure, queue: 'site.send', thingId: 'thg_1' },
+      'site send failed',
+    );
+  });
+
+  it('names the queue in a failure that gives no message of its own', async () => {
+    const { boss, handlers } = fakeBoss();
+    await registerJobs(boss, [
+      {
+        name: 'site.a',
+        run: async () => {
+          throw new Error('boom');
+        },
+      },
+    ]);
+    await expect(handlers.get('site.a')?.([{ data: {} }])).rejects.toThrow('boom');
+    expect(errorMessages()).toEqual(['site.a failed']);
+  });
+
+  it('works no queue when a schedule is refused', async () => {
+    const { boss } = fakeBoss();
+    await expect(
+      registerJobs(boss, [
+        { name: 'site.a', schedule: '0 * * * *', run: noop },
+        { name: 'site.b', schedule: 'not a cron', run: noop },
+      ]),
+    ).rejects.toThrow('not a cron expression');
+    expect(boss.work).not.toHaveBeenCalled();
+  });
+});
+
+describe('unscheduleOthers', () => {
+  it("removes every schedule but those kept and pg-boss's own", async () => {
+    const { boss, schedules } = fakeBoss(['site.a', 'site.gone', '__pgboss__cron']);
+    await unscheduleOthers(boss, new Set(['site.a']));
+    expect([...schedules].sort()).toEqual(['__pgboss__cron', 'site.a']);
+  });
+});
+
+describe('the extensions folder', () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(path.join(tmpdir(), 'worker-extensions-'));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  /** Writes a file into the temporary extensions folder. */
+  const put = (file: string, source: string) => writeFile(path.join(dir, file), source);
+  const jobsFile = (...names: string[]) =>
+    `export const jobs = [${names.map((name) => `{ name: '${name}', run: async () => {} }`).join(', ')}];`;
+
+  describe('loadExtensions', () => {
+    it('imports each *.jobs.ts file in name order, and nothing else', async () => {
+      await put('b.jobs.ts', jobsFile('site.b'));
+      await put('a.jobs.ts', jobsFile('site.a1', 'site.a2'));
+      await put('helper.ts', 'throw new Error("a helper is not an extension");');
+      await put('a.jobs.test.ts', 'throw new Error("a test is not an extension");');
+      await put('README.md', '# Notes');
+
+      const loaded = await loadExtensions(dir);
+      expect(loaded.map(({ file, jobs }) => [file, jobs.map((job) => job.name)])).toEqual([
+        ['a.jobs.ts', ['site.a1', 'site.a2']],
+        ['b.jobs.ts', ['site.b']],
+      ]);
+      expect(errors).not.toHaveBeenCalled();
+    });
+
+    it('takes an empty jobs array as a file with nothing to run', async () => {
+      await put('off.jobs.ts', 'export const jobs = [];');
+      expect(await loadExtensions(dir)).toEqual([{ file: 'off.jobs.ts', jobs: [] }]);
+    });
+
+    it('logs and skips a file that throws on import or exports no usable jobs', async () => {
+      await put('a.jobs.ts', 'throw new Error("missing setting");');
+      await put('b.jobs.ts', 'export const job = {};');
+      await put('c.jobs.ts', "export const jobs = [{ name: 'site.c' }];");
+      await put('d.jobs.ts', jobsFile('site.d'));
+
+      const loaded = await loadExtensions(dir);
+      expect(loaded.map(({ file }) => file)).toEqual(['d.jobs.ts']);
+      expect(errorMessages()).toEqual([
+        'worker extension skipped: it failed to load',
+        'worker extension skipped: it exports no `jobs` array',
+        'worker extension skipped: one of its `jobs` has no name or no run function',
+      ]);
+      expect(errors.mock.calls[0]?.[0]).toMatchObject({
+        file: 'a.jobs.ts',
+        err: expect.objectContaining({ message: 'missing setting' }),
+      });
+    });
+
+    it('finds none in a folder that does not exist', async () => {
+      expect(await loadExtensions(path.join(dir, 'missing'))).toEqual([]);
+    });
+
+    it('finds none in the folder OpenSignup ships, which holds only its README', async () => {
+      expect(await loadExtensions(EXTENSIONS_DIR)).toEqual([]);
+    });
+  });
+
+  describe('startJobs', () => {
+    const builtIn: JobDefinition[] = [
+      { name: 'reminders.dispatch', schedule: '*/10 * * * *', run: noop },
+      { name: 'reminders.send', run: noop },
+    ];
+
+    it("registers the worker's own jobs, then each extension's", async () => {
+      await put('digest.jobs.ts', jobsFile('site.digest'));
+      const { boss, handlers } = fakeBoss();
+
+      const { queues } = await startJobs(boss, builtIn, dir);
+      expect(queues).toEqual(['reminders.dispatch', 'reminders.send', 'site.digest']);
+      expect([...handlers.keys()]).toEqual(queues);
+    });
+
+    it('skips an extension that fails, and still runs the rest', async () => {
+      await put('a.jobs.ts', 'throw new Error("missing setting");');
+      await put('b.jobs.ts', jobsFile('site.b'));
+      const { boss } = fakeBoss();
+
+      const { queues } = await startJobs(boss, builtIn, dir);
+      expect(queues).toEqual(['reminders.dispatch', 'reminders.send', 'site.b']);
+    });
+
+    it('skips an extension whose queue is already taken, or named twice', async () => {
+      await put('a.jobs.ts', jobsFile('site.a', 'reminders.send'));
+      await put('b.jobs.ts', jobsFile('site.b', 'site.b'));
+      await put('c.jobs.ts', jobsFile('site.c'));
+      const { boss } = fakeBoss();
+
+      const { queues } = await startJobs(boss, builtIn, dir);
+      expect(queues).toEqual(['reminders.dispatch', 'reminders.send', 'site.c']);
+      expect(errors.mock.calls.map(([fields]) => fields)).toEqual([
+        { file: 'a.jobs.ts', queue: 'reminders.send' },
+        { file: 'b.jobs.ts', queue: 'site.b' },
+      ]);
+    });
+
+    it('skips an extension that fails to register, and removes the schedules it left', async () => {
+      await put(
+        'a.jobs.ts',
+        `export const jobs = [
+          { name: 'site.hourly', schedule: '0 * * * *', run: async () => {} },
+          { name: 'site.broken', schedule: 'not a cron', run: async () => {} },
+        ];`,
+      );
+      const { boss, handlers, schedules } = fakeBoss();
+
+      const { queues } = await startJobs(boss, builtIn, dir);
+      expect(queues).toEqual(['reminders.dispatch', 'reminders.send']);
+      expect(handlers.has('site.hourly')).toBe(false);
+      expect([...schedules]).toEqual(['reminders.dispatch']);
+      expect(errorMessages()).toEqual(['worker extension skipped: it failed to register']);
+    });
+
+    it('removes the schedule of a job that is gone', async () => {
+      const { boss, schedules } = fakeBoss(['site.retired', 'reminders.dispatch']);
+      await startJobs(boss, builtIn, dir);
+      expect([...schedules]).toEqual(['reminders.dispatch']);
+    });
+
+    it("stops the worker when one of its own jobs can't register", async () => {
+      const { boss } = fakeBoss();
+      await expect(
+        startJobs(boss, [{ name: 'reminders.dispatch', schedule: 'not a cron', run: noop }], dir),
+      ).rejects.toThrow('not a cron expression');
+    });
+
+    it('stops the worker when two of its own jobs share a queue', async () => {
+      const { boss } = fakeBoss();
+      await expect(startJobs(boss, [...builtIn, builtIn[1]!], dir)).rejects.toThrow(
+        "two of the worker's own jobs use the queue reminders.send",
+      );
+    });
+  });
+});
