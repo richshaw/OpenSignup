@@ -29,11 +29,17 @@ export function Banner({
   body,
   onDismiss,
   dismissLabel,
+  link,
   live = true,
 }: {
   kind: Kind;
   title: string;
   body: string;
+  /**
+   * A link after the text, such as to the help page about what the banner
+   * says. It opens in the same tab, so the browser's Back returns here.
+   */
+  link?: { href: string; label: string };
   /**
    * A live region (`role="status"`) unless false: for a banner that says what
    * the page is, where the change that put it there is announced already.
@@ -47,7 +53,17 @@ export function Banner({
     >
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-base font-semibold">{title}</p>
-        <p className="text-sm">{body}</p>
+        <p className="text-sm">
+          {body}
+          {link && (
+            <>
+              {' '}
+              <a href={link.href} className="underline">
+                {link.label}
+              </a>
+            </>
+          )}
+        </p>
       </div>
       {onDismiss && (
         <button

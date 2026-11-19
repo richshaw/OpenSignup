@@ -112,7 +112,11 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             reopenAction={reopenAction.bind(null, id)}
           />
           {/* Once, after Close signup on this page; see ClosedNotice. */}
-          <ClosedNotice status={status} text={text.closedNotice} />
+          <ClosedNotice
+            status={status}
+            text={text.closedNotice}
+            help="/help/close-or-reopen-a-signup"
+          />
         </HeaderAnnouncer>
         <AiDraftBanner
           signupId={id}
