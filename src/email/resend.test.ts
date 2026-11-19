@@ -36,4 +36,10 @@ describe('ResendTransport', () => {
     expect(body.from).toBe('Pat at Example <pat@example.com>');
     expect(body.reply_to).toBe('pat.inbox@example.com');
   });
+
+  it('takes a blank address as none', async () => {
+    const body = await postedBody({ ...message, from: '', replyTo: '' });
+    expect(body.from).toBe('hello@example.com');
+    expect(body).not.toHaveProperty('reply_to');
+  });
 });
