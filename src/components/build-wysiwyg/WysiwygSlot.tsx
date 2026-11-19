@@ -43,6 +43,8 @@ type WysiwygSlotProps = {
   onSetCapacity: (capacity: number | null) => void;
   /** Threaded through to EnumPicker. */
   onAddEnumOption: (fieldId: string, value: string) => void;
+  /** The editor's "Add a field". */
+  onAddField: (opener: HTMLElement) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   /** Optional drag-reorder bindings. When omitted, the grip is hidden. */
@@ -69,6 +71,7 @@ export function WysiwygSlot({
   onEditCell,
   onSetCapacity,
   onAddEnumOption,
+  onAddField,
   onDuplicate,
   onDelete,
   reorder,
@@ -136,6 +139,7 @@ export function WysiwygSlot({
           onCellChange={onEditCell}
           onCapacity={onSetCapacity}
           onAddEnumOption={onAddEnumOption}
+          onAddField={onAddField}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
           onClose={onCollapse}

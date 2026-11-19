@@ -17,6 +17,14 @@ import { useSignupLanguage } from './signup-language';
 type FieldsPopoverProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Open straight on the New field form, as a slot's "Add a field" does, and
+   * close once that field is saved or cancelled, back in the slot. Without
+   * it, the dialog opens on its list and the form goes back to the list.
+   */
+  createOnly?: boolean;
+  /** Where focus goes once it closes: `Dialog.Content`'s own handler. */
+  onCloseAutoFocus?: (event: Event) => void;
   fields: BuildField[];
   /** What a new or changed field gets for what the organizer leaves unset. */
   fieldDefaults: FieldDefaults;
@@ -39,7 +47,13 @@ type FieldsPopoverProps = {
   onSetReminder: (ref: string | null) => void;
 };
 
-export function FieldsPopover({ open, onOpenChange, ...body }: FieldsPopoverProps) {
+export function FieldsPopover({
+  open,
+  onOpenChange,
+  createOnly = false,
+  onCloseAutoFocus,
+  ...body
+}: FieldsPopoverProps) {
   const t = useTranslations('organizer.build.fields');
   // The dialog renders at the end of the page's body, outside the element
   // that marks the organizer app with the organizer's language, so it says
@@ -53,14 +67,26 @@ export function FieldsPopover({ open, onOpenChange, ...body }: FieldsPopoverProp
           lang={locale}
           aria-label={t('label')}
           aria-describedby={undefined}
+          {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
           className="fixed left-1/2 top-[10vh] z-50 max-h-[80vh] w-[420px] max-w-[calc(100%-2rem)] -translate-x-1/2 overflow-y-auto rounded-xl border border-surface-sunk bg-white p-4 shadow-card focus:outline-none"
         >
-          <FieldsPopoverBody {...body} />
+          <FieldsPopoverBody
+            {...body}
+            {...(createOnly ? { onCreateDone: () => onOpenChange(false) } : {})}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
   );
 }
+
+type FieldsPopoverBodyProps = Omit<
+  FieldsPopoverProps,
+  'open' | 'onOpenChange' | 'createOnly' | 'onCloseAutoFocus'
+> & {
+  /** Set when the dialog opened on the New field form: ends it rather than show the list. */
+  onCreateDone?: () => void;
+};
 
 /**
  * Lives inside `Dialog.Content`, which unmounts on close, so a half-finished
@@ -77,10 +103,14 @@ function FieldsPopoverBody({
   onMoveField,
   onGroupByChange,
   onSetReminder,
-}: Omit<FieldsPopoverProps, 'open' | 'onOpenChange'>) {
+  onCreateDone,
+}: FieldsPopoverBodyProps) {
   const t = useTranslations('organizer.build.fields');
   // null = list view; otherwise inline-edit view (create or edit existing).
-  const [formMode, setFormMode] = useState<InlineFieldFormMode | null>(null);
+  const [formMode, setFormMode] = useState<InlineFieldFormMode | null>(
+    onCreateDone ? { mode: 'create' } : null,
+  );
+  const closeForm = onCreateDone ?? (() => setFormMode(null));
   const reminderField = reminderFieldRef
     ? (fields.find((f) => f.ref === reminderFieldRef) ?? null)
     : null;
@@ -103,7 +133,7 @@ function FieldsPopoverBody({
           defaults={fieldDefaults}
           reminderFieldRef={reminderFieldRef}
           reminderFieldLabel={reminderField?.name ?? null}
-          onCancel={() => setFormMode(null)}
+          onCancel={closeForm}
           onSave={({ name, config, reminder }) => {
             if (formMode.mode === 'edit') {
               const field = formMode.field;
@@ -120,7 +150,7 @@ function FieldsPopoverBody({
             } else {
               onAddField(name, config);
             }
-            setFormMode(null);
+            closeForm();
           }}
           onDelete={
             formMode.mode === 'edit'

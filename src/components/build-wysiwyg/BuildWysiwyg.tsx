@@ -159,7 +159,13 @@ function BuildSheet({
     description: signupMeta.description,
   });
 
-  const [fieldsOpen, setFieldsOpen] = useState(false);
+  // The Fields dialog: closed, open on its list (the rail's Fields), or open
+  // on its New field form (a slot's "Add a field"), closing once that's done.
+  const [fieldsView, setFieldsView] = useState<'list' | 'create' | null>(null);
+  // The slot's "Add a field" that opened it on the form. Radix gives focus
+  // back only to a Dialog.Trigger, and this dialog has none, so it's given
+  // back here.
+  const addFieldOpener = useRef<HTMLElement | null>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   // The slot whose editor gets focus once it's open, in the field named or
   // else its first.
@@ -374,8 +380,11 @@ function BuildSheet({
       >
         <EditingRail
           fieldCount={state.fields.length}
-          fieldsOpen={fieldsOpen}
-          onOpenFields={() => setFieldsOpen((o) => !o)}
+          fieldsOpen={fieldsView !== null}
+          onOpenFields={() => {
+            addFieldOpener.current = null;
+            setFieldsView((v) => (v === null ? 'list' : null));
+          }}
           saveStatus={state.saveStatus}
         />
 
@@ -429,6 +438,10 @@ function BuildSheet({
                     config: { fieldType: 'enum', choices: [...field.config.choices, value] },
                   });
                 }}
+                onAddField={(opener) => {
+                  addFieldOpener.current = opener;
+                  setFieldsView('create');
+                }}
                 onDuplicateRow={(rowId) => {
                   // Open the copy: the next thing changed is usually its date (#557).
                   void duplicateRow(rowId).then((copyId) => {
@@ -463,8 +476,16 @@ function BuildSheet({
       </div>
 
       <FieldsPopover
-        open={fieldsOpen}
-        onOpenChange={setFieldsOpen}
+        open={fieldsView !== null}
+        onOpenChange={(open) => setFieldsView(open ? 'list' : null)}
+        createOnly={fieldsView === 'create'}
+        onCloseAutoFocus={(e) => {
+          const opener = addFieldOpener.current;
+          addFieldOpener.current = null;
+          if (!opener?.isConnected) return;
+          e.preventDefault();
+          opener.focus();
+        }}
         fields={state.fields}
         fieldDefaults={fieldDefaults}
         groupByFieldRef={state.groupByFieldRef}

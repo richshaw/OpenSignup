@@ -41,6 +41,7 @@ function renderEditor(
     onCellChange?: Mock<(fieldRef: string, value: string) => void>;
     onCapacity?: Mock<(capacity: number | null) => void>;
     onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+    onAddField?: Mock<(opener: HTMLElement) => void>;
     onDuplicate?: Mock<() => void>;
     onDelete?: Mock<() => void>;
     onClose?: Mock<() => void>;
@@ -52,6 +53,7 @@ function renderEditor(
   const onCapacity = overrides.onCapacity ?? vi.fn<(capacity: number | null) => void>();
   const onAddEnumOption =
     overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onAddField = overrides.onAddField ?? vi.fn<(opener: HTMLElement) => void>();
   const onDuplicate = overrides.onDuplicate ?? vi.fn<() => void>();
   const onDelete = overrides.onDelete ?? vi.fn<() => void>();
   const onClose = overrides.onClose ?? vi.fn<() => void>();
@@ -67,15 +69,34 @@ function renderEditor(
       onCellChange={onCellChange}
       onCapacity={onCapacity}
       onAddEnumOption={onAddEnumOption}
+      onAddField={onAddField}
       onDuplicate={onDuplicate}
       onDelete={onDelete}
       onClose={onClose}
     />,
   );
-  return { ...utils, onCellChange, onCapacity, onAddEnumOption, onDuplicate, onDelete, onClose };
+  return {
+    ...utils,
+    onCellChange,
+    onCapacity,
+    onAddEnumOption,
+    onAddField,
+    onDuplicate,
+    onDelete,
+    onClose,
+  };
 }
 
 describe('SlotEditor', () => {
+  it('asks for a new field from "Add a field", staying open', () => {
+    const { onAddField, onClose } = renderEditor();
+    const add = screen.getByRole('button', { name: 'Add a field' });
+    expect(add.getAttribute('aria-haspopup')).toBe('dialog');
+    fireEvent.click(add);
+    expect(onAddField).toHaveBeenCalledExactlyOnceWith(add);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('says nothing about sign-ups on a slot nobody holds', () => {
     renderEditor({ taken: 0 });
     expect(screen.queryByRole('note')).toBeNull();

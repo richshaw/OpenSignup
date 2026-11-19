@@ -430,7 +430,8 @@
         "spots": "Spots",
         "noLimit": "No limit",
         "spotsHelp": "How many spots this slot has. Leave blank for no limit.",
-        "noTime": "No time"
+        "noTime": "No time",
+        "addField": "Add a field"
       },
       "placeholder": {
         "text": "e.g. Bring napkins",

@@ -30,6 +30,11 @@ export const UI = {
   addSlot: 'Add a slot',
   duplicate: 'Duplicate',
   delete: 'Delete',
+  // In an open slot, under its boxes; it opens the Fields dialog's form for a
+  // new field, whose name box and button these are.
+  addAField: 'Add a field',
+  fieldName: 'Field name',
+  addField: 'Add field',
   // What people see on the signup page for a slot left empty.
   untitledSlot: 'Untitled slot',
   // At the top on a computer; on a phone, in the three dots' sheet.
@@ -119,6 +124,9 @@ export const FROM_CATALOG: {
   addSlot: 'organizer.build.group.addSlot',
   duplicate: 'organizer.build.editor.duplicate',
   delete: 'organizer.build.editor.delete',
+  addAField: 'organizer.build.editor.addField',
+  fieldName: 'organizer.build.fieldForm.nameLabel',
+  addField: 'organizer.build.fieldForm.add',
   untitledSlot: 'participant.signupView.untitledSlot',
   preview: 'organizer.signup.preview',
   publish: 'organizer.signup.publish.label',

@@ -43,6 +43,8 @@ type WysiwygGroupProps = {
   onSetCapacity: (rowId: string, capacity: number | null) => void;
   /** Threaded through to EnumPicker. */
   onAddEnumOption: (fieldId: string, value: string) => void;
+  /** An open slot editor's "Add a field". */
+  onAddField: (opener: HTMLElement) => void;
   onDuplicateRow: (rowId: string) => void;
   onDeleteRow: (rowId: string) => void;
   onAddSlot: (groupKey: string) => void;
@@ -67,6 +69,7 @@ export function WysiwygGroup({
   onEditCell,
   onSetCapacity,
   onAddEnumOption,
+  onAddField,
   onDuplicateRow,
   onDeleteRow,
   onAddSlot,
@@ -123,6 +126,7 @@ export function WysiwygGroup({
             onEditCell={(ref, v) => onEditCell(row.id, ref, v)}
             onSetCapacity={(c) => onSetCapacity(row.id, c)}
             onAddEnumOption={onAddEnumOption}
+            onAddField={onAddField}
             onDuplicate={() => onDuplicateRow(row.id)}
             onDelete={() => onDeleteRow(row.id)}
             {...(reorder ? { reorder } : {})}

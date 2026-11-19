@@ -37,6 +37,7 @@ type RenderProps = {
   reminderFieldRef?: string | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  createOnly?: boolean;
   onAddField?: Mock<(name: string, config: SlotFieldConfig) => void>;
   onUpdateField?: Mock<UpdateFieldFn>;
   onDeleteField?: Mock<(fieldId: string) => void>;
@@ -58,6 +59,7 @@ function renderPopover(overrides: RenderProps = {}) {
     <FieldsPopover
       open={overrides.open ?? true}
       onOpenChange={onOpenChange}
+      {...(overrides.createOnly !== undefined ? { createOnly: overrides.createOnly } : {})}
       fields={overrides.fields ?? [makeField()]}
       fieldDefaults={DEFAULTS}
       groupByFieldRef={overrides.groupByFieldRef ?? null}
@@ -159,6 +161,33 @@ describe('FieldsPopover', () => {
       expect.objectContaining({ fieldType: 'text' }),
     );
     expect(screen.getByText(/Fields · 1/)).toBeTruthy();
+  });
+
+  describe('opened from a slot, on its New field form', () => {
+    it('shows the New field form, not the list', () => {
+      renderPopover({ createOnly: true });
+      expect(screen.getByText('New field')).toBeTruthy();
+      expect(screen.getByLabelText('Field name')).toBeTruthy();
+      expect(screen.queryByText(/^Fields ·/)).toBeNull();
+    });
+
+    it('adds the field and closes, rather than show the list', () => {
+      const { onAddField, onOpenChange } = renderPopover({ createOnly: true });
+      fireEvent.change(screen.getByLabelText('Field name'), { target: { value: 'Start' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Add field$/ }));
+      expect(onAddField).toHaveBeenCalledWith(
+        'Start',
+        expect.objectContaining({ fieldType: 'text' }),
+      );
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('closes on Cancel, adding nothing', () => {
+      const { onAddField, onOpenChange } = renderPopover({ createOnly: true });
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(onAddField).not.toHaveBeenCalled();
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 
   it('clicking a field name opens the edit form for that field', () => {

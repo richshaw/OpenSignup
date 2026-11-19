@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef } from 'react';
-import { Check, Copy, Hash, Trash2 } from 'lucide-react';
+import { Check, Copy, Hash, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
   FIELD_TYPE_META,
@@ -38,6 +38,11 @@ type SlotEditorProps = {
   onCapacity: (capacity: number | null) => void;
   /** Append `value` to the field's enum choices config. Only called for enum cells. */
   onAddEnumOption: (fieldId: string, value: string) => void;
+  /**
+   * Opens the Fields dialog on its New field form, this editor staying open.
+   * Given the button, for the dialog to give focus back to when it closes.
+   */
+  onAddField: (opener: HTMLElement) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   /** Done, or Escape in any of the editor's boxes. */
@@ -61,6 +66,7 @@ export function SlotEditor({
   onCellChange,
   onCapacity,
   onAddEnumOption,
+  onAddField,
   onDuplicate,
   onDelete,
   onClose,
@@ -218,6 +224,19 @@ export function SlotEditor({
           </span>
         </label>
       </div>
+      {/* Where an organizer filling in a slot notices something every slot
+          needs is missing. The dialog it opens gives focus back here. A darker
+          dash than Add date's: the sheet's own grey border vanishes on the open
+          editor's grey, as Magic Compose's dashed chips found. */}
+      <button
+        type="button"
+        onClick={(e) => onAddField(e.currentTarget)}
+        aria-haspopup="dialog"
+        className="mt-3 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-ink-soft/50 bg-transparent px-3 py-1 text-xs font-medium text-ink-muted transition-colors duration-180 hover:border-brand hover:bg-brand-soft hover:text-brand"
+      >
+        <Plus size={12} />
+        {t('editor.addField')}
+      </button>
     </div>
   );
 }

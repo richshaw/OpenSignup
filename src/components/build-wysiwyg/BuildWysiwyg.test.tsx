@@ -302,6 +302,81 @@ describe('BuildWysiwyg — the signup’s language', () => {
   });
 });
 
+describe('BuildWysiwyg — Add a field', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const nameField = {
+    id: 'f-name',
+    ref: 'name',
+    label: 'Name',
+    fieldType: 'text' as const,
+    sortOrder: 0,
+    config: { fieldType: 'text' as const, maxLength: 200 },
+  };
+  const slots = [{ id: 'slot_a', capacity: 2, sortOrder: 0, values: { name: 'Fruit' } }];
+
+  function openSlotAndAddField() {
+    render(<BuildWysiwyg {...baseProps} initialFields={[nameField]} initialSlots={slots} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Edit slot — Fruit, / }));
+    const add = screen.getByRole('button', { name: 'Add a field' });
+    add.focus();
+    fireEvent.click(add);
+    return screen.getByRole('dialog');
+  }
+
+  it('opens the Fields dialog on its New field form', () => {
+    const dialog = openSlotAndAddField();
+    expect(within(dialog).getByText('New field')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Field name')).toBeInTheDocument();
+  });
+
+  it('adds the field, closes the dialog, and shows its box in the open slot', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({ data: { id: 'f-start', ref: 'start', sortOrder: 1, ...body } }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const dialog = openSlotAndAddField();
+    fireEvent.change(within(dialog).getByLabelText('Field name'), { target: { value: 'Start' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Add field$/ }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const editor = screen.getByTestId('slot-editor-slot_a');
+    await waitFor(() => expect(within(editor).getByLabelText('Start value')).toBeInTheDocument());
+    expect(fetchMock.mock.calls[0]![0]).toBe('/api/signups/sig_t/fields');
+    // Focus goes back to the button that opened it, still in the open slot.
+    await waitFor(() =>
+      expect(within(editor).getByRole('button', { name: 'Add a field' })).toHaveFocus(),
+    );
+  });
+
+  it('closes on Cancel and Escape, leaving the slot open', async () => {
+    let dialog = openSlotAndAddField();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add a field' }));
+    dialog = screen.getByRole('dialog');
+    fireEvent.keyDown(within(dialog).getByLabelText('Field name'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByTestId('slot-editor-slot_a')).toBeInTheDocument();
+  });
+
+  it('still opens the dialog on its list from the rail', () => {
+    render(<BuildWysiwyg {...baseProps} initialFields={[nameField]} initialSlots={slots} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Fields/ }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/Fields · 1/)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText('Field name')).toBeNull();
+  });
+});
+
 describe('BuildWysiwyg — duplicate', () => {
   afterEach(() => {
     vi.unstubAllGlobals();

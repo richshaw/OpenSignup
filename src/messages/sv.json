@@ -369,7 +369,8 @@
         "spots": "Platser",
         "noLimit": "Obegränsat",
         "spotsHelp": "Hur många platser passet har. Lämna tomt för obegränsat antal.",
-        "noTime": "Ingen tid"
+        "noTime": "Ingen tid",
+        "addField": "Lägg till ett fält"
       },
       "placeholder": {
         "text": "t.ex. Ta med servetter",
