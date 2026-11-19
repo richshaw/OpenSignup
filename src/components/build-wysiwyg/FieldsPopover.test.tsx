@@ -151,6 +151,13 @@ describe('FieldsPopover', () => {
     expect(screen.getByText(/Fields · 1/)).toBeTruthy();
   });
 
+  it('the create form opened from the list has a Back link to it', () => {
+    renderPopover();
+    fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to fields list' }));
+    expect(screen.getByText(/Fields · 1/)).toBeTruthy();
+  });
+
   it('saving from the create form calls onAddField and returns to the list', () => {
     const { onAddField } = renderPopover();
     fireEvent.click(screen.getByRole('button', { name: 'Add field' }));
@@ -180,6 +187,11 @@ describe('FieldsPopover', () => {
         expect.objectContaining({ fieldType: 'text' }),
       );
       expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('has no Back link, since there is no list to go back to', () => {
+      renderPopover({ createOnly: true });
+      expect(screen.queryByRole('button', { name: 'Back to fields list' })).toBeNull();
     });
 
     it('closes on Cancel, adding nothing', () => {

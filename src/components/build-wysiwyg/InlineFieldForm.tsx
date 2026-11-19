@@ -35,6 +35,12 @@ type InlineFieldFormProps = {
   onSave: (input: { name: string; config: SlotFieldConfig; reminder?: boolean }) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  /**
+   * Leaves out the Back link to the fields list, for a dialog that opened
+   * straight on this form and has no list to go back to: Cancel and the
+   * dialog's close button end it there.
+   */
+  hideBack?: boolean;
 };
 
 export function InlineFieldForm({
@@ -45,6 +51,7 @@ export function InlineFieldForm({
   onSave,
   onCancel,
   onDelete,
+  hideBack,
 }: InlineFieldFormProps) {
   const t = useTranslations('organizer.build');
   const { lang } = useSignupLanguage();
@@ -86,17 +93,19 @@ export function InlineFieldForm({
 
   return (
     <div>
-      <div className="-mt-1 mb-2.5">
-        <button
-          type="button"
-          onClick={onCancel}
-          aria-label={t('fieldForm.backLabel')}
-          className="inline-flex h-6 items-center gap-1 rounded-md border-none bg-transparent px-1 text-[11px] font-medium text-ink-muted hover:bg-surface-raised"
-        >
-          <ArrowLeft size={11} />
-          {t('fieldForm.back')}
-        </button>
-      </div>
+      {!hideBack && (
+        <div className="-mt-1 mb-2.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label={t('fieldForm.backLabel')}
+            className="inline-flex h-6 items-center gap-1 rounded-md border-none bg-transparent px-1 text-[11px] font-medium text-ink-muted hover:bg-surface-raised"
+          >
+            <ArrowLeft size={11} />
+            {t('fieldForm.back')}
+          </button>
+        </div>
+      )}
 
       <label className="mb-2.5 block">
         <span className="text-[11px] font-medium text-ink-muted">{t('fieldForm.name')}</span>

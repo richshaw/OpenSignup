@@ -50,7 +50,7 @@ type FieldsPopoverProps = {
 export function FieldsPopover({
   open,
   onOpenChange,
-  createOnly = false,
+  createOnly,
   onCloseAutoFocus,
   ...body
 }: FieldsPopoverProps) {
@@ -134,6 +134,7 @@ function FieldsPopoverBody({
           reminderFieldRef={reminderFieldRef}
           reminderFieldLabel={reminderField?.name ?? null}
           onCancel={closeForm}
+          hideBack={!!onCreateDone}
           onSave={({ name, config, reminder }) => {
             if (formMode.mode === 'edit') {
               const field = formMode.field;

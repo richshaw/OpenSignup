@@ -282,7 +282,12 @@ test.describe('help: create and publish your first signup', () => {
     const slotEditor = page.locator('[data-testid^="slot-editor-"]');
     await slotEditor.getByRole('button', { name: UI.addAField }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByLabel(UI.fieldName).fill('Meeting place');
+    // By the box's visible label, which is what the article names.
+    await dialog
+      .locator('label')
+      .filter({ has: page.getByText(UI.fieldName, { exact: true }) })
+      .getByRole('textbox')
+      .fill('Meeting place');
     await dialog.getByRole('button', { name: UI.addField, exact: true }).click();
     // "The slot stays open with a box for it."
     await expect(dialog).toHaveCount(0);
