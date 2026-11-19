@@ -363,12 +363,19 @@
         "required": "Required",
         "optional": "Optional",
         "requiredHelp": "We email everyone their link to change or cancel.",
+        "requiredHelpReminders": "We email everyone their link to change or cancel, and a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} their slot.",
         "optionalHelp": "People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab."
       },
       "language": {
         "title": "Language",
         "legend": "Signup language",
         "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too."
+      },
+      "reminders": {
+        "title": "Reminders",
+        "on": "People who give an email get a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} their slot’s {label}. To turn reminders off, open Fields on the Build tab and choose {label}.",
+        "off": "Reminders are off. To turn them on, open Fields on the Build tab and choose {label}.",
+        "none": "No reminders: your slots have no date field."
       },
       "save": "Save",
       "saving": "Saving…",
