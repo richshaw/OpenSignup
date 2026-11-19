@@ -22,6 +22,8 @@ export const UI = {
   createSignup: 'Create signup',
   // Under a draft's title, where a published signup's link is.
   draftOnly: 'Only you can see this draft until you publish it.',
+  // Beside it: names go in on the signup page, not here.
+  draftHowPeopleSignUp: 'Then people open its link, choose a slot and type their name.',
   emptySlot: 'Set what',
   what: 'What',
   date: 'Date',
@@ -109,6 +111,7 @@ export const FROM_CATALOG: {
   description: 'organizer.newSignup.descriptionLabel',
   createSignup: 'organizer.newSignup.create',
   draftOnly: 'organizer.signup.draftLine',
+  draftHowPeopleSignUp: 'organizer.signup.draftHowPeopleSignUp',
   // The empty slot's placeholder names its first field, lowercased.
   emptySlot: { key: 'organizer.build.empty.named', values: { label: 'what' } },
   // A new signup's fields, named in its language.
