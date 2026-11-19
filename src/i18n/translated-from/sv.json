@@ -261,6 +261,7 @@
   "organizer.build.sheet.descriptionPlaceholder": "Add a short description for volunteers",
   "organizer.build.sheet.descriptionLabel": "Signup description",
   "organizer.build.sheet.addDate": "Add date",
+  "organizer.build.sheet.slotCount": "{count, plural, one {{count, number, ::group-off} slot} other {{count, number, ::group-off} slots}}",
   "organizer.build.group.header": "Group header — {heading}",
   "organizer.build.group.renameFailed": "That change didn’t save, so this heading is back to what it was. Try again.",
   "organizer.build.group.addSlot": "Add a slot",

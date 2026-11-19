@@ -2,7 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { getTestTranslator } from '@/i18n/testing/translator';
-import { BuildBridge, useBuildBridge, useRegisterBuildTab } from './BuildBridge';
+import {
+  BuildBridge,
+  useBuildBridge,
+  useRegisterBuildTab,
+  useReportSlotCount,
+} from './BuildBridge';
 import { signupHeaderText } from './header-text';
 import { TabsNav } from './TabsNav';
 
@@ -15,6 +20,9 @@ const BUILD = '/app/signups/sig_1/build';
 
 /** The header's words in English, as the layout passes them. */
 const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
+
+/** Two slots, as the layout passes them. */
+const SLOTS = { count: 2, spoken: '2 slots' };
 
 type Bridge = ReturnType<typeof useBuildBridge>;
 type Tab = Parameters<typeof useRegisterBuildTab>[0];
@@ -36,9 +44,9 @@ function BuildTab(tab: Tab) {
 function renderBridge(tab: Tab | null) {
   let bridge: Bridge | null = null;
   const tree = (shown: Tab | null) => (
-    <BuildBridge buildHref="/app/signups/sig_1/build">
+    <BuildBridge buildHref="/app/signups/sig_1/build" slots={SLOTS}>
       <Header onReady={(b) => (bridge = b)} />
-      <TabsNav signupId="sig_1" counts={{ build: 2, responses: 0 }} labels={TEXT.tabs} />
+      <TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={TEXT.tabs} />
       {shown ? <BuildTab {...shown} /> : null}
     </BuildBridge>
   );
@@ -266,5 +274,50 @@ describe('BuildBridge', () => {
     stopPhone();
     expect(handBack()).toBe(false);
     expect(phone).toHaveBeenCalledOnce();
+  });
+
+  describe('the count beside Build', () => {
+    function Slots({ count }: { count: number }) {
+      useReportSlotCount({ count, spoken: `${count} slots` });
+      return null;
+    }
+
+    /** The bridge with the tabs, the layout's `slots`, and the Build tab's count while it shows. */
+    function tree(slots: typeof SLOTS, shown: number | null) {
+      return (
+        <BuildBridge buildHref={BUILD} slots={slots}>
+          <TabsNav signupId="sig_1" counts={{ slots, responses: 0 }} labels={TEXT.tabs} />
+          {shown === null ? null : <Slots count={shown} />}
+        </BuildBridge>
+      );
+    }
+
+    const build = () => screen.getByRole('tab', { name: /^Build/ });
+
+    it('counts slots, then follows the Build tab as slots come and go', () => {
+      const view = render(tree(SLOTS, null));
+      expect(build()).toHaveTextContent(/^Build22 slots$/);
+      view.rerender(tree(SLOTS, 2));
+      view.rerender(tree(SLOTS, 3));
+      expect(build()).toHaveTextContent(/^Build33 slots$/);
+      view.rerender(tree(SLOTS, 1));
+      expect(build()).toHaveAccessibleName(/^Build ?1 slots$/);
+    });
+
+    it('keeps the last count on another tab, which loads nothing again', () => {
+      const view = render(tree(SLOTS, 2));
+      view.rerender(tree(SLOTS, 5));
+      view.rerender(tree(SLOTS, null));
+      expect(build()).toHaveTextContent(/^Build55 slots$/);
+    });
+
+    it('takes a fresh load’s count over one the Build tab reported before it', () => {
+      const view = render(tree(SLOTS, 4));
+      view.rerender(tree(SLOTS, null));
+      // A Publish or a Settings save loads the layout again, with the
+      // server's count: a connected assistant may have added slots since.
+      view.rerender(tree({ count: 6, spoken: '6 slots' }, null));
+      expect(build()).toHaveTextContent(/^Build66 slots$/);
+    });
   });
 });

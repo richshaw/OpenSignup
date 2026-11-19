@@ -336,7 +336,8 @@
         "titleLabel": "Anmälningslistans titel",
         "descriptionPlaceholder": "Lägg till en kort beskrivning för deltagarna",
         "descriptionLabel": "Anmälningslistans beskrivning",
-        "addDate": "Lägg till datum"
+        "addDate": "Lägg till datum",
+        "slotCount": "{count, number} pass"
       },
       "group": {
         "header": "Grupprubrik – {heading}",
