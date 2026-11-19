@@ -4,11 +4,12 @@
   // a repo that merges this one can add scripts and skills of its own without
   // editing this file. The worker imports a site's own jobs from
   // src/jobs/extensions/ by listing the folder, so nothing imports them by
-  // name either (src/jobs/registry.ts).
+  // name either (src/jobs/registry.ts). They share a pattern with scripts
+  // because that folder holds none here, and a pattern of its own matching
+  // nothing would print a knip hint on every run.
   "entry": [
-    "scripts/**/*.{ts,mjs}",
+    "{scripts/**/*.{ts,mjs},src/jobs/extensions/*.jobs.ts}",
     ".claude/skills/**/*.{js,mjs,ts}",
-    "src/jobs/extensions/*.jobs.ts",
   ],
   "ignore": [
     // A design reference kit, not part of the app.

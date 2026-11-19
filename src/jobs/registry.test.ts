@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -13,7 +14,7 @@ import {
   type JobDefinition,
 } from './registry';
 
-type Handler = (batch: { data: object }[]) => Promise<unknown>;
+type Handler = (batch: { data: object | null }[]) => Promise<unknown>;
 
 /** A pg-boss stand-in that records what was asked of it. */
 function fakeBoss(existingSchedules: string[] = []) {
@@ -49,6 +50,7 @@ let errors: MockInstance<(fields: object, message: string) => void>;
 beforeEach(() => {
   errors = vi.spyOn(log, 'error').mockImplementation(() => undefined) as unknown as typeof errors;
   vi.spyOn(log, 'info').mockImplementation(() => undefined);
+  vi.spyOn(log, 'warn').mockImplementation(() => undefined);
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -117,6 +119,36 @@ describe('registerJobs', () => {
     expect(errorMessages()).toEqual(['site.a failed']);
   });
 
+  it('gives a job queued by its schedule, which pg-boss sends with no data, an empty object', async () => {
+    const { boss, handlers } = fakeBoss();
+    const run = vi.fn(noop);
+    await registerJobs(boss, [{ name: 'site.a', schedule: '0 * * * *', run }]);
+    await handlers.get('site.a')?.([{ data: null }]);
+    expect(run).toHaveBeenCalledWith({});
+  });
+
+  it('still logs the failure when logFields throws, and never lets it replace the error or queue', async () => {
+    const { boss, handlers } = fakeBoss();
+    const failure = new Error('mail server down');
+    const fail = async () => {
+      throw failure;
+    };
+    await registerJobs(boss, [
+      {
+        name: 'site.throws',
+        run: fail,
+        logFields: (data: { thingId: string }) => ({ thingId: data.thingId.toUpperCase() }),
+      },
+      { name: 'site.shadows', run: fail, logFields: () => ({ err: 'not it', queue: 'not it' }) },
+    ]);
+    await expect(handlers.get('site.throws')?.([{ data: null }])).rejects.toBe(failure);
+    await expect(handlers.get('site.shadows')?.([{ data: {} }])).rejects.toBe(failure);
+    expect(errors.mock.calls.map(([fields]) => fields)).toEqual([
+      { err: failure, queue: 'site.throws' },
+      { err: failure, queue: 'site.shadows' },
+    ]);
+  });
+
   it('works no queue when a schedule is refused', async () => {
     const { boss } = fakeBoss();
     await expect(
@@ -131,9 +163,9 @@ describe('registerJobs', () => {
 
 describe('unscheduleOthers', () => {
   it("removes every schedule but those kept and pg-boss's own", async () => {
-    const { boss, schedules } = fakeBoss(['site.a', 'site.gone', '__pgboss__cron']);
+    const { boss, schedules } = fakeBoss(['site.a', 'site.gone', '__pgboss__send-it']);
     await unscheduleOthers(boss, new Set(['site.a']));
-    expect([...schedules].sort()).toEqual(['__pgboss__cron', 'site.a']);
+    expect([...schedules].sort()).toEqual(['__pgboss__send-it', 'site.a']);
   });
 });
 
@@ -160,7 +192,7 @@ describe('the extensions folder', () => {
       await put('README.md', '# Notes');
 
       const loaded = await loadExtensions(dir);
-      expect(loaded.map(({ file, jobs }) => [file, jobs.map((job) => job.name)])).toEqual([
+      expect((loaded ?? []).map(({ file, jobs }) => [file, jobs.map((job) => job.name)])).toEqual([
         ['a.jobs.ts', ['site.a1', 'site.a2']],
         ['b.jobs.ts', ['site.b']],
       ]);
@@ -179,7 +211,7 @@ describe('the extensions folder', () => {
       await put('d.jobs.ts', jobsFile('site.d'));
 
       const loaded = await loadExtensions(dir);
-      expect(loaded.map(({ file }) => file)).toEqual(['d.jobs.ts']);
+      expect((loaded ?? []).map(({ file }) => file)).toEqual(['d.jobs.ts']);
       expect(errorMessages()).toEqual([
         'worker extension skipped: it failed to load',
         'worker extension skipped: it exports no `jobs` array',
@@ -191,12 +223,18 @@ describe('the extensions folder', () => {
       });
     });
 
-    it('finds none in a folder that does not exist', async () => {
-      expect(await loadExtensions(path.join(dir, 'missing'))).toEqual([]);
+    it("logs a folder it can't list, and says so rather than finding none", async () => {
+      expect(await loadExtensions(path.join(dir, 'missing'))).toBeNull();
+      expect(errorMessages()).toEqual([
+        'worker extensions skipped: the folder could not be listed',
+      ]);
     });
 
-    it('finds none in the folder OpenSignup ships, which holds only its README', async () => {
-      expect(await loadExtensions(EXTENSIONS_DIR)).toEqual([]);
+    // Checks where the folder is, not what's in it: a site's own copy holds
+    // its jobs, and this test must pass there too.
+    it('looks in the folder beside the registry, which OpenSignup ships with its README', () => {
+      expect(EXTENSIONS_DIR).toBe(path.join(__dirname, 'extensions'));
+      expect(existsSync(path.join(EXTENSIONS_DIR, 'README.md'))).toBe(true);
     });
   });
 
@@ -224,17 +262,19 @@ describe('the extensions folder', () => {
       expect(queues).toEqual(['reminders.dispatch', 'reminders.send', 'site.b']);
     });
 
-    it('skips an extension whose queue is already taken, or named twice', async () => {
+    it("skips an extension whose queue is already taken, named twice, or pg-boss's own", async () => {
       await put('a.jobs.ts', jobsFile('site.a', 'reminders.send'));
       await put('b.jobs.ts', jobsFile('site.b', 'site.b'));
-      await put('c.jobs.ts', jobsFile('site.c'));
+      await put('c.jobs.ts', jobsFile('__pgboss__send-it'));
+      await put('d.jobs.ts', jobsFile('site.d'));
       const { boss } = fakeBoss();
 
       const { queues } = await startJobs(boss, builtIn, dir);
-      expect(queues).toEqual(['reminders.dispatch', 'reminders.send', 'site.c']);
+      expect(queues).toEqual(['reminders.dispatch', 'reminders.send', 'site.d']);
       expect(errors.mock.calls.map(([fields]) => fields)).toEqual([
         { file: 'a.jobs.ts', queue: 'reminders.send' },
         { file: 'b.jobs.ts', queue: 'site.b' },
+        { file: 'c.jobs.ts', queue: '__pgboss__send-it' },
       ]);
     });
 
@@ -259,6 +299,14 @@ describe('the extensions folder', () => {
       const { boss, schedules } = fakeBoss(['site.retired', 'reminders.dispatch']);
       await startJobs(boss, builtIn, dir);
       expect([...schedules]).toEqual(['reminders.dispatch']);
+    });
+
+    it("removes no schedule when it can't list the extensions folder", async () => {
+      const { boss, schedules } = fakeBoss(['site.digest']);
+      const { queues } = await startJobs(boss, builtIn, path.join(dir, 'missing'));
+      expect(queues).toEqual(['reminders.dispatch', 'reminders.send']);
+      expect([...schedules].sort()).toEqual(['reminders.dispatch', 'site.digest']);
+      expect(boss.unschedule).not.toHaveBeenCalled();
     });
 
     it("stops the worker when one of its own jobs can't register", async () => {
