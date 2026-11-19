@@ -132,6 +132,8 @@ Unlike the values above, `DEFAULT_LOCALE` is read when the app starts, so changi
 
 To link pages of your own from the footer of every page, list them in `src/lib/footer-links.ts`. This one is a code change, not an environment variable. The file holds only that list, so your copy merges cleanly when you update.
 
+If your site does more than OpenSignup does, such as sending an email of its own, say so on the privacy page by filling in `src/lib/privacy-additions.ts`: a date, and sections with a heading and paragraphs of plain text, each saying what you collect or send, why, and how long you keep it. The page shows them under "Added on this site", points to them where it would otherwise read as the whole story (the emails it sends, why it uses data, how long it keeps it), and shows the later of its own date and yours as "Last updated". Like the footer list, the file holds only that value, so your copy merges cleanly.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md). To report a security issue, see [`SECURITY.md`](SECURITY.md).

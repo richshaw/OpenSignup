@@ -18,6 +18,31 @@ import {
   SLOT_CHANGE_DELAY,
 } from '@/lib/lifetimes';
 import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
+import { PRIVACY_ADDITIONS } from '@/lib/privacy-additions';
+
+/** When this page's own text last changed, as YYYY-MM-DD. */
+const PAGE_UPDATED = '2026-11-15';
+
+/** The heading an instance's own sections go under (src/lib/privacy-additions.ts). */
+const ADDED_HEADING = 'Added on this site';
+
+/**
+ * A YYYY-MM-DD date as "19 November 2026". Throws on anything else, so a
+ * mistyped date in an instance's additions fails the build rather than
+ * showing a wrong "Last updated".
+ */
+function formatDay(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || date.toISOString().slice(0, 10) !== iso) {
+    throw new Error(`A privacy page date must be a real day written YYYY-MM-DD, not "${iso}"`);
+  }
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+}
 
 export const metadata: Metadata = pageMetadata({
   path: '/privacy',
@@ -28,11 +53,17 @@ export const metadata: Metadata = pageMetadata({
 
 export default function PrivacyPage() {
   const operator = operatorLabel();
+  const added = PRIVACY_ADDITIONS;
+  // Formatting both checks the instance's date even when the page's is later.
+  const pageUpdated = formatDay(PAGE_UPDATED);
+  const addedUpdated = added ? formatDay(added.lastUpdated) : null;
+  const lastUpdated =
+    added && addedUpdated && added.lastUpdated > PAGE_UPDATED ? addedUpdated : pageUpdated;
   return (
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 15 November 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: {lastUpdated}</p>
       </header>
 
       <section className="space-y-3">
@@ -54,6 +85,13 @@ export default function PrivacyPage() {
           AGPL-3.0. This page applies to <em>this instance</em>, the deployment you are using now,
           which {operator} runs. &ldquo;We&rdquo; and &ldquo;us&rdquo; on this page mean {operator}.
         </p>
+        {added ? (
+          <p>
+            This site also does some things OpenSignup doesn&apos;t do on its own. They&apos;re
+            described under &ldquo;{ADDED_HEADING}&rdquo; below, and they add to everything else on
+            this page.
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-3">
@@ -208,21 +246,28 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Email delivery</h2>
         <p>
-          {INSTANCE_NAME} sends four kinds of email: organizer magic-link sign-in emails, a
-          confirmation to a participant when they commit to a slot, a reminder before a dated slot,
-          and an email when the organizer moves a participant&apos;s slot to a new date or time. A
-          participant gets these only if they gave an email address. Moving to a different slot
-          gives your spot a new private link, and sends a fresh confirmation with it. The old link
-          then leads to the new one. Each of these participant emails contains a private link that
-          lets you change or cancel that commitment without signing in, so treat them as you would a
-          password and don&apos;t forward them. Reminders go out {REMINDER_LEAD_WORDS} the slot, and
-          a moved-slot email about {SLOT_CHANGE_DELAY} after the organizer&apos;s last change to its
-          date or time; organizers can turn both off for a signup entirely, with the reminders
-          setting. Every reminder and moved-slot email carries a link that stops both for that
-          signup; we record only the time you opted out, and it does not affect any other signup or
-          your slot itself. Delivery uses whichever transport the operator has configured (SMTP, a
-          transactional provider, or local console output in development). {INSTANCE_NAME} sends no
+          {added ? 'OpenSignup, the software this site runs,' : INSTANCE_NAME} sends four kinds of
+          email: organizer magic-link sign-in emails, a confirmation to a participant when they
+          commit to a slot, a reminder before a dated slot, and an email when the organizer moves a
+          participant&apos;s slot to a new date or time. A participant gets these only if they gave
+          an email address. Moving to a different slot gives your spot a new private link, and sends
+          a fresh confirmation with it. The old link then leads to the new one. Each of these
+          participant emails contains a private link that lets you change or cancel that commitment
+          without signing in, so treat them as you would a password and don&apos;t forward them.
+          Reminders go out {REMINDER_LEAD_WORDS} the slot, and a moved-slot email about{' '}
+          {SLOT_CHANGE_DELAY} after the organizer&apos;s last change to its date or time; organizers
+          can turn both off for a signup entirely, with the reminders setting. Every reminder and
+          moved-slot email carries a link that stops both for that signup; we record only the time
+          you opted out, and it does not affect any other signup or your slot itself. Delivery uses
+          whichever transport the operator has configured (SMTP, a transactional provider, or local
+          console output in development). {added ? 'OpenSignup itself' : INSTANCE_NAME} sends no
           marketing email.
+          {added ? (
+            <>
+              {' '}
+              Anything else this site sends is described under &ldquo;{ADDED_HEADING}&rdquo; below.
+            </>
+          ) : null}
         </p>
       </section>
 
@@ -307,6 +352,20 @@ export default function PrivacyPage() {
         </p>
       </section>
 
+      {added ? (
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold tracking-tight">{ADDED_HEADING}</h2>
+          {added.sections.map((section) => (
+            <div key={section.heading} className="space-y-3">
+              <h3 className="text-lg font-semibold tracking-tight">{section.heading}</h3>
+              {section.paragraphs.map((paragraph, i) => (
+                <p key={i}>{paragraph}</p>
+              ))}
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Why we use your data</h2>
         <p>Data protection law asks us to say what allows us to use your data. For each use:</p>
@@ -330,6 +389,11 @@ export default function PrivacyPage() {
             To count, in total, how the service is used: the page-view entries and where organizers
             get stuck, described above. (Our legitimate interest in improving the service.)
           </li>
+          {added ? (
+            <li>
+              For what &ldquo;{ADDED_HEADING}&rdquo; above describes: the reasons given there.
+            </li>
+          ) : null}
           <li>Where the law requires it, for example to answer a valid legal request.</li>
         </ul>
         <p>Where we rely on legitimate interests, you can object by emailing us.</p>
@@ -352,6 +416,9 @@ export default function PrivacyPage() {
             Connected-app approvals and tokens: until they expire or the organizer disconnects the
             app, as described under &ldquo;Connected apps and AI assistants&rdquo;.
           </li>
+          {added ? (
+            <li>What &ldquo;{ADDED_HEADING}&rdquo; above describes: as long as it says there.</li>
+          ) : null}
           <li>Server logs: as long as the hosting this instance runs on keeps them.</li>
           <li>
             What your browser keeps: see the{' '}
