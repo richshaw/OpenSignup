@@ -6,7 +6,7 @@ export interface EmailMessage {
   headers?: Record<string, string>;
   /**
    * Sends this email from another address than `EMAIL_FROM`, such as a
-   * person's own on the same domain: an address, or `Name <address>`. It has
+   * support address on the same domain: an address, or `Name <address>`. It has
    * to be one the transport may send from: for Resend, an address on a domain
    * verified there. Bounces still go where `EMAIL_FROM`'s do (with SMTP, the
    * envelope sender stays `EMAIL_FROM`). Blank counts as none.
