@@ -139,6 +139,7 @@ function BuildSheet({
   const { lang } = useSignupLanguage();
   const {
     state,
+    slotMoved,
     updateSignupMeta,
     addField,
     updateField,
@@ -411,6 +412,7 @@ function BuildSheet({
                 fields={state.fields}
                 takenBySlot={committedBySlot}
                 remindersOn={state.reminderFieldRef !== null}
+                slotMoved={slotMoved}
                 expandedRowId={expandedRowId}
                 focusRowId={focusRowId}
                 onRowFocused={clearFocusRow}
