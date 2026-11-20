@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireOrganizerSession, toActor } from '@/auth/session';
-import { localeOfOrganizer, newSignupLocale } from '@/i18n/locale';
+import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { waitMinutes } from '@/lib/format-duration';
 import { refusalText } from '@/lib/organizer-errors';
@@ -11,6 +11,7 @@ import { requireWorkspaceWrite } from '@/lib/policy';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { createSignup } from '@/services/signups';
 import { lfLineBreaks } from './line-breaks';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 /**
  * Why the form was refused, in the organizer's language, with what was typed
@@ -49,19 +50,13 @@ export async function createSignupAction(
     const error = t('tooManySignups', { minutes: waitMinutes(retryAfter) });
     return { error, title, description };
   }
-  const language = newSignupLocale(s);
   const result = await createSignup(
     db,
     actor,
     s.defaultWorkspaceId,
-    {
-      title,
-      description,
-      visibility: 'unlisted',
-      ...(language ? { settings: { locale: language.locale } } : {}),
-    },
-    { localeSource: language?.source },
+    { title, description, visibility: 'unlisted' },
+    { organizer: s },
   );
   if (!result.ok) return { error: refusalText(t, result.error), title, description };
-  redirect(`/app/signups/${result.value.id}`);
+  redirect(signupTabPath(result.value.id, 'build'));
 }

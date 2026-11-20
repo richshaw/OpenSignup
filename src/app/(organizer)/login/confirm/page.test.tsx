@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
+import { INSTANCE_NAME } from '@/lib/site-config';
 
 // The instance's DEFAULT_LOCALE (none unless a test sets one).
 const request = vi.hoisted(() => ({ defaultLocale: undefined as string | undefined }));
@@ -57,7 +58,9 @@ describe('ConfirmLoginPage', () => {
   it('is in English, word for word as it read before the catalog', async () => {
     const { frame } = await renderPage();
     expect(frame).toHaveAttribute('lang', 'en');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Sign in to OpenSignup');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      `Sign in to ${INSTANCE_NAME}`,
+    );
     const line = screen.getByText(/^Click the button below/);
     expect(line).toHaveTextContent('Click the button below to sign in as pat@example.com.');
     expect(within(line).getByText('pat@example.com').tagName).toBe('STRONG');

@@ -143,6 +143,12 @@ describe('formatGroupLabel', () => {
     expect(formatGroupLabel(game, '', 'en', t)).toBe('(no game)');
   });
 
+  it('keeps the label’s capital in a language that capitalizes nouns', () => {
+    expect(formatGroupLabel(text('g', 'Rolle'), undefined, 'de', standIn)).toBe(
+      'noValue {"label":"Rolle"}',
+    );
+  });
+
   it('takes "(no <label>)" from the catalog, with the label whole in it', () => {
     expect(formatGroupLabel(text('g', 'Game Day'), undefined, 'en', standIn)).toBe(
       'noValue {"label":"game day"}',

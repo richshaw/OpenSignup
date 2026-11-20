@@ -53,10 +53,35 @@ export function joinCommitmentTables<T extends PgSelect>(query: T) {
     .innerJoin(participants, eq(participants.id, commitments.participantId));
 }
 
+/** A `slot.rescheduled` row, aliased `m`, for the slot `slotId` of signup `signupId`. */
+export function moveOfSlot(signupId: SQL, slotId: SQL): SQL {
+  return sql`m.event_type = 'slot.rescheduled'
+  AND m.signup_id = ${signupId}
+  AND (m.payload->>'slotId') = ${slotId}`;
+}
+
 /** A `slot.rescheduled` row, aliased `m`, for the slot in the joined query. */
-export const moveOfThisSlot = sql`m.event_type = 'slot.rescheduled'
-  AND m.signup_id = ${commitments.signupId}
-  AND (m.payload->>'slotId') = ${slots.id}`;
+export const moveOfThisSlot = moveOfSlot(sql`${commitments.signupId}`, sql`${slots.id}`);
+
+/**
+ * The slot's time now is one the organizer moved it to: the newest move's `to`
+ * is where the slot is, cut to milliseconds as in `toldDifferentTime`. A slot
+ * never moved holds too. It fails when a field change re-timed the slot after
+ * its last move: retyping a field to Time, deleting a Time field or changing
+ * which date reminders follow gives slots a new `slot_at` through
+ * `rebuildSlotAt` without moving them, and records no move. The slot's date
+ * and time didn't change, so that new instant is news to nobody, and neither
+ * a slot-change email nor a reminder may say the slot moved because of it.
+ */
+export const slotTimeFromMove: SQL = sql`(
+  NOT EXISTS (SELECT 1 FROM activity m WHERE ${moveOfThisSlot})
+  OR (
+    SELECT (m.payload->>'to')::timestamptz FROM activity m
+    WHERE ${moveOfThisSlot}
+    ORDER BY m.occurred_at DESC
+    LIMIT 1
+  ) = date_trunc('milliseconds', ${slots.slotAt})
+)`;
 
 /**
  * The slot has sat still for `SLOT_CHANGE_SETTLE_MINUTES` since its last move.
@@ -154,18 +179,23 @@ export const toldDifferentTime: SQL = (() => {
   END)`;
 })();
 
-/** The query `wasToldDifferentTime` runs, for one commitment. */
-export function toldDifferentTimeQuery(db: Queryable, commitmentId: string) {
+/** The query `slotMovedSinceTold` runs, for one commitment. */
+export function slotMovedSinceToldQuery(db: Queryable, commitmentId: string) {
   return db
-    .select({ differs: sql<boolean>`${toldDifferentTime}` })
+    .select({ moved: sql<boolean>`(${toldDifferentTime} AND ${slotTimeFromMove})` })
     .from(commitments)
     .innerJoin(slots, eq(slots.id, commitments.slotId))
     .where(eq(commitments.id, commitmentId))
     .limit(1);
 }
 
-/** `toldDifferentTime` for one commitment. False when there is no such commitment. */
-export async function wasToldDifferentTime(db: Db, commitmentId: string): Promise<boolean> {
-  const [row] = await toldDifferentTimeQuery(db, commitmentId);
-  return row?.differs === true;
+/**
+ * Whether the organizer moved the commitment's slot since the participant was
+ * last told its time: `toldDifferentTime`, and the slot's time now is one it
+ * was moved to (`slotTimeFromMove`), as the slot-change email asks. False when
+ * there is no such commitment.
+ */
+export async function slotMovedSinceTold(db: Db, commitmentId: string): Promise<boolean> {
+  const [row] = await slotMovedSinceToldQuery(db, commitmentId);
+  return row?.moved === true;
 }

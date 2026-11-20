@@ -11,6 +11,7 @@ import {
   moveOfThisSlot,
   notifiableRules,
   slotSettled,
+  slotTimeFromMove,
   toldDifferentTime,
 } from './notify-rules';
 import { getBoss, type SlotChangeSendPayload } from './queue';
@@ -45,18 +46,10 @@ const slotChangeDueRules = {
       AND m.occurred_at > now() - make_interval(days => ${LOOKBACK_DAYS})
   )`,
   'slot still moving': slotSettled,
-  // A field change re-times slots (`rebuildSlotAt`) without moving them, and
-  // records no move. Without this, a slot moved in the last week and then
-  // re-timed that way would pass the two rules above, and everyone holding it
-  // would hear it had moved. Only a time the organizer moved the slot to is
-  // news: the newest move's `to` must be where the slot is now, cut to
-  // milliseconds as in `toldDifferentTime`.
-  'slot re-timed by a field change': sql`(
-    SELECT (m.payload->>'to')::timestamptz FROM activity m
-    WHERE ${moveOfThisSlot}
-    ORDER BY m.occurred_at DESC
-    LIMIT 1
-  ) = date_trunc('milliseconds', ${slots.slotAt})`,
+  // Without this, a slot moved in the last week and then re-timed by a field
+  // change would pass the two rules above, and everyone holding it would hear
+  // it had moved. Only a time the organizer moved the slot to is news.
+  'slot re-timed by a field change': slotTimeFromMove,
   'participant already knows the time': toldDifferentTime,
 } satisfies Record<string, SQL>;
 

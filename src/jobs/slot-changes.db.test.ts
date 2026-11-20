@@ -21,7 +21,7 @@ import { commitToSlot } from '@/services/commitments';
 import { createSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
 import { addField } from '@/services/slot-fields';
 import { addSlot, updateSlot } from '@/services/slots';
-import { toldDifferentTimeQuery } from './notify-rules';
+import { slotMovedSinceToldQuery } from './notify-rules';
 import { sendReminderJob } from './reminders';
 import { selectDueSlotChanges, sendSlotChangeJob } from './slot-changes';
 
@@ -577,7 +577,7 @@ describe('slot-change scan, query shape (db)', () => {
       // cheapest; turned off, the planner shows which index it can use.
       await tx.execute(sql`SET LOCAL enable_seqscan = off`);
       const rows = await tx.execute<{ 'QUERY PLAN': string }>(
-        sql`EXPLAIN ${toldDifferentTimeQuery(tx, 'com_explain')}`,
+        sql`EXPLAIN ${slotMovedSinceToldQuery(tx, 'com_explain')}`,
       );
       return rows.map((r) => r['QUERY PLAN']).join('\n');
     });

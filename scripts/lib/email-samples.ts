@@ -122,6 +122,13 @@ const SAMPLE_TEXT: { [L in TestLocale]?: SampleText } = {
     labels: { time: 'Tid', item: 'Fika' },
     item: 'Frukt',
   },
+  de: {
+    signupTitle: 'Kaffee und Kuchen',
+    slug: 'kuchen',
+    notes: 'Bringe Weintrauben mit',
+    labels: { time: 'Uhrzeit', item: 'Essen' },
+    item: 'Obst',
+  },
 };
 
 /** For a language with none of its own: names that read as names in most languages. */

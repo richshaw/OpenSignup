@@ -4,5 +4,5 @@ import { crumbTranslator } from '@/components/chrome/crumb-text';
 export default async function SettingsCrumb() {
   const t = await crumbTranslator();
   if (!t) return null;
-  return <Crumb>{t('settings')}</Crumb>;
+  return <Crumb truncate>{t('settings')}</Crumb>;
 }

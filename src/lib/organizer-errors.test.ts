@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import { connectedAppsLines } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/refusal-lines';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { serviceError, type ErrorCode, type ErrorReason } from './errors';
@@ -94,12 +95,13 @@ describe('refusalFromQuery', () => {
   });
 
   it('gives a screen’s own line for a code, as Connected apps does for a failed disconnect', () => {
-    const own = { internal: t('disconnectFailed') };
-    expect(refusalFromQuery(t, 'internal', own)).toBe('Could not disconnect. Try again.');
+    const own = connectedAppsLines(t);
+    expect(refusalFromQuery(t, 'internal', own)).toBe('Couldn’t disconnect. Try again.');
     // An app already disconnected, in another tab: the server's message was
     // "no such connected app".
-    expect(refusalFromQuery(t, 'not_found', own)).toBe('No longer available.');
+    expect(refusalFromQuery(t, 'not_found', own)).toBe('That app is already disconnected.');
     expect(refusalFromQuery(t, 'forbidden', own)).toBe('You don’t have edit access.');
+    expect(refusalFromQuery(t, 'rate_limited', own)).toBe(t('code.rate_limited'));
   });
 
   it('shows nothing for anything else, so a link can’t put words on the page', () => {

@@ -156,7 +156,12 @@ export default async function UnsubscribePage({ params, searchParams }: PagePara
             {t('turnBackOn')}
           </button>
         </form>
-        <a href={`/s/${target.signupSlug}`} className="text-sm text-brand underline">
+        {/*
+          A block, so the card's spacing reaches it: inline, it sat 4px under
+          the button above, too close for two targets this small (WCAG 2.2,
+          2.5.8 Target Size), once their labels lined up.
+        */}
+        <a href={`/s/${target.signupSlug}`} className="block w-fit text-sm text-brand underline">
           {t('back')}
         </a>
       </Shell>

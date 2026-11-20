@@ -22,7 +22,7 @@ test.describe('organizer flow', () => {
       .locator(`a[href^="/app/signups/"]`, { hasText: seed.publicTitle })
       .first();
     await expect(published.getByText(`/s/${seed.publicSlug}`, { exact: true })).toBeVisible();
-    const draft = page.locator(`a[href="/app/signups/${seed.draftSignupId}"]`);
+    const draft = page.locator(`a[href="/app/signups/${seed.draftSignupId}/build"]`);
     await expect(draft.getByText('Only you can see this draft', { exact: true })).toBeVisible();
     await expect(draft.getByText(/\/s\//)).toHaveCount(0);
   });
@@ -127,6 +127,10 @@ test.describe('organizer flow', () => {
     await expect(
       page.getByText('People can’t sign up now. Everyone already signed up keeps their spot.'),
     ).toBeVisible();
+    // It ends with a link to the help page on closing, in the same tab.
+    const help = page.getByRole('link', { name: 'How closing and reopening work' });
+    await expect(help).toHaveAttribute('href', '/help/close-or-reopen-a-signup');
+    await expect(help).not.toHaveAttribute('target');
     expect(await storedStatus()).toBe('closed');
     // The ⋯ went with it, so focus is on the title, and a screen reader hears
     // what happened.

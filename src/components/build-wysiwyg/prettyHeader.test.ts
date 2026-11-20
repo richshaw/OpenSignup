@@ -80,19 +80,23 @@ describe('prettyHeader', () => {
 
 describe('emptyHeaderCopy', () => {
   it('returns fixed copy for date and time regardless of label', () => {
-    expect(emptyHeaderCopy(t, 'date', 'Ignored')).toBe('Set a date');
-    expect(emptyHeaderCopy(t, 'time', 'Ignored')).toBe('Set a time');
+    expect(emptyHeaderCopy(t, 'date', 'en', 'Ignored')).toBe('Set a date');
+    expect(emptyHeaderCopy(t, 'time', 'en', 'Ignored')).toBe('Set a time');
   });
 
   it('derives from label for text/number/enum', () => {
-    expect(emptyHeaderCopy(t, 'text', 'What')).toBe('Set what');
-    expect(emptyHeaderCopy(t, 'number', 'Quantity')).toBe('Set quantity');
-    expect(emptyHeaderCopy(t, 'enum', 'Course')).toBe('Set course');
+    expect(emptyHeaderCopy(t, 'text', 'en', 'What')).toBe('Set what');
+    expect(emptyHeaderCopy(t, 'number', 'en', 'Quantity')).toBe('Set quantity');
+    expect(emptyHeaderCopy(t, 'enum', 'en', 'Course')).toBe('Set course');
+  });
+
+  it('keeps the label’s capital when the signup is in a language that capitalizes nouns', () => {
+    expect(emptyHeaderCopy(t, 'text', 'de', 'Rolle')).toBe('Set Rolle');
   });
 
   it('falls back to "Set a value" when no label is supplied', () => {
-    expect(emptyHeaderCopy(t, 'text')).toBe('Set a value');
-    expect(emptyHeaderCopy(t, 'number', '')).toBe('Set a value');
+    expect(emptyHeaderCopy(t, 'text', 'en')).toBe('Set a value');
+    expect(emptyHeaderCopy(t, 'number', 'en', '')).toBe('Set a value');
   });
 });
 
@@ -100,10 +104,14 @@ describe('empty-header copy in the organizer’s language', () => {
   const swedish = getStandInTranslator('sv', 'organizer.build');
 
   it('takes each prompt from the catalog, whatever language the dates are in', () => {
-    expect(emptyHeaderCopy(swedish, 'date', 'Ignored')).toBe('organizer.build.empty.date in sv');
-    expect(emptyHeaderCopy(swedish, 'time')).toBe('organizer.build.empty.time in sv');
-    expect(emptyHeaderCopy(swedish, 'text', 'What')).toBe('organizer.build.empty.named in sv');
-    expect(emptyHeaderCopy(swedish, 'text')).toBe('organizer.build.empty.other in sv');
+    expect(emptyHeaderCopy(swedish, 'date', 'en', 'Ignored')).toBe(
+      'organizer.build.empty.date in sv',
+    );
+    expect(emptyHeaderCopy(swedish, 'time', 'en')).toBe('organizer.build.empty.time in sv');
+    expect(emptyHeaderCopy(swedish, 'text', 'en', 'What')).toBe(
+      'organizer.build.empty.named in sv',
+    );
+    expect(emptyHeaderCopy(swedish, 'text', 'en')).toBe('organizer.build.empty.other in sv');
     expect(prettyHeader(swedish, '', 'date', 'en')).toBe('organizer.build.empty.date in sv');
   });
 

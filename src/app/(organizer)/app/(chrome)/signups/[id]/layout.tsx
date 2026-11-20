@@ -19,6 +19,7 @@ import { messagesFor } from '@/i18n/translator';
 import { localeOfOrganizer, localeOfSignup } from '@/i18n/locale';
 import type { SignupStatus } from '@/schemas/signups';
 import { closeAction, closeQuestionAction, publishAction, reopenAction } from './actions';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 type LayoutProps = {
   children: React.ReactNode;
@@ -28,7 +29,7 @@ type LayoutProps = {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getOrganizerSession();
-  if (!session) return { title: 'OpenSignup' };
+  if (!session) return { title: 'Signup' };
   const result = await loadSignupForOrganizer(toActor(session), id);
   if (!result.ok) return { title: signupNotFoundTitle(localeOfOrganizer(session)) };
   return { title: result.value.title };
@@ -84,7 +85,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   return (
     // The header reaches the Build tab through this: Publish saves its edits
     // first, and a check's fix opens a slot there.
-    <BuildBridge buildHref={`/app/signups/${id}/build`}>
+    <BuildBridge buildHref={signupTabPath(id, 'build')}>
       {/* On a phone, a draft's Publish and share or an open signup's Share is in
         a bar fixed to the bottom of the screen; the page leaves room for it. */}
       <div className={`space-y-6 ${hasPhoneBar(status) ? PHONE_BAR_ROOM : ''}`}>
@@ -111,7 +112,11 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             reopenAction={reopenAction.bind(null, id)}
           />
           {/* Once, after Close signup on this page; see ClosedNotice. */}
-          <ClosedNotice status={status} text={text.closedNotice} />
+          <ClosedNotice
+            status={status}
+            text={text.closedNotice}
+            help="/help/close-or-reopen-a-signup"
+          />
         </HeaderAnnouncer>
         <AiDraftBanner
           signupId={id}

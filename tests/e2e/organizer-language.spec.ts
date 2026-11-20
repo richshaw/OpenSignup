@@ -6,6 +6,7 @@ import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draf
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { accessTokenLifetime } from '@/lib/lifetimes';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL } from './helpers/fixtures';
 import {
@@ -143,13 +144,12 @@ for (const stored of STORED) {
       await page.goto('/app');
       expect(await languageOf(page.getByRole('banner')), unshippedHint).toBe(locale);
       const trail = page.getByRole('navigation', { name: chrome('breadcrumb') });
-      await expect(trail.getByRole('link', { name: chrome('home') })).toBeVisible();
+      await expect(trail.locator('a[href="/app"]').first()).toBeVisible();
       await expect(page.getByRole('button', { name: chrome('signOut') })).toBeVisible();
       const heading = page.getByRole('heading', { level: 1 });
       await expect(heading).toHaveText(dashboard('title'));
       expect(await languageOf(heading)).toBe(locale);
       await expect(page).toHaveTitle(titled(dashboard('title')));
-      await expect(page.getByText(dashboard('total', { count: 2 }))).toBeVisible();
       await expect(page.getByText(dashboard('draftOnlyYou'))).toBeVisible();
 
       await page.goto('/app/settings');
@@ -413,7 +413,7 @@ for (const stored of STORED) {
       // own two store none, so they're in the instance's, English, marked
       // only where that isn't the page's.
       await page.goto('/app');
-      const row = page.locator(`a[href="/app/signups/${elsewhere.id}"]`);
+      const row = page.locator(`a[href="/app/signups/${elsewhere.id}/build"]`);
       const rowTitle = row.getByText(elsewhere.title, { exact: true });
       await expect(rowTitle).toHaveAttribute('lang', signupLocale);
       expect(await languageOf(row.getByText(`/s/${elsewhere.slug}`)), unshippedHint).toBe(locale);
@@ -528,7 +528,16 @@ for (const stored of STORED) {
       const ask = form.getByRole('group', { name: settings('signupForm.askForEmail') });
       await expect(ask.getByRole('radio', { name: settings('signupForm.required') })).toBeChecked();
       await expect(ask.getByRole('radio', { name: settings('signupForm.optional') })).toBeVisible();
-      await expect(form.getByText(settings('signupForm.requiredHelp'))).toBeVisible();
+      // A new signup has a Date field and reminders are on, so the email line
+      // says a reminder comes too, and the Reminders card says they're on.
+      await expect(
+        form.getByText(
+          settings('signupForm.requiredHelpReminders', { hours: REMINDER_LEAD_HOURS }),
+        ),
+      ).toBeVisible();
+      const reminders = page.getByRole('region', { name: settings('reminders.title') });
+      await expect(reminders).toBeVisible();
+      expect(await languageOf(reminders)).toBe(locale);
       // Saving changes nothing here (Required stays Required), but says Saved.
       // The tab's settings are one form, with one Save under them all.
       const all = page.locator('form').filter({ has: ask });

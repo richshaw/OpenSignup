@@ -38,7 +38,6 @@ export const LANGUAGE_RULES: Readonly<Record<string, LanguageRules>> = {
       'common.footer.cookies': 'Swedish uses the English word',
       'organizer.responses.table.status': 'Swedish uses the English word',
       'organizer.responses.csv.status': 'Swedish uses the English word',
-      'organizer.chrome.home': 'the product’s name, which stays as it is',
     },
     banned: [
       {
@@ -55,6 +54,49 @@ export const LANGUAGE_RULES: Readonly<Record<string, LanguageRules>> = {
       {
         pattern: /\.\.\./,
         glossary: 'Style: Punctuation',
+        reason: 'an ellipsis is one character, …',
+      },
+    ],
+  },
+  de: {
+    sameAsEnglish: {
+      'common.footer.license': 'the site’s name and the licence’s, which stay as they are',
+      'common.footer.cookies': 'German uses the English word',
+      'participant.defaults.firstChoice': 'German uses the English word, Option',
+      'organizer.build.fieldForm.name': 'German uses the English word',
+      'organizer.signupSettings.signupForm.optional': 'German uses the English word',
+      'organizer.responses.table.name': 'German uses the English word',
+      'organizer.responses.csv.name': 'German uses the English word',
+      'organizer.responses.table.status': 'German uses the English word',
+      'organizer.responses.csv.status': 'German uses the English word',
+    },
+    banned: [
+      {
+        // Mid-sentence, a capital Sie or Ihr… is the formal address; sie (she,
+        // they) and ihr (you all, her) are lower case there.
+        pattern: /(?<![.!?:]\s*|^\s*)(?<!\p{L})(Sie|Ihnen|Ihre?[mnrs]?)(?!\p{L})/u,
+        glossary: 'Style',
+        reason: 'du, never Sie',
+      },
+      {
+        pattern: /(?<!\p{L})[Aa]nmeld/u,
+        namespaces: ['participant', 'email'],
+        glossary: 'Settled before translating, 2',
+        reason: 'participants eintragen; anmelden is signing in',
+      },
+      {
+        pattern: /(?<!\p{L})Slots?(?!\p{L})/u,
+        glossary: 'Settled before translating, 4',
+        reason: 'a slot is an Aufgabe',
+      },
+      {
+        pattern: /(?<!\p{L})AI(?!\p{L})/u,
+        glossary: 'Organizer terms: AI assistant',
+        reason: 'KI, never AI',
+      },
+      {
+        pattern: /\.\.\./,
+        glossary: 'Style',
         reason: 'an ellipsis is one character, …',
       },
     ],
