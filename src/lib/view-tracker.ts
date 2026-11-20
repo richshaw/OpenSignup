@@ -9,7 +9,7 @@ import type { LandingCta } from '@/lib/landing-cta';
 const BOT_RE =
   /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|slackbot|twitterbot|linkedinbot|googlebot|bingbot|preview|headlesschrome|phantomjs|httpie|curl|wget/i;
 
-export type UaClass = 'browser' | 'bot' | 'unknown';
+type UaClass = 'browser' | 'bot' | 'unknown';
 
 const SYSTEM_ACTOR: ActivityActor = { actorId: null, actorType: 'system' };
 
@@ -27,7 +27,7 @@ export function refererHost(ref: string | null | undefined): string | null {
   }
 }
 
-export type DeviceClass = 'phone' | 'computer' | 'unknown';
+type DeviceClass = 'phone' | 'computer' | 'unknown';
 
 /**
  * Whether a request came from a phone or a computer, for organizer page views

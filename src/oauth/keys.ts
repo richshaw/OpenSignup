@@ -67,7 +67,7 @@ export async function markSigningKeyInUse(db: Db, kid: string): Promise<void> {
     .where(and(eq(oauthSigningKeys.kid, kid), isNull(oauthSigningKeys.signingSince)));
 }
 
-export type RetireOutcome = 'retired' | 'unknown' | 'in_use';
+type RetireOutcome = 'retired' | 'unknown' | 'in_use';
 
 /**
  * How long, in seconds, a newer key must have been signing before an older
