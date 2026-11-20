@@ -36,7 +36,7 @@ import { loadOrganizerSessionById, toActor, type OrganizerSession } from './orga
  * organizer is a viewer, because the actor is the same one
  * `requireWorkspaceWrite` already judges.
  */
-export interface BearerWorkspace {
+interface BearerWorkspace {
   id: string;
   slug: string;
   name: string;
