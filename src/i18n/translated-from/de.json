@@ -556,6 +556,7 @@
   "organizer.signup.close.standing.openOf": "{open, plural, one {{open, number, ::group-off} of {total, number, ::group-off} spots is still open.} other {{open, number, ::group-off} of {total, number, ::group-off} spots are still open.}}",
   "organizer.signup.closed.title": "Signup closed",
   "organizer.signup.closed.body": "People can’t sign up now. Everyone already signed up keeps their spot.",
+  "organizer.signup.closed.help": "How closing and reopening work",
   "organizer.signup.closed.dismiss": "Dismiss",
   "organizer.signup.reopen.action": "Reopen signup",
   "organizer.signup.reopen.reopening": "Reopening…",
