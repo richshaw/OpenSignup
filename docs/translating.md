@@ -10,7 +10,7 @@ This guide is for anyone who changes English text people read, adds a
 language, or fixes a translation, including an AI assistant doing any of
 those. It says where the words live, how to write a message, what the checks
 catch and what they miss, and when a language can be offered. The Swedish
-glossary is at the end.
+and German glossaries are at the end.
 
 Translations are made and checked by machine. Nobody is paid to translate, so
 a Claude session translates with the `translate` skill
@@ -289,10 +289,12 @@ typographic one (’).
 ### Field labels in "(no …)"
 
 The heading over slots with no value for a field reads "(no date)": the field's
-label goes into `participant.slot.noValue` lowercased
-(`src/app/s/[slug]/slot-format.ts`). That suits English and Swedish. A
-language that capitalizes nouns, like German, would lose the capital: change
-`slot-format.ts` when the first one comes.
+label goes into `participant.slot.noValue` in lower case, as English and
+Swedish write a common noun in a sentence. The Build tab's "Set {label}"
+(`organizer.build.empty.named`) does the same. A language that capitalizes
+nouns, like German, keeps the label as the organizer wrote it ("(ohne
+Datum)"): `labelInSentence` in `src/i18n/config.ts` decides, from a table
+every language with a catalog has a row in.
 
 ### A name at the end of a sentence
 
@@ -471,9 +473,10 @@ Two lists in `src/i18n/config.ts` decide it:
   can be stored on a new organizer account (below). A site's `DEFAULT_LOCALE`
   counts only for audiences its language has shipped to (`resolveLocale`).
 
-Today `CATALOG_LOCALES` is `en` and `sv`. `SHIPPED` holds both for
-participants and organizers, and only `en` for `site`, the pages outside the
-app, which have no messages yet.
+Today `CATALOG_LOCALES` is `en`, `sv` and `de`. `SHIPPED` holds `en` and
+`sv` for participants and organizers (German has a catalog but hasn't
+shipped), and only `en` for `site`, the pages outside the app, which have no
+messages yet.
 
 A language launches for participants and organizers together: its launch
 adds it to `SHIPPED.participant` and `SHIPPED.organizer` in one change, and
@@ -503,17 +506,15 @@ other module reads it. The web
 server and the worker log a warning when they start with it set. Never set it
 on a real site.
 
-Every language with a catalog has shipped today, so the list is empty, and
-nothing in CI runs the e2e specs' path for a language that hasn't: where
+German has a catalog and hasn't shipped, so the list is `de`, and CI runs
+the e2e specs' path for a language that hasn't: where
 `translated-organizer.spec.ts` and `organizer-language-story.spec.ts` write
 the language into a new signup's row (`storeSignupLanguage` in
 `tests/e2e/helpers/organizer-language.ts`), and the story writes it into the
 account's, because the app won't store one that hasn't shipped. Swedish took
-that path until its launch; the unit tests still check the rule it relies
-on, and the next language's first pull request runs it again. For that
-language, a reused `pnpm dev` needs the variable too
-(`E2E_UNSHIPPED_LOCALES=<code> pnpm dev`): a spec that finds a seeded signup
-in English says so.
+that path until its launch, and German takes it until its own. A reused
+`pnpm dev` needs the variable too (`E2E_UNSHIPPED_LOCALES=de pnpm dev`): a
+spec that finds a seeded signup in English says so.
 
 ### An organizer's language
 
@@ -571,7 +572,7 @@ row of this table against it.
 3. In the same pull request, run the `translate` skill for each language in
    `SHIPPED` (Swedish today): the catalog check fails each changed message
    in a shipped language as stale until it's translated again and marked.
-   For a language that has a catalog but hasn't shipped (none today), do it
+   For a language that has a catalog but hasn't shipped (German today), do it
    too when you can, so it stays ready to launch. Until someone
    does, the catalog test warns that it's stale, and its test signups show the
    old translation, or English for a new message.
@@ -587,9 +588,14 @@ row of this table against it.
    region (`sv-SE`). Its record, `src/i18n/translated-from/<code>.json`,
    comes with the first messages you mark as translated.
 2. **Write its glossary** below, before translating: the product's own terms,
-   the tone and the date style. Give the language an entry in
-   `LANGUAGE_RULES` (`src/i18n/testing/language-rules.ts`) for the words the
-   glossary rules out that a pattern can catch.
+   the tone and the date style. The `translate` skill's "Adding a language"
+   says how: look up what the language's own sign-up sites say, see what the
+   app puts into its sentences (`language-facts.mjs <code>`: plural
+   categories, dates, durations, language names), compare your draft with a
+   second one made apart, and bring the owner the choices that are theirs.
+   Give the language an entry in `LANGUAGE_RULES`
+   (`src/i18n/testing/language-rules.ts`) for the words the glossary rules
+   out that a pattern can catch.
 3. **Translate** with the `translate` skill, namespace by namespace, for both
    audiences: participant text (`participant`, `email` and `common`) and
    organizer text (`to-translate.mjs <code> --audience organizer`). Do at
@@ -649,6 +655,12 @@ a word with English:
   write it.
   Translate each, or add the word if the language really says it: never to
   quiet a message left in English, which is what the check is there to catch.
+
+The app keeps one such table too: `CAPITALIZES_NOUNS` in
+`src/i18n/config.ts`, whether the language writes every noun with a capital,
+which decides how an organizer's field label reads in "(no {label})" and the
+Build tab's "Set {label}" (see "Field labels in (no …)"). `pnpm typecheck`
+asks for the new language's row, with the catalog.
 
 The test signups and email samples also carry what an organizer would write
 (titles, slots' names). A language without its own gets names that read as
@@ -1093,3 +1105,228 @@ so the next pass sees it.
    sheet (`participant.dialog.copied`) and the share panel's chip and
    message say "Länken är kopierad", the state with _är_ that Organizer terms
    chose. From the review of the joined stack.
+
+## German glossary
+
+These are the words the German catalog uses. As with Swedish, a change to one
+of them changes it everywhere it appears, in the same pull request.
+
+The owner settled the first choices on 18 November 2026, before any message
+was translated: two models drafted a glossary each, without seeing the other's,
+and the owner chose where they differed, after a look at the words German
+helper-list and bring-list sites use. "Settled before translating", at the
+end, says what was chosen and why.
+
+### Terms
+
+| English                                                      | German                                                      | Notes                                                                                                                                                         |
+| ------------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| signup (the list people sign up on)                          | Liste                                                       | "Diese Liste ist noch nicht fertig". What German list sites call it. Not _Anmeldeliste_, beside _Anmelden_ (sign in)                                          |
+| sign up (the button)                                         | Eintragen                                                   | "Für {slot} eintragen". The infinitive, as German buttons are                                                                                                 |
+| signed up                                                    | eingetragen                                                 | "Du bist eingetragen", "2 eingetragen"                                                                                                                        |
+| your spot, your sign-up (the one you made)                   | dein Eintrag, deine Einträge                                | "Deinen Eintrag ansehen oder ändern". Never _Anmeldung_, the sign-in word                                                                                     |
+| Sign up (the tab title of a signup page that can't be shown) | Eintragen                                                   |                                                                                                                                                               |
+| slot                                                         | Aufgabe, Aufgaben                                           | Only where the sentence needs the noun: "Aufgabe ohne Namen", "Die Aufgabe ist geschlossen." Fits shifts and things to bring. Not _Slot_, _Schicht_, _Termin_ |
+| spot, spots (a number of them)                               | Platz, Plätze                                               | "1 Platz", "Noch 19 von 20 Plätzen frei", with the dative plural after _von_. _Platz_ isn't a location (_Ort_), so Swedish's clash doesn't arise              |
+| the Spots box                                                | Plätze                                                      | Fits the 80-pixel box                                                                                                                                         |
+| Spots, in an email                                           | Plätze                                                      | "Plätze: 2"                                                                                                                                                   |
+| organizer                                                    | (neutral wording)                                           | No gender star, colon or generic masculine (Style, below): "Die Liste wurde noch nicht veröffentlicht", "die Person, die die Liste organisiert"               |
+| participant                                                  | Teilnehmende                                                | No participant message uses it yet; people are _du_                                                                                                           |
+| cancel (your spot)                                           | austragen                                                   | "Austragen", "Ja, austragen", "Du hast dich ausgetragen". The opposite of _eintragen_. The verb only: _Austragung_ reads as hosting an event                  |
+| Cancel (close the sheet)                                     | Abbrechen                                                   |                                                                                                                                                               |
+| Keep                                                         | Behalten                                                    |                                                                                                                                                               |
+| Edit                                                         | Ändern                                                      | "Ändern oder austragen"                                                                                                                                       |
+| Full (a slot)                                                | Voll                                                        | A predicate adjective, so it agrees with nothing                                                                                                              |
+| Closed (a slot's row)                                        | Gesperrt                                                    | _Geschlossen_ ran past a 320-pixel screen; banners, with room, keep it                                                                                        |
+| Closed (the signup page's banner)                            | Geschlossen                                                 | Body: "Für diese Liste kannst du dich nicht mehr eintragen."                                                                                                  |
+| Closed (the edit page's banner)                              | Geschlossen für neue Einträge                               | The signup or the slot closed; the participant's own entry still works                                                                                        |
+| open: spots still free                                       | frei                                                        | "noch frei"                                                                                                                                                   |
+| open: a signup taking sign-ups                               | offen                                                       |                                                                                                                                                               |
+| ask for (a number of spots)                                  | wählen                                                      | "Wähl 5 oder weniger.", "du hast 6 gewählt"                                                                                                                   |
+| up to, at most (a number)                                    | höchstens                                                   | "Du kannst höchstens 3 Plätze haben." Not _bis zu_                                                                                                            |
+| email (the address, the box)                                 | E-Mail                                                      | "E-Mail (optional)"                                                                                                                                           |
+| an email (a message); to email                               | E-Mail; per E-Mail schicken                                 | "Bestätigungs-E-Mail", "Wir schicken dir per E-Mail …". Not _mailen_                                                                                          |
+| reminder                                                     | Erinnerung                                                  | "Erinnerungen wieder einschalten"                                                                                                                             |
+| a new date or time (the change emails)                       | neue Zeit; Zeit geändert                                    | Subject "Neue Zeit: {title}"                                                                                                                                  |
+| Notes (optional)                                             | Anmerkung (optional)                                        |                                                                                                                                                               |
+| (optional)                                                   | (optional)                                                  | The same word as English                                                                                                                                      |
+| link                                                         | Link                                                        | "Link kopieren". German says it too                                                                                                                           |
+| Add to calendar                                              | Zum Kalender hinzufügen                                     | Not _in den Kalender eintragen_, the sign-up verb. Check the button's width                                                                                   |
+| Save; Saved.                                                 | Speichern; Gespeichert.                                     |                                                                                                                                                               |
+| Done                                                         | Fertig                                                      |                                                                                                                                                               |
+| (no {label})                                                 | (ohne {label})                                              | "(ohne Datum)". Not _kein_ or _keine_, which agree with the label's gender. The label keeps its capital (Style)                                               |
+| Untitled slot; Untitled (a field)                            | Aufgabe ohne Namen; Unbenannt                               |                                                                                                                                                               |
+| What, Date, Option 1 (a new signup's fields)                 | Was, Datum, Option 1                                        |                                                                                                                                                               |
+| Sorry                                                        | Leider                                                      | "Leider funktioniert dieser Link nicht"                                                                                                                       |
+| Privacy, Terms, Source, Contact, Help (the footer)           | Datenschutz, Nutzungsbedingungen, Quellcode, Kontakt, Hilfe |                                                                                                                                                               |
+| Cookies (the footer link)                                    | Cookies                                                     | The same word as English                                                                                                                                      |
+| Keep this email to yourself; keep it private                 | gib … nicht weiter                                          | "Gib diese E-Mail nicht weiter", "Gib den Link nicht weiter", also for the confirmation email's "so don't forward it"                                         |
+| Too many tries just now                                      | Zu viele Versuche in kurzer Zeit                            |                                                                                                                                                               |
+| Hi {name} (the emails' greeting)                             | Hallo {name}                                                |                                                                                                                                                               |
+
+### Organizer terms
+
+The organizer's screens use the terms above where they apply (_Liste_,
+_Aufgabe_, _Platz_, _Eintrag_), and these for the words only organizers see.
+
+| English                                                       | German                                                                                | Notes                                                                                                                                                         |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Your signups; New signup; Create signup                       | Deine Listen; Neue Liste; Liste erstellen                                             | Short enough for the button and its crumb                                                                                                                     |
+| draft (a signup not published yet)                            | Entwurf                                                                               | "Nur du kannst diesen Entwurf sehen"                                                                                                                          |
+| publish; Publish and share; Published                         | veröffentlichen; Veröffentlichen und teilen; Veröffentlicht                           |                                                                                                                                                               |
+| draft, open, closed, archived (the status pill)               | Entwurf, offen, geschlossen, archiviert                                               | Lower case, as in English, but _Entwurf_, a noun, keeps its capital                                                                                           |
+| Close signup; Reopen signup; Signup closed                    | Liste schließen; Liste wieder öffnen; Liste geschlossen                               |                                                                                                                                                               |
+| N spots taken; N of M spots taken                             | N Plätze belegt; N von M Plätzen belegt                                               | _Belegt_ doesn't agree with anything, unlike Swedish                                                                                                          |
+| spots still open                                              | freie Plätze                                                                          | "5 von 8 Plätzen sind noch frei"                                                                                                                              |
+| Everyone already signed up keeps their spot                   | Alle, die schon eingetragen sind, behalten ihren Platz                                |                                                                                                                                                               |
+| N taken; N of M taken (a slot's row on the Build tab)         | N belegt; N von M belegt                                                              |                                                                                                                                                               |
+| Preview (the button; the banner)                              | Vorschau                                                                              |                                                                                                                                                               |
+| Build, Responses, Settings (a signup's tabs)                  | Inhalt, Einträge, Einstellungen                                                       | Not _Aufbau_, which is also the name of many lists' first shift (setting up). Check _Einstellungen_ at 320 px                                                 |
+| sign-ups, counted on Responses                                | Eintrag, Einträge                                                                     | "6 Einträge · 1 ausgetragen · 1 entfernt"                                                                                                                     |
+| a sign-up's status (on Responses, in the CSV)                 | bestätigt, vorläufig, Warteliste, ausgetragen, nicht erschienen, entfernt, verschoben | _Warteliste_, a noun, keeps its capital                                                                                                                       |
+| Spots; Notes; Signed up (columns on Responses and in its CSV) | Plätze; Anmerkung; Eingetragen                                                        |                                                                                                                                                               |
+| Edit signup; Edit slot; Editing slot                          | Liste bearbeiten; Aufgabe bearbeiten; Du bearbeitest die Aufgabe                      | Organizers _bearbeiten_, participants _ändern_. The open editor's small heading is just "Aufgabe": "Aufgabe bearbeiten" wrapped beside its buttons on a phone |
+| Editing (the Build tab's badge); Saving… (beside it)          | Bearbeitung; Speichert…                                                               | _Wird gespeichert…_ wrapped and pushed the Fields button onto two lines on a phone                                                                            |
+| Duplicate                                                     | Duplizieren                                                                           | Not _kopieren_, Copy link's verb                                                                                                                              |
+| delete (a signup, a slot, a field); remove (a person)         | löschen; entfernen                                                                    | "Liste löschen", "{name} aus {slot} entfernen"                                                                                                                |
+| Delete this signup (the Settings tab's last card)             | Diese Liste löschen                                                                   |                                                                                                                                                               |
+| field (a column the organizer defines)                        | Feld                                                                                  |                                                                                                                                                               |
+| Short text, Date, Time, Number, List (the field types)        | Kurztext, Datum, Uhrzeit, Zahl, Auswahl                                               | _Auswahl_, since _Liste_ is the signup. _Uhrzeit_, since _Zeit_ can be a duration. _Zahl_, not _Nummer_                                                       |
+| an item in a List field                                       | Option                                                                                |                                                                                                                                                               |
+| Set a date; Set a time; Set {label} (a slot's empty value)    | Datum festlegen; Uhrzeit festlegen; {label} festlegen                                 | No article before the label                                                                                                                                   |
+| No limit (a Spots box)                                        | Unbegrenzt                                                                            | Check the boxes' widths                                                                                                                                       |
+| Group slots by; Don't group                                   | Aufgaben gruppieren nach; Nicht gruppieren                                            |                                                                                                                                                               |
+| Drag to reorder                                               | Zum Sortieren ziehen                                                                  |                                                                                                                                                               |
+| Required, Optional (a setting's choices)                      | Erforderlich, Optional                                                                |                                                                                                                                                               |
+| Share; Share…; Share the link; Public link                    | Teilen; Teilen…; Link teilen; Öffentlicher Link                                       |                                                                                                                                                               |
+| Copy link; Copy message; Copied                               | Link kopieren; Text kopieren; Kopiert                                                 | _Nachricht kopieren_ may wrap in its half-width button                                                                                                        |
+| Link copied; Message copied (what is announced)               | Link kopiert; Text kopiert                                                            | The same form everywhere, participants' "Link kopiert" too                                                                                                    |
+| Email it                                                      | Per E-Mail schicken                                                                   |                                                                                                                                                               |
+| QR code; Hide QR code                                         | QR-Code; QR-Code ausblenden                                                           |                                                                                                                                                               |
+| Settings (the account page); Language                         | Einstellungen; Sprache                                                                |                                                                                                                                                               |
+| Reload (the page)                                             | Seite neu laden                                                                       |                                                                                                                                                               |
+| your dashboard (named in a sentence); Dashboard (tab title)   | deine Listen; Übersicht                                                               |                                                                                                                                                               |
+| Connected apps; connect; disconnect                           | Verbundene Apps; verbinden; trennen                                                   | "Die App wurde getrennt."                                                                                                                                     |
+| access; permission                                            | Zugriff; Berechtigung                                                                 |                                                                                                                                                               |
+| AI assistant; Draft my signup; an AI draft                    | KI-Assistent; Entwurf erstellen; KI-Entwurf                                           | _KI_, never _AI_                                                                                                                                              |
+| the AI; AI provider; AI service                               | die KI; KI-Anbieter; KI-Dienst                                                        |                                                                                                                                                               |
+| description; fill in by hand; placeholder; free text          | Beschreibung; selbst ausfüllen; Platzhalter; Freitext                                 |                                                                                                                                                               |
+| Not decided; Back                                             | Noch offen; Zurück                                                                    |                                                                                                                                                               |
+| workspace; account                                            | Arbeitsbereich; Konto                                                                 |                                                                                                                                                               |
+| Sign in; Sign out                                             | Anmelden; Abmelden                                                                    | _Anmelden_ only ever means signing in                                                                                                                         |
+| Breadcrumb (the trail's name for screen readers)              | Du bist hier                                                                          |                                                                                                                                                               |
+| More actions                                                  | Weitere Aktionen                                                                      |                                                                                                                                                               |
+| Dismiss (a notice's ✕)                                        | Ausblenden                                                                            | Not _Schließen_, beside "Liste schließen"                                                                                                                     |
+| a person the sentence doesn't name                            | die Person                                                                            | "Die Person bekommt keine E-Mail dazu."                                                                                                                       |
+
+### Sign-in and connecting an app
+
+| English                                         | German                                       | Notes                                                                                                                                                                                                    |
+| ----------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign in to OpenSignup                           | Bei OpenSignup anmelden                      | The page's heading and the email's subject and heading, the same words                                                                                                                                   |
+| magic link; sign-in link                        | Anmeldelink                                  | "Anmeldelink senden". _Magischer Link_ is a calque. Buttons and their states say _senden_ ("Wird gesendet…", "Noch einmal senden"); sentences say _schicken_ ("dann schicken wir dir einen Anmeldelink") |
+| the six-digit code                              | der Code; der sechsstellige Code             | Not _Einmalcode_: the English never says one-time                                                                                                                                                        |
+| request (a new link); Too many sign-in requests | anfordern; Zu viele Anmeldelinks angefordert | "Neuen Link anfordern"                                                                                                                                                                                   |
+| Too many requests (the OAuth pages)             | Zu viele Versuche                            |                                                                                                                                                                                                          |
+| expires in {duration}; works for {duration}     | gilt {duration} lang                         | Both: the app writes the duration ("7 Tage"), so _läuft in {duration} ab_ would need _Tagen_                                                                                                             |
+| Check your email; your inbox                    | Schau in deine E-Mails; dein Posteingang     |                                                                                                                                                                                                          |
+| click (a link, a button)                        | klick auf                                    | "Klick unten auf die Schaltfläche"                                                                                                                                                                       |
+| Continue with {provider}; a provider            | Weiter mit {provider}; ein Anbieter          |                                                                                                                                                                                                          |
+| Allow; Don't allow                              | Zulassen; Nicht zulassen                     |                                                                                                                                                                                                          |
+| approve (permissions, on Connected apps)        | freigeben                                    | "die Berechtigungen, die du freigegeben hast"                                                                                                                                                            |
+| was set up by the people who run this site      | wurde von dieser Website eingerichtet        | Neutral; not _von den Betreibern_                                                                                                                                                                        |
+| Connection request                              | Verbindungsanfrage                           |                                                                                                                                                                                                          |
+| app, application                                | App                                          |                                                                                                                                                                                                          |
+| It will be able to                              | Die App kann                                 | The permission lines below it end on their verb: "Deine Listen ansehen"                                                                                                                                  |
+| It acts as you                                  | Die App handelt in deinem Namen              |                                                                                                                                                                                                          |
+| Go to your dashboard                            | Zur Übersicht                                |                                                                                                                                                                                                          |
+
+### Style
+
+The catalog check enforces the rules a pattern can tell
+(`LANGUAGE_RULES.de.banned` in `src/i18n/testing/language-rules.ts`):
+_Sie_, _Ihnen_ or _Ihr_… with a capital after a sentence's start (the formal
+address; _sie_, she or they, is lower case there, and a sentence's first word
+can't be told apart, so the review catches those), _anmelden_ in participant
+text and emails, _Slot_, _AI_ as a word, and "...". Changing one of those
+lines means changing that list, and the other way round.
+
+- **Tone.** _Du_, never _Sie_, as German helper-list and bring-list sites
+  write. _Du_, _dich_, _dir_, _dein_ in lower case. Plain and friendly, as the
+  English is. Buttons are infinitives ("Speichern", "Eintragen");
+  instructions are imperatives ("Versuch es noch einmal."); progress is
+  _wird_ ("Wird gespeichert…").
+- **People.** Neutral wording: no gender star or colon, and no generic
+  masculine. People in the plural are _Teilnehmende_. The organizer is left
+  out with the passive where the sentence doesn't need them ("Die Liste wurde
+  noch nicht veröffentlicht"), and is otherwise "die Person, die die Liste
+  organisiert" or "wer die Liste organisiert".
+- **Dates and times.** The app formats them, not the catalog: "Sa., 5.
+  Sept.", "So., 3. Mai", "18:30". A date can end in its own full stop, so never
+  end a sentence on a slot's name (see "A name at the end of a sentence"). A
+  message that puts a bare `{time}` in a sentence of its own may add "Uhr".
+- **An organizer's words.** `{label}`, `{slot}`, `{title}` and the like hold a
+  noun whose gender nobody knows. Put no article, adjective or case ending in
+  front that would have to agree with it: "für {slot}", "(ohne {label})",
+  "{label} festlegen", never "den {slot}". German capitalizes nouns, so a
+  label keeps its capital where English lowercases it ("(ohne Datum)",
+  "Rolle festlegen").
+- **Leave out _Aufgabe_ where the sentence can do without it**, as Swedish
+  does with _pass_: "Wähl etwas anderes.", "Das ist inzwischen voll."
+- **Numbers.** `{n, number}`, so "1.234". The same few as Swedish keep
+  `::group-off`: the share message, a year, an HTTP status.
+- **Punctuation.** „…“ for a quotation; a spaced en dash (–) inside a
+  sentence; an ellipsis is one character. No no-break hyphens.
+- **A channel takes _per_:** "per E-Mail", "per SMS".
+- **A tab named in a sentence** takes „…“, since its name is an ordinary
+  word: "im Tab „Einstellungen“ dieser Liste".
+- **Words the organizer batches settled:** _Schaltfläche_ for a button in
+  running text; _Handy_ for a phone; _Datumsangaben_ for dates (_Daten_ also
+  means data); _Verwaltung_ for the bar only organizers see on a signup's page
+  (no neutral one-word German for "organizer"); _kurze Beschreibung_ for a
+  draft's blurb (_Kurztext_ is the field type); "Option hinzufügen" for adding
+  an item to a List field; "Wer diese Website betreibt" for the site's
+  operator.
+- **A button in an email** is "die Schaltfläche oben" with _verwenden_, not
+  _tippen_, since an email is read on a computer as often as on a phone (as
+  Swedish decided).
+
+### Settled before translating
+
+1. **_Du_.** The owner first chose _Sie_, on the belief that German software
+   for schools and clubs is formal. Of about twenty German helper-list,
+   bring-list and shift sites, including ones for schools and Kitas, all but
+   two say _du_, so the owner chose _du_.
+2. **_Eintragen_ for signing up, _Anmelden_ only for signing in.** German
+   apps say _Anmelden_ for logging in, so a participant's button that said it
+   would suggest an account. German list sites say _eintragen_ and
+   _austragen_. A participant's own sign-up is therefore _Eintrag_, and
+   Responses counts _Einträge_.
+3. **_Liste_ for a signup.** What German list sites call it ("Liste
+   erstellen"); _Anmeldeliste_ mostly appears in headlines. The field type
+   that would have shared the word is _Auswahl_.
+4. **_Aufgabe_ for a slot.** German list sites say _Schicht_ (shifts only),
+   _Zeitfenster_ (times only) or _Aufgabe_, the one that covers shifts and
+   things to bring. None says _Slot_. _Aufgabe_ reads oddly only for
+   appointment times, and participants seldom see it.
+5. **Neutral wording for people**, and **"Hallo {name}"** for the emails'
+   greeting.
+
+### Open questions
+
+1. **"Gesperrt" or "Beendet"** for a closed slot's row
+   (`participant.signupView.closed`), from the participant pages' first
+   review: _Geschlossen_ doesn't fit at 320 pixels. _Gesperrt_ can read as a
+   lock put on the slot; _Beendet_ is closer to "no longer taking sign-ups",
+   but can read as the event being over. The catalog keeps _Gesperrt_.
+2. **"Zum Kalender hinzufügen"** wraps to two lines in its half-width button
+   on a phone, beside the one-line "Link kopieren". Nothing is cut off, so it
+   stays; "Zum Kalender" would fit but loses the verb.
+3. **A language's name inside a sentence** is the language's own name, as in
+   the list to choose from (`languageNameInSentence`), so account Settings
+   says "noch nicht auf English" and "Listen auf Svenska umstellen", where
+   German would write _Englisch_ and _Schwedisch_. "auf Deutsch" reads right.
+   Swedish has the same with "English". Changing it is a code change for
+   every language, not a German one.
+4. **"Per E-Mail schicken"** wraps to two lines in the share panel's
+   half-width button on a phone. Nothing is cut off.

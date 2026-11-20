@@ -1,0 +1,1009 @@
+{
+  "common": {
+    "footer": {
+      "license": "{instance} · AGPL-3.0",
+      "label": "Fußzeile",
+      "help": "Hilfe",
+      "privacy": "Datenschutz",
+      "terms": "Nutzungsbedingungen",
+      "cookies": "Cookies",
+      "source": "Quellcode",
+      "contact": "Kontakt"
+    }
+  },
+  "participant": {
+    "signupPage": {
+      "title": "Eintragen",
+      "description": "Eintragen über {instance}",
+      "draft": {
+        "title": "Diese Liste ist noch nicht fertig",
+        "body": "Die Liste wurde noch nicht veröffentlicht. Sobald das passiert, funktioniert dieser Link. Schau also später noch einmal vorbei."
+      },
+      "archived": {
+        "title": "Diese Liste ist nicht mehr verfügbar",
+        "body": "Diese Liste wurde archiviert. Wenn du sie noch brauchst, bitte die Person, die sie organisiert, um einen neuen Link."
+      }
+    },
+    "signupView": {
+      "closedBanner": {
+        "title": "Geschlossen",
+        "body": "Für diese Liste kannst du dich nicht mehr eintragen.",
+        "keepsYours": "Niemand kann sich mehr neu eintragen, aber {count, plural, one {dein Platz gehört} other {deine Plätze gehören}} weiterhin dir."
+      },
+      "signedUp": "{count, plural, =1 {<b>Du bist eingetragen:</b> <slot>{name}</slot>} other {<b>Du bist eingetragen</b> für <slot>{count, number} Aufgaben</slot>.}}",
+      "editOrCancel": "Ändern oder austragen",
+      "manage": "Verwalten",
+      "untitledSlot": "Aufgabe ohne Namen",
+      "edit": "Ändern",
+      "editFor": "Deinen Eintrag für {slot} ändern",
+      "full": "Voll",
+      "closed": "Gesperrt"
+    },
+    "slot": {
+      "noValue": "(ohne {label})",
+      "left": "{left, number} frei",
+      "leftOf": "{left, number} von {capacity, plural, one {{capacity, number} Platz} other {{capacity, number} Plätzen}} frei",
+      "signedUp": "{count, number} eingetragen"
+    },
+    "fields": {
+      "name": "Dein Name",
+      "email": "E-Mail",
+      "emailOptional": "E-Mail (optional)",
+      "notes": "Anmerkung (optional)",
+      "spots": "Plätze"
+    },
+    "defaults": {
+      "what": "Was",
+      "date": "Datum",
+      "untitledField": "Unbenannt",
+      "firstChoice": "Option 1"
+    },
+    "dialog": {
+      "signUp": "Eintragen",
+      "signUpFor": "Für {slot} eintragen",
+      "close": "Schließen",
+      "cancel": "Abbrechen",
+      "confirm": "Bestätigen",
+      "signingUp": "Wird eingetragen…",
+      "didYouMean": "Meintest du <suggestion>{email}</suggestion>?",
+      "emailHelp": "Wir schicken dir per E-Mail einen Link zum Ändern oder Austragen{reminder, select, yes { und eine Erinnerung, bevor es so weit ist} other {}}. Gibst du keine E-Mail an, speichere dir den Link, den wir dir nach dem Eintragen zeigen.",
+      "notesPlaceholder": "Allergien, Wünsche usw.",
+      "seeAlternatives": "Alternativen ansehen",
+      "unreachable": {
+        "message": "Der Server ist nicht erreichbar.",
+        "suggestion": "Prüf deine Verbindung und versuch es noch einmal."
+      },
+      "unreadable": {
+        "message": "Etwas ist schiefgelaufen.",
+        "suggestion": "Drück noch einmal auf Bestätigen."
+      },
+      "youreIn": "Du bist eingetragen.",
+      "savedEmailed": "Dein Eintrag für <b>{slot}</b> ist gespeichert, und wir haben dir diesen Link an <email>{address}</email> geschickt. Speichere ihn als Lesezeichen, um später etwas zu ändern oder dich auszutragen:",
+      "savedNotEmailed": "Dein Eintrag für <b>{slot}</b> ist gespeichert. <b>Speichere diesen Link jetzt: Wir schicken ihn nicht per E-Mail, und nur dieser Browser merkt ihn sich.</b>{calendar, select, yes { Wenn du den Eintrag zum Kalender hinzufügst, wird der Link dort auch gespeichert.} other {}}",
+      "addToCalendar": "Zum Kalender hinzufügen",
+      "calendarTitle": "{title} – {slot}",
+      "calendarDescription": "Ändern oder austragen: {url}",
+      "saveYourLink": "Link speichern",
+      "shareText": "Mein Eintrag für {slot} – mit diesem Link kann ich ihn ändern oder mich austragen, also gib den Link nicht weiter.",
+      "copyLink": "Link kopieren",
+      "linkCopied": "Link kopiert",
+      "copied": "Link kopiert.",
+      "copyFailed": "Kopieren hat nicht geklappt. Markiere den Link oben und kopiere ihn selbst.",
+      "done": "Fertig"
+    },
+    "errors": {
+      "capacity": {
+        "filledUp": "Leider ist das gerade voll geworden.",
+        "pickAnother": "Wähl etwas anderes.",
+        "onlyLeft": "Es {remaining, plural, one {ist nur noch {remaining, number} Platz} other {sind nur noch {remaining, number} Plätze}} frei, und du hast {requested, number} gewählt.",
+        "askForOne": "Wähl stattdessen 1.",
+        "askForOrFewer": "Wähl {remaining, number} oder weniger.",
+        "full": "Das ist voll, du kannst also keine weiteren Plätze dazunehmen.",
+        "atMost": "Du kannst hier höchstens {remaining, plural, one {{remaining, number} Platz} other {{remaining, number} Plätze}} haben, und du hast {requested, number} gewählt.",
+        "keepYourOne": "Behalte deinen Platz."
+      },
+      "keepNumber": "Bleib bei deiner bisherigen Anzahl.",
+      "closed": {
+        "join": "Hier kann sich jetzt niemand mehr neu eintragen.",
+        "reload": "Lade die Seite neu, um zu sehen, was noch frei ist.",
+        "change": "Du kannst jetzt keine weiteren Plätze dazunehmen."
+      },
+      "conflict": {
+        "message": "Du bist hier schon eingetragen.",
+        "suggestion": "Nutze den Link in deiner Bestätigungs-E-Mail, um etwas zu ändern oder dich auszutragen.",
+        "change": "Dieser Eintrag kann nicht mehr geändert werden."
+      },
+      "gone": {
+        "message": "Leider ist das nicht mehr verfügbar.",
+        "suggestion": "Lade die Seite neu, um zu sehen, was sich geändert hat."
+      },
+      "name": "Gib deinen Namen ein, höchstens {max, number} Zeichen.",
+      "email": {
+        "required": "Für diese Liste ist jetzt eine E-Mail-Adresse nötig.",
+        "addIt": "Gib deine ein und versuch es noch einmal.",
+        "invalid": "Diese E-Mail-Adresse sieht nicht richtig aus.",
+        "check": "Prüf sie und versuch es noch einmal."
+      },
+      "notes": "Kürze deine Anmerkung auf höchstens {max, number} Zeichen.",
+      "quantity": "Gib als Anzahl der Plätze eine ganze Zahl von 1 bis {max, number} ein.",
+      "input": "Prüf deine Angaben und versuch es noch einmal.",
+      "rateLimit": {
+        "message": "Zu viele Versuche in kurzer Zeit.",
+        "wait": "Versuch es in etwa {minutes, plural, one {{minutes, number} Minute} other {{minutes, number} Minuten}} noch einmal.",
+        "waitAWhile": "Versuch es in ein paar Minuten noch einmal."
+      },
+      "failed": {
+        "join": "Etwas ist schiefgelaufen, du bist also noch nicht eingetragen.",
+        "save": "Etwas ist schiefgelaufen, deine Änderungen wurden also nicht gespeichert.",
+        "cancel": "Etwas ist schiefgelaufen, du bist also weiterhin eingetragen.",
+        "tryAgain": "Versuch es noch einmal."
+      }
+    },
+    "gonePage": {
+      "signup": {
+        "title": "Leider ist diese Liste nicht mehr verfügbar",
+        "body": "Wende dich an die Person, die die Liste organisiert, um zu erfahren, was sich geändert hat, oder um einen neuen Link zu bekommen."
+      },
+      "editLink": {
+        "title": "Leider funktioniert dieser Link nicht",
+        "body": "Vielleicht gibt es deinen Eintrag nicht mehr, oder der Link ist unvollständig. Wende dich an die Person, die die Liste organisiert, um zu erfahren, was sich geändert hat. Wenn du eine Bestätigungs-E-Mail bekommen hast, kannst du es auch noch einmal mit dem Link darin versuchen."
+      }
+    },
+    "editPage": {
+      "title": "Dein Eintrag",
+      "back": "← Zurück zur Liste",
+      "editingAs": "Du bist eingetragen als {name}.",
+      "editingAsWithEmail": "Du bist eingetragen als {name} ({email}).",
+      "closedBanner": {
+        "title": "Geschlossen für neue Einträge",
+        "body": "Du kannst jetzt keine weiteren Plätze dazunehmen, aber du kannst deine Angaben noch ändern, Plätze zurückgeben oder dich austragen."
+      }
+    },
+    "editForm": {
+      "spotsMax": "Du kannst hier höchstens {max, plural, one {{max, number} Platz} other {{max, number} Plätze}} haben.",
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "saved": "Gespeichert.",
+      "saveUnreachable": "Der Server ist nicht erreichbar. Prüf deine Verbindung und drück noch einmal auf Speichern.",
+      "saveUnreadable": "Etwas ist schiefgelaufen. Drück noch einmal auf Speichern.",
+      "cancel": "Austragen",
+      "confirmCancel": "Austragen bestätigen",
+      "cancelQuestion": "Möchtest du dich wirklich austragen?",
+      "keep": "Behalten",
+      "yesCancel": "Ja, austragen",
+      "cancelling": "Wird ausgetragen…",
+      "cancelUnreachable": "Der Server ist nicht erreichbar. Prüf deine Verbindung und drück noch einmal auf Austragen.",
+      "cancelUnreadable": "Etwas ist schiefgelaufen. Drück noch einmal auf Austragen."
+    },
+    "cancelledPage": {
+      "title": "Du hast dich ausgetragen",
+      "open": "Es ist noch Platz frei, falls du dich wieder eintragen möchtest.",
+      "full": "Inzwischen ist es voll.",
+      "slotClosed": "Die Aufgabe ist geschlossen.",
+      "signupClosed": "Die Liste ist geschlossen.",
+      "removed": {
+        "title": "Du wurdest von dieser Aufgabe ausgetragen",
+        "body": "Wenn du denkst, dass das ein Fehler ist, wende dich an die Person, die die Liste organisiert."
+      },
+      "moved": {
+        "title": "Dein Eintrag wurde zu einer anderen Aufgabe verschoben",
+        "body": "Du bist weiterhin eingetragen. Über den Link unten kannst du deinen Eintrag ansehen oder ändern.",
+        "link": "Deinen neuen Eintrag ansehen"
+      },
+      "back": "Zurück zur Liste"
+    },
+    "unsubscribe": {
+      "title": "Erinnerungs-E-Mails",
+      "incomplete": {
+        "title": "Dieser Link ist unvollständig",
+        "body": "Links zum Abbestellen funktionieren nur vollständig. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte die Person, die die Liste organisiert, sie abzustellen."
+      },
+      "invalid": {
+        "title": "Dieser Link ist ungültig",
+        "body": "Vielleicht ist der Link unvollständig, oder die Liste wurde gelöscht. Öffne den Link direkt aus deiner Erinnerungs-E-Mail, oder antworte auf die Erinnerung und bitte die Person, die die Liste organisiert, sie abzustellen."
+      },
+      "confirm": {
+        "title": "Erinnerungs-E-Mails abbestellen?",
+        "body": "Wir schicken dir dann keine Erinnerungen mehr für <b>{title}</b> und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden. Das gilt nur für diese Liste, und dein Eintrag bleibt, wie er ist.",
+        "bodyWithEmail": "Wir schicken dann an {email} keine Erinnerungen mehr für <b>{title}</b> und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden. Das gilt nur für diese Liste, und dein Eintrag bleibt, wie er ist."
+      },
+      "stop": "Abbestellen",
+      "keep": "Behalten",
+      "turnOffFailed": "Wir konnten deine Erinnerungen nicht abstellen. Bitte versuch es noch einmal.",
+      "turnedOff": {
+        "title": "Erinnerungen abgestellt",
+        "body": "Du bekommst keine Erinnerungen mehr für <b>{title}</b> und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden. Dein Eintrag bleibt bestehen – wenn du dich auch austragen möchtest, öffne den Link in deiner Bestätigungs-E-Mail und trag dich dort aus."
+      },
+      "areOff": {
+        "title": "Erinnerungen sind abgestellt",
+        "body": "Die Erinnerungen für <b>{title}</b> sind abgestellt. Du bekommst dazu keine Erinnerungen und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden.",
+        "bodyWithEmail": "Die Erinnerungen für <b>{title}</b> sind für {email} abgestellt. Du bekommst dazu keine Erinnerungen und auch keine E-Mails, wenn Datum oder Uhrzeit geändert werden."
+      },
+      "turnBackOn": "Erinnerungen wieder einschalten",
+      "turnOnFailed": "Wir konnten deine Erinnerungen nicht wieder einschalten. Bitte versuch es noch einmal.",
+      "turnedOn": {
+        "title": "Erinnerungen wieder eingeschaltet",
+        "body": "Du bekommst wieder Erinnerungen für <b>{title}</b> und E-Mails, wenn Datum oder Uhrzeit geändert werden. Über den Link in jeder dieser E-Mails kannst du sie jederzeit wieder abbestellen.",
+        "bodyWithEmail": "Du bekommst an {email} wieder Erinnerungen für <b>{title}</b> und E-Mails, wenn Datum oder Uhrzeit geändert werden. Über den Link in jeder dieser E-Mails kannst du sie jederzeit wieder abbestellen."
+      },
+      "back": "Zurück zur Liste"
+    },
+    "share": {
+      "signUp": "Trag dich hier ein, ganz ohne Konto: {url}",
+      "spotsOpen": "{count, plural, one {{count, number, ::group-off} Platz frei} other {{count, number, ::group-off} Plätze frei}}",
+      "spotsLeft": "{count, plural, one {noch {count, number, ::group-off} Platz frei} other {noch {count, number, ::group-off} Plätze frei}}",
+      "dayAndTime": "{day}, {time}",
+      "dayRange": "{first} bis {last}",
+      "twoDays": "{first} und {second}",
+      "threeDays": "{first}, {second} und {third}"
+    }
+  },
+  "email": {
+    "subject": {
+      "signedUp": "Du bist eingetragen: {title}",
+      "reminder": "Erinnerung: {title}",
+      "timeChanged": "Neue Zeit: {title}",
+      "withSlot": "{subject} · {slot}"
+    },
+    "common": {
+      "manage": "Deinen Eintrag ansehen oder ändern",
+      "notes": "<b>Deine Anmerkung:</b> {notes}",
+      "stillConfirmed": "Wenn du dich für etwas Neues einträgst, bekommst du trotzdem eine Bestätigung."
+    },
+    "slotDetails": {
+      "line": "<b>{label}:</b> {value}",
+      "spots": "Plätze"
+    },
+    "confirmation": {
+      "heading": "Du bist eingetragen",
+      "intro": "Danke, {name}, du hast dich für <b>{title}</b> eingetragen.",
+      "keep": "Heb diese E-Mail auf. Mit der Schaltfläche oben kannst du später etwas ändern oder dich austragen, ganz ohne Passwort. Wer diesen Link hat, kann deinen Eintrag ändern, also gib die E-Mail nicht weiter.{reminder, select, yes { Außerdem schicken wir dir {hours, plural, =24 {am Vortag} one {# Stunde vorher} other {# Stunden vorher}} eine Erinnerung.} other {}}"
+    },
+    "reminder": {
+      "heading": "Bald ist es so weit",
+      "intro": "Hallo {name}, wir möchten dich daran erinnern, dass du dich für <b>{title}</b> eingetragen hast.",
+      "changed": {
+        "heading": "Die Zeit hat sich geändert",
+        "intro": "Hallo {name}, seit unserer letzten E-Mail wurde die Zeit für <b>{title}</b> geändert. Hier sind die neuen Angaben."
+      },
+      "keep": "Musst du etwas ändern oder dich austragen? Verwende die Schaltfläche oben. Damit öffnest du direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
+      "stop": "Erinnerungen für {title} abbestellen"
+    },
+    "slotChanged": {
+      "heading": "Die Zeit hat sich geändert",
+      "intro": "Hallo {name}, bei <b>{title}</b> wurde dein Eintrag auf ein neues Datum oder eine neue Uhrzeit verschoben. Hier sind die neuen Angaben.",
+      "keep": "Passt dir die neue Zeit nicht? Verwende die Schaltfläche oben, um etwas zu ändern oder dich auszutragen. Damit öffnest du direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
+      "stop": "Erinnerungen und Benachrichtigungen für {title} abbestellen"
+    }
+  },
+  "organizer": {
+    "publicPage": {
+      "strip": {
+        "label": "Verwaltung",
+        "note": "<b>Deine Liste.</b> Nur wer sie organisiert, sieht diese Leiste.",
+        "responses": "Einträge ansehen",
+        "edit": "Liste bearbeiten"
+      },
+      "ownDraft": {
+        "title": "Nur du kannst diesen Entwurf sehen",
+        "body": "Wer diesen Link öffnet, sieht „{title}“, bis du den Entwurf veröffentlichst. Benennst du den Entwurf um, bekommt er einen neuen Link. Teile den Link also erst, wenn die Liste veröffentlicht ist.",
+        "open": "Deinen Entwurf öffnen"
+      }
+    },
+    "preview": {
+      "title": "Vorschau",
+      "body": "{status, select, draft {So sieht die Liste für andere aus, sobald du sie veröffentlicht hast. Einträge werden nicht gespeichert.} closed {Diese Liste ist geschlossen. Unten siehst du die Seite, wie andere sie sehen.} archived {Diese Liste ist archiviert und für Teilnehmende nicht sichtbar.} other {Diese Liste ist offen. Unten siehst du die Seite, wie andere sie sehen.}}",
+      "signUpDisabled": "{status, select, draft {Vorschau: Veröffentliche die Liste, damit sich andere eintragen können} other {Vorschau: Andere tragen sich über den öffentlichen Link ein}}"
+    },
+    "chrome": {
+      "tabTitle": "Übersicht",
+      "breadcrumb": "Du bist hier",
+      "help": "Hilfe",
+      "account": "Konto",
+      "settings": "Einstellungen",
+      "signOut": "Abmelden"
+    },
+    "crumbs": {
+      "settings": "Einstellungen",
+      "connectedApps": "Verbundene Apps",
+      "newSignup": "Neue Liste"
+    },
+    "dashboard": {
+      "title": "Deine Listen",
+      "newSignup": "Neue Liste",
+      "emptyPitch": "Organisiere Snacks, Fahrgemeinschaften, Mitbringbuffets, Schichten für Freiwillige oder etwas ganz anderes.",
+      "createFirst": "Deine erste Liste erstellen",
+      "draftOnlyYou": "Nur du kannst diesen Entwurf sehen",
+      "pager": {
+        "label": "Seiten deiner Listen",
+        "range": "{start, number}–{end, number} von {total, number}",
+        "newer": "Neuere",
+        "older": "Ältere"
+      },
+      "noWorkspace": {
+        "title": "Willkommen bei {instance}",
+        "body": "Dein Arbeitsbereich ist noch nicht eingerichtet. Melde dich ab und wieder an, damit die Einrichtung abgeschlossen wird."
+      }
+    },
+    "loadError": {
+      "tabTitle": "Liste nicht gefunden",
+      "notFound": {
+        "title": "Wir finden diese Liste nicht",
+        "body": "Vielleicht wurde sie gelöscht, oder sie gehört zu einem anderen Konto. Du bist angemeldet als <account>{email}</account>."
+      },
+      "failed": {
+        "title": "Wir konnten diese Liste nicht öffnen",
+        "body": "Bei uns ist etwas schiefgelaufen. Lade die Seite neu, um es noch einmal zu versuchen."
+      },
+      "goToSignups": "Zu deinen Listen",
+      "switchAccount": "Mit einer anderen E-Mail-Adresse anmelden"
+    },
+    "errors": {
+      "code": {
+        "forbidden": "Du hast keine Berechtigung zum Bearbeiten.",
+        "unauthorized": "Melde dich noch einmal an, um zu speichern.",
+        "conflict": "Lade die Seite neu, um die neuesten Änderungen zu sehen.",
+        "capacity_full": "Die Aufgabe ist voll.",
+        "closed": "Diese Liste ist geschlossen.",
+        "not_found": "Nicht mehr verfügbar.",
+        "invalid_input": "Einige Werte wurden nicht angenommen.",
+        "rate_limited": "Warte kurz und versuch es dann noch einmal.",
+        "already_consumed": "Wurde schon verwendet.",
+        "internal": "Speichern hat nicht geklappt."
+      },
+      "titleTooShort": "Der Titel muss mindestens {min, number} Zeichen lang sein.",
+      "tooManySignups": "Du hast in der letzten Stunde viele Listen erstellt. Versuch es in etwa {minutes, plural, one {{minutes, number} Minute} other {{minutes, number} Minuten}} noch einmal.",
+      "disconnectFailed": "Die App konnte nicht getrennt werden. Versuch es noch einmal.",
+      "alreadyDisconnected": "Diese App ist schon getrennt."
+    },
+    "signupSettings": {
+      "signupForm": {
+        "title": "Formular zum Eintragen",
+        "askForEmail": "E-Mail-Adresse abfragen",
+        "required": "Erforderlich",
+        "optional": "Optional",
+        "requiredHelp": "Alle bekommen per E-Mail ihren Link zum Ändern oder Austragen.",
+        "requiredHelpReminders": "Alle bekommen per E-Mail ihren Link zum Ändern oder Austragen und {hours, plural, =24 {am Tag vor} one {# Stunde vor} other {# Stunden vor}} ihrer Aufgabe eine Erinnerung.",
+        "optionalHelp": "Teilnehmende können das E-Mail-Feld leer lassen. Dann bekommen sie keine E-Mails, auch keine Erinnerungen, und müssen sich ihren Link selbst speichern. Geht er verloren, können sie sich neu eintragen, und du kannst den alten Eintrag im Tab „Einträge“ entfernen."
+      },
+      "language": {
+        "title": "Sprache",
+        "legend": "Sprache der Liste",
+        "help": "Die Seite und die E-Mails dieser Liste zeigen Schaltflächen, Meldungen und Datumsangaben in dieser Sprache. Schreib Titel und Aufgaben in derselben Sprache. Wer schon eingetragen ist, sieht die Liste ebenfalls in der neuen Sprache."
+      },
+      "reminders": {
+        "title": "Erinnerungen",
+        "on": "Teilnehmende, die eine E-Mail-Adresse angeben, bekommen {hours, plural, =24 {am Tag vor} one {# Stunde vor} other {# Stunden vor}} ihrer Aufgabe eine Erinnerung (laut Feld „{label}“). Um Erinnerungen auszuschalten, öffne im Tab „Inhalt“ die „Felder“ und wähle „{label}“.",
+        "off": "Erinnerungen sind ausgeschaltet. Um sie einzuschalten, öffne im Tab „Inhalt“ die „Felder“ und wähle „{label}“.",
+        "none": "Keine Erinnerungen: Deine Aufgaben haben kein Datumsfeld."
+      },
+      "save": "Speichern",
+      "saving": "Wird gespeichert…",
+      "delete": {
+        "title": "Diese Liste löschen",
+        "body": "Wenn du die Liste löschst, verschwindet sie aus deinen Listen, und ihr öffentlicher Link funktioniert sofort nicht mehr.",
+        "start": "Liste löschen",
+        "label": "Löschen der Liste bestätigen",
+        "question": "Die Liste wird gelöscht.",
+        "confirm": "Ja, Liste löschen",
+        "deleting": "Wird gelöscht…",
+        "cancel": "Abbrechen"
+      }
+    },
+    "saveNotice": {
+      "saved": "Gespeichert"
+    },
+    "build": {
+      "rail": {
+        "editing": "Bearbeitung",
+        "fields": "Felder ({count, number})",
+        "saving": "Speichert…"
+      },
+      "sheet": {
+        "titlePlaceholder": "Liste ohne Titel",
+        "titleLabel": "Titel der Liste",
+        "descriptionPlaceholder": "Kurze Beschreibung für alle, die sich eintragen",
+        "descriptionLabel": "Beschreibung der Liste",
+        "addDate": "Datum hinzufügen"
+      },
+      "group": {
+        "header": "Gruppenüberschrift – {heading}",
+        "renameFailed": "Die Änderung wurde nicht gespeichert, die Überschrift ist also wieder wie vorher. Versuch es noch einmal.",
+        "addSlot": "Aufgabe hinzufügen"
+      },
+      "empty": {
+        "date": "Datum festlegen",
+        "time": "Uhrzeit festlegen",
+        "named": "{label} festlegen",
+        "other": "Wert festlegen"
+      },
+      "slot": {
+        "untitled": "Aufgabe",
+        "row": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} bearbeiten, {count}",
+        "edit": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} bearbeiten",
+        "duplicate": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} duplizieren",
+        "delete": "{kind, select, time {Aufgabe um {name} Uhr} named {Aufgabe „{name}“} other {Aufgabe}} löschen",
+        "editing": "Du bearbeitest {kind, select, time {die Aufgabe um {name} Uhr} named {die Aufgabe „{name}“} other {die Aufgabe}}",
+        "taken": "{taken, number} belegt",
+        "takenOf": "{taken, number} von {capacity, number} belegt"
+      },
+      "editor": {
+        "title": "Aufgabe",
+        "duplicate": "Duplizieren",
+        "delete": "Löschen",
+        "done": "Fertig",
+        "signedUp": "{taken, plural, one {Hier ist {taken, number} Person eingetragen.} other {Hier sind {taken, number} Personen eingetragen.}} {reminders, select, on {Wenn du Datum oder Uhrzeit änderst, {taken, plural, one {bekommt die Person} other {bekommen sie}} eine E-Mail dazu.} other {Die Erinnerungen sind abgestellt, deshalb {taken, plural, one {bekommt die Person} other {bekommen sie}} keine E-Mail, wenn du Datum oder Uhrzeit änderst.}}",
+        "value": "Wert für {field}",
+        "spots": "Plätze",
+        "noLimit": "Unbegrenzt",
+        "spotsHelp": "Wie viele Plätze die Aufgabe hat. Lass das Feld leer, wenn es keine Grenze geben soll.",
+        "noTime": "Keine Uhrzeit"
+      },
+      "placeholder": {
+        "text": "z. B. Servietten mitbringen",
+        "date": "JJJJ-MM-TT",
+        "number": "z. B. 12"
+      },
+      "fieldType": {
+        "text": "Kurztext",
+        "date": "Datum",
+        "time": "Uhrzeit",
+        "number": "Zahl",
+        "enum": "Auswahl"
+      },
+      "list": {
+        "choose": "Auswählen…",
+        "empty": "Noch keine Optionen.",
+        "newItem": "Neue Option",
+        "newItemLabel": "Name der neuen Option",
+        "count": "{length, number}/{max, number}{atMax, select, yes { · Maximum} other {}}",
+        "add": "Hinzufügen",
+        "maxLength": "Höchstens {max, number} Zeichen",
+        "full": "Eine Auswahl kann höchstens {max, number} Optionen haben.",
+        "addToList": "Option hinzufügen"
+      },
+      "fields": {
+        "label": "Felder",
+        "title": "Felder · {count, number}",
+        "editTitle": "Feld bearbeiten",
+        "newTitle": "Neues Feld",
+        "close": "Schließen",
+        "groupBy": "Aufgaben gruppieren nach",
+        "noGroup": "Nicht gruppieren",
+        "reorder": "Zum Sortieren ziehen",
+        "add": "Feld hinzufügen",
+        "empty": "Noch keine Felder – füge eins hinzu, um loszulegen.",
+        "reminder": "Erinnerungen werden {hours, plural, =24 {am Tag vor diesem Datum} one {# Stunde vor diesem Datum} other {# Stunden vor diesem Datum}} verschickt",
+        "typeCount": "{type} · {count, number}",
+        "delete": "{field} löschen"
+      },
+      "fieldForm": {
+        "backLabel": "Zurück zu den Feldern",
+        "back": "Zurück",
+        "name": "Name",
+        "namePlaceholder": "z. B. Lehrkraft, Fach, Gegenstand",
+        "nameLabel": "Name des Felds",
+        "type": "Typ",
+        "reminder": "Vor diesem Datum eine Erinnerung per E-Mail schicken",
+        "reminderHelp": "Wird {hours, plural, =24 {am Vortag} one {# Stunde vorher} other {# Stunden vorher}} verschickt. Pro Liste richten sich die Erinnerungen nach einem einzigen Datumsfeld, und Teilnehmende können jede Erinnerung abbestellen, die sie bekommen.",
+        "reminderTaken": "<field>{label}</field> ist schon das Erinnerungsfeld dieser Liste. Stell die Erinnerung dort ab, um stattdessen dieses Feld zu verwenden.",
+        "remove": "Feld entfernen",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "add": "Feld hinzufügen"
+      },
+      "refusal": {
+        "dateTooEarly": "Das Datum muss im Jahr {year, number, ::group-off} oder später liegen.",
+        "slotsMoved": "Die Aufgaben wurden in einem anderen Fenster geändert, die neue Reihenfolge wurde also nicht gespeichert. Zieh die Aufgabe noch einmal.",
+        "fieldsMoved": "Die Felder wurden in einem anderen Fenster geändert, die neue Reihenfolge wurde also nicht gespeichert. Zieh das Feld noch einmal.",
+        "capacityBelowTaken": "{taken, plural, one {{taken, number} Platz ist schon belegt. Gib der Aufgabe mindestens {taken, number} Platz.} other {{taken, number} Plätze sind schon belegt. Gib der Aufgabe mindestens {taken, number} Plätze.}}",
+        "invalidatesSlotValues": "Einige Aufgaben haben Werte, die nicht zu dieser Änderung passen. Bearbeite diese Aufgaben zuerst."
+      }
+    },
+    "responses": {
+      "summary": {
+        "signUps": "{count, plural, one {{count, number} Eintrag} other {{count, number} Einträge}}",
+        "cancelled": "{count, number} ausgetragen",
+        "removed": "{count, number} entfernt"
+      },
+      "downloadCsv": "CSV herunterladen",
+      "empty": {
+        "draft": "Noch hat sich niemand eingetragen. Das geht, sobald du die Liste veröffentlicht und geteilt hast.",
+        "open": "Noch hat sich niemand eingetragen. Teile den öffentlichen Link, um Einträge zu sammeln.",
+        "closed": "Niemand hat sich eingetragen.",
+        "archived": "Niemand hat sich eingetragen. Jetzt ist das nicht mehr möglich."
+      },
+      "table": {
+        "name": "Name",
+        "email": "E-Mail",
+        "slot": "Aufgabe",
+        "spots": "Plätze",
+        "status": "Status",
+        "actions": "Aktionen",
+        "noEmail": "Keine E-Mail",
+        "spotsAfterCount": "{count, plural, one {Platz} other {Plätze}}"
+      },
+      "status": {
+        "confirmed": "bestätigt",
+        "tentative": "vorläufig",
+        "waitlist": "Warteliste",
+        "cancelled": "ausgetragen",
+        "noShow": "nicht erschienen",
+        "removed": "entfernt",
+        "moved": "verschoben"
+      },
+      "remove": {
+        "button": "Entfernen",
+        "label": "{name} aus {slot} entfernen",
+        "labelNoSlot": "{name} aus dieser Aufgabe entfernen",
+        "question": "{label}? {count, plural, one {Der Platz wird für jemand anderen frei.} other {Die {count, number} Plätze werden für andere frei.}} Die Person bekommt keine E-Mail dazu.",
+        "dialogLabel": "Entfernen bestätigen",
+        "keep": "Behalten",
+        "confirm": "Ja, entfernen",
+        "removing": "Wird entfernt…",
+        "refusal": {
+          "notFound": "Diese Person ist nicht mehr auf dieser Liste eingetragen. Lade die Seite neu, um den aktuellen Stand zu sehen.",
+          "failed": "Die Person konnte nicht entfernt werden. Versuch es noch einmal."
+        }
+      },
+      "csv": {
+        "name": "Name",
+        "email": "E-Mail",
+        "status": "Status",
+        "spots": "Plätze",
+        "notes": "Anmerkung",
+        "signedUp": "Eingetragen"
+      }
+    },
+    "newSignup": {
+      "title": "Neue Liste",
+      "intro": "Aufgaben kannst du hinzufügen, sobald die Liste erstellt ist. Sichtbar wird sie erst, wenn du sie veröffentlichst.",
+      "titleLabel": "Titel",
+      "titlePlaceholder": "Kuchenbuffet – Sommerfest",
+      "descriptionLabel": "Beschreibung (optional)",
+      "descriptionPlaceholder": "Ein Absatz, der oben auf der Seite deiner Liste steht.",
+      "cancel": "Abbrechen",
+      "creating": "Wird erstellt…",
+      "create": "Liste erstellen"
+    },
+    "compose": {
+      "eyebrow": "Neue Liste",
+      "heading": "Was organisierst du?",
+      "intro": "<strong>Schreib, wofür sich die Teilnehmenden eintragen, wann es stattfindet und wie viele du jeweils brauchst.</strong> Wir machen daraus einen Titel, eine kurze Beschreibung und Aufgaben, die du bearbeiten kannst.",
+      "describe": "Beschreib deine Liste",
+      "placeholder": "Zum Beispiel: Snackdienst für unsere U9-Fußballmannschaft. 6 Samstagsspiele ab dem 25. April, zwei Familien pro Spiel, bitte keine Nüsse.",
+      "count": "{count, number} / {max, number} Zeichen",
+      "countOver": "{count, number} / {max, number} Zeichen. Kürze die Beschreibung um {over, number} Zeichen, um einen Entwurf zu erstellen.",
+      "skip": "Überspringen, selbst ausfüllen",
+      "draft": "Entwurf erstellen",
+      "examples": "Oder starte mit einem Beispiel",
+      "loaded": "Eingefügt",
+      "tryThis": "Ausprobieren",
+      "starters": {
+        "sports": {
+          "label": "Sportmannschaft",
+          "blurb": "Snack-, Kuchen- oder Fahrdienste für die ganze Saison",
+          "body": "Snackdienst für unsere Fußballmannschaft. Wir haben 6 Spiele, immer samstags, das erste am nächsten Samstag. Pro Spiel bringen zwei Familien Snacks und Getränke mit. Bitte keine Nüsse."
+        },
+        "classroom": {
+          "label": "Klasse oder Schule",
+          "blurb": "Mitbringbuffets, Elterngespräche, Sammelaktionen, Arbeitseinsätze",
+          "body": "Mitbringbuffet zum Schuljahresende für unsere 3. Klasse, am letzten Freitag des Monats um 17 Uhr. 20 Familien bringen je ein Gericht mit: Wir brauchen 5 Familien für Hauptgerichte, 5 für Beilagen, 5 für Desserts und 5 für Getränke."
+        },
+        "community": {
+          "label": "Schichten im Ehrenamt",
+          "blurb": "Schichten, Aufbau für Feste oder Dienste im Wechsel",
+          "body": "Ehrenamtliche für unseren Bücherbasar im Frühling. Donnerstag und Freitag nächste Woche, jeden Tag drei Schichten à 2 Stunden (9–11, 11–13 und 13–15 Uhr). 2 Personen pro Schicht."
+        }
+      },
+      "tips": {
+        "heading": "Tipps für einen besseren Entwurf",
+        "dates": {
+          "title": "Nenn das Datum",
+          "body": "Mit einem Zeitraum wie „samstags vom 25. April bis 30. Mai“ können wir für jedes Datum eine Aufgabe erstellen."
+        },
+        "howMany": {
+          "title": "Sag, wie viele",
+          "body": "„Zwei Familien pro Spiel“ oder „sechs Ehrenamtliche pro Schicht“, damit wir die Anzahl der Plätze festlegen können."
+        },
+        "gotchas": {
+          "title": "Denk an Besonderheiten",
+          "body": "Allergien, Orte, was gilt, wenn jemand nicht kommt. Alles, was die Teilnehmenden wissen sollten."
+        }
+      },
+      "steps": {
+        "label": "Fortschritt",
+        "read": "Deine Beschreibung wird gelesen",
+        "title": "Titel wird formuliert",
+        "desc": "Kurze Beschreibung wird geschrieben",
+        "fields": "Felder werden ausgewählt",
+        "slots": "Aufgaben werden erstellt",
+        "check": "Letzter Feinschliff",
+        "details": "Ein paar Details",
+        "readShort": "Gelesen",
+        "draftShort": "Entwurf"
+      },
+      "drafting": {
+        "readingTitle": "Deine Beschreibung wird gelesen",
+        "readingBody": "Du bekommst einen Entwurf oder, falls noch etwas fehlt, ein paar kurze Fragen.",
+        "draftingTitle": "Dein Entwurf wird erstellt",
+        "draftingBody": "Sobald er fertig ist, kannst du alles bearbeiten.",
+        "cancel": "Abbrechen",
+        "liveReading": "Wird gelesen · live",
+        "liveDrafting": "Wird erstellt · live",
+        "title": "Titel",
+        "description": "Beschreibung",
+        "fields": "Felder",
+        "slots": "Aufgaben",
+        "shown": "{shown, number} von {total, number}",
+        "more": "+{count, number} weitere"
+      },
+      "youWrote": {
+        "label": "Deine Beschreibung",
+        "heading": "Du hast geschrieben",
+        "quoted": "„{text}“"
+      },
+      "draftingFrom": {
+        "label": "Grundlage für den Entwurf",
+        "allAnswered": "Alles beantwortet",
+        "oneBlank": "Eine Frage offen",
+        "twoBlank": "Zwei Fragen offen",
+        "what": "Was",
+        "whatBlank": "Leer gelassen. Der Entwurf verwendet Platzhalter-Aufgaben, die du später ausfüllen kannst.",
+        "when": "Wann",
+        "whenBlank": "Noch offen. Der Entwurf verwendet Platzhalter, die du später durch Datumsangaben ersetzen kannst.",
+        "noLimit": "Unbegrenzt",
+        "people": "{count, plural, one {{count, number} Person} other {{count, number} Personen}}",
+        "dayAndTimes": "{day} · {times}"
+      },
+      "errors": {
+        "questionsUnavailable": "Die Fragen konnten nicht angezeigt werden. Lade die Seite neu und versuch es noch einmal – kopier vorher deine Beschreibung, wenn du sie behalten möchtest.",
+        "slow": "Der KI-Entwurf dauert länger als erwartet. Versuch es noch einmal oder vereinfache deine Beschreibung.",
+        "slowWithAnswers": "Der KI-Entwurf dauert länger als erwartet. Versuch es noch einmal.",
+        "hourlyLimit": "Du hast alle KI-Entwürfe für diese Stunde verbraucht. Versuch es in {minutes, plural, one {{minutes, number} Minute} other {{minutes, number} Minuten}} noch einmal, oder <link>füll die Liste selbst aus</link>.",
+        "busy": "Der KI-Dienst ist gerade ausgelastet. Versuch es {minutes, plural, =1 {in einer Minute} one {in {minutes, number} Minute} other {in {minutes, number} Minuten}} noch einmal.",
+        "askedAgain": "Daraus konnte kein Entwurf erstellt werden. Versuch es noch einmal, oder füll die Liste selbst aus.",
+        "askedAgainWithAnswers": "Aus diesen Antworten konnte kein Entwurf erstellt werden. Ergänze noch etwas, oder füll die Liste selbst aus.",
+        "draftInvalid": "Der KI-Entwurf hatte nicht die erwartete Form – versuch es noch einmal oder ändere deine Beschreibung",
+        "timeout": "Der KI-Entwurf hat zu lange gedauert. Versuch es mit einer einfacheren Beschreibung.",
+        "timeoutWithAnswers": "Der KI-Entwurf hat zu lange gedauert. Versuch es noch einmal.",
+        "apiKey": "Der KI-Anbieter hat den API-Schlüssel abgelehnt. Wer diese Website betreibt, muss LLM_API_KEY prüfen.",
+        "unavailable": "Der KI-Anbieter ist gerade nicht erreichbar (HTTP {status, number, ::group-off}). Versuch es noch einmal.",
+        "providerError": "Der KI-Anbieter hat einen Fehler gemeldet. Versuch es noch einmal.",
+        "providerErrorStatus": "Der KI-Anbieter hat einen Fehler gemeldet (HTTP {status, number, ::group-off}). Versuch es noch einmal.",
+        "malformed": "Der KI-Anbieter hat eine fehlerhafte Antwort geschickt. Versuch es noch einmal.",
+        "shape": "Der KI-Anbieter hat eine Antwort in einer unerwarteten Form geschickt. Versuch es noch einmal.",
+        "failed": "Der KI-Entwurf ist fehlgeschlagen (HTTP {status, number, ::group-off}). Versuch es noch einmal.",
+        "cancelled": "Die Anfrage wurde abgebrochen.",
+        "offline": "Der Server ist nicht erreichbar. Prüf deine Verbindung und versuch es noch einmal.",
+        "unexpected": "Der Server hat eine unerwartete Antwort geschickt. Versuch es noch einmal.",
+        "unknown": "Beim Erstellen des Entwurfs ist etwas schiefgelaufen. Versuch es noch einmal."
+      },
+      "questions": {
+        "back": "Zurück",
+        "heading": "Vorab ein paar Details",
+        "intro": "Wähl aus, was passt. Was du überspringst, wird zu einem Platzhalter, den du später ausfüllen kannst.",
+        "fillInByHand": "Lieber selbst ausfüllen",
+        "what": {
+          "ask": "Wofür sollen sich die Teilnehmenden eintragen?",
+          "askHint": "Wähl alles aus, was passt, oder füg Eigenes hinzu.",
+          "told": "Wofür sich die Teilnehmenden eintragen",
+          "toldHint": "Aus deiner Beschreibung. Entferne, was nicht passt, oder füg Eigenes hinzu.",
+          "remove": "{item} entfernen",
+          "full": "Höchstens {max, number} sind möglich. Entferne eins, um etwas anderes hinzuzufügen.",
+          "addLabel": "Gib etwas Eigenes ein und drück Enter",
+          "addYourOwn": "Eigenes hinzufügen",
+          "addAnother": "Weiteres hinzufügen",
+          "add": "Hinzufügen"
+        },
+        "when": {
+          "ask": "Wann findet es statt?",
+          "oneDay": "Ein Tag",
+          "several": "Mehrere Tage",
+          "notDecided": "Noch offen",
+          "date": "Datum",
+          "starts": "Beginn",
+          "ends": "Ende",
+          "noTime": "Keine Uhrzeit",
+          "whichDays": "Welche Tage?",
+          "whichDaysPlaceholder": "Welche Tage? Zum Beispiel: jeden Samstag im Mai, 9 bis 11 Uhr",
+          "notDecidedHint": "Der Entwurf verwendet Platzhalter, die du später durch Datumsangaben ersetzen kannst."
+        },
+        "howMany": {
+          "ask": "Wie viele Personen brauchst du?",
+          "hint": "Für jeden Punkt oben. Bleibt das Kästchen leer, gibt es keine Begrenzung.",
+          "pickFirst": "Wähl zuerst oben etwas aus oder füg etwas hinzu.",
+          "fewer": "Weniger Personen für {item}",
+          "people": "Personen für {item}",
+          "noLimit": "Unbegrenzt",
+          "more": "Mehr Personen für {item}"
+        },
+        "problems": {
+          "noDate": "Gib ein Datum an oder lass die Uhrzeiten leer.",
+          "year": "Prüf das Jahr im Datum.",
+          "timeOrder": "Das Ende muss nach dem Beginn liegen.",
+          "wholeNumbers": "Gib für die Anzahl der Personen ganze Zahlen ein."
+        }
+      },
+      "answers": {
+        "what": "Was: {items}",
+        "item": "{item} ({count, number})",
+        "itemNoLimit": "{item} (unbegrenzt)",
+        "when": "Wann: {when}",
+        "dayAndTimes": "{day}, {times}",
+        "fromTo": "{from} bis {to} Uhr",
+        "from": "ab {from} Uhr",
+        "until": "bis {to} Uhr"
+      }
+    },
+    "aiDraft": {
+      "title": "Hier ist dein Entwurf mit {fields, plural, one {{fields, number} Feld} other {{fields, number} Feldern}} und {slots, plural, one {{slots, number} Aufgabe} other {{slots, number} Aufgaben}}",
+      "body": "Bearbeite unten, was du möchtest, und veröffentliche die Liste, wenn du so weit bist.",
+      "dismiss": "Ausblenden",
+      "warnings": {
+        "heading": "Ein paar Dinge zum Nachprüfen",
+        "valuesBlanked": "{count, plural, one {{count, number} Wert passte nicht zu seinem Feld und wurde deshalb leer gelassen. Füll ihn unten aus.} other {{count, number} Werte passten nicht zu ihren Feldern und wurden deshalb leer gelassen. Füll sie unten aus.}}",
+        "enumFieldsToText": "{count, plural, one {Das Feld {fields} hatte keine festen Optionen und wurde deshalb auf Freitext umgestellt.} other {Die Felder {fields} hatten keine festen Optionen und wurden deshalb auf Freitext umgestellt.}}",
+        "duplicateFields": "{count, plural, one {Die KI wollte {count, number} Feld doppelt hinzufügen, deshalb wurde das Duplikat entfernt.} other {Die KI wollte {count, number} Felder doppelt hinzufügen, deshalb wurden die Duplikate entfernt.}}",
+        "strayValues": "{count, plural, one {{count, number} Wert gehörte zu keinem Feld und wurde ignoriert.} other {{count, number} Werte gehörten zu keinem Feld und wurden ignoriert.}}",
+        "titleCut": "Der Titel der KI war länger als {max, number} Zeichen, deshalb wurde das Ende abgeschnitten. Prüf ihn unten.",
+        "descriptionCut": "Die Beschreibung der KI war länger als {max, number} Zeichen, deshalb wurde das Ende abgeschnitten. Prüf sie unten."
+      }
+    },
+    "status": {
+      "draft": "Entwurf",
+      "open": "offen",
+      "closed": "geschlossen",
+      "archived": "archiviert"
+    },
+    "signup": {
+      "draftLine": "Nur du kannst diesen Entwurf sehen, bis du ihn veröffentlichst.",
+      "preview": "Vorschau",
+      "moreActions": "Weitere Aktionen",
+      "closeSheet": "Schließen",
+      "spots": {
+        "taken": "{taken, plural, one {{taken, number} Platz belegt} other {{taken, number} Plätze belegt}}",
+        "takenOf": "{taken, number} von {total, plural, one {{total, number} Platz} other {{total, number} Plätzen}} belegt",
+        "line": "{status, select, closed {Geschlossen · {spots}} archived {Archiviert · {spots}} other {{spots}}}"
+      },
+      "publish": {
+        "label": "Veröffentlichen und teilen",
+        "checking": "Wird geprüft…",
+        "ready": "Veröffentliche und teile die Liste, wenn du so weit bist.",
+        "unsaved": "Eine Änderung wurde nicht gespeichert. Behebe das und veröffentliche die Liste dann."
+      },
+      "check": {
+        "title": "Noch nichts zum Eintragen",
+        "noSlots": "Es gibt noch keine Aufgaben. Füg eine hinzu und veröffentliche die Liste dann.",
+        "noFields": "Füg ein Feld hinzu, das angibt, wofür man sich einträgt, und veröffentliche die Liste dann.",
+        "allBlank": "{count, plural, one {Die Aufgabe ist leer.} other {Alle Aufgaben sind leer.}} Schreib, wofür sich Teilnehmende eintragen, und veröffentliche die Liste dann.",
+        "addSlot": "Aufgabe hinzufügen",
+        "fillIn": "Ausfüllen",
+        "notNow": "Nicht jetzt"
+      },
+      "close": {
+        "action": "Liste schließen",
+        "notYet": "Noch nicht",
+        "closing": "Wird geschlossen…",
+        "question": "{standing} Bis du die Liste wieder öffnest, kann sich niemand eintragen.{kept, select, yes { Alle, die schon eingetragen sind, behalten ihren Platz.} other {}}",
+        "standing": {
+          "nobody": "Noch hat sich niemand eingetragen.",
+          "taken": "{taken, plural, one {{taken, number} Platz ist belegt.} other {{taken, number} Plätze sind belegt.}}",
+          "allTaken": "Alle Plätze sind belegt.",
+          "noneOpen": "Es ist kein Platz mehr frei.",
+          "open": "{open, plural, one {{open, number} Platz ist noch frei.} other {{open, number} Plätze sind noch frei.}}",
+          "openOf": "{open, plural, one {{open, number} von {total, number} Plätzen ist noch frei.} other {{open, number} von {total, number} Plätzen sind noch frei.}}"
+        }
+      },
+      "closed": {
+        "title": "Liste geschlossen",
+        "body": "Zurzeit kann sich niemand eintragen. Alle, die schon eingetragen sind, behalten ihren Platz.",
+        "help": "So funktioniert das Schließen und Wiederöffnen",
+        "dismiss": "Ausblenden"
+      },
+      "reopen": {
+        "action": "Liste wieder öffnen",
+        "reopening": "Wird wieder geöffnet…"
+      },
+      "announce": {
+        "closed": "Geschlossen. Zurzeit kann sich niemand eintragen.",
+        "reopened": "Wieder geöffnet. Man kann sich wieder eintragen."
+      },
+      "tabs": {
+        "label": "Bereiche der Liste",
+        "build": "Inhalt",
+        "responses": "Einträge",
+        "settings": "Einstellungen"
+      },
+      "refusal": {
+        "gone": "Diese Liste ist nicht mehr verfügbar.",
+        "changed": "Diese Liste wurde geändert, seit die Seite geladen wurde. Lade die Seite neu, um den aktuellen Stand zu sehen.",
+        "addSlotToPublish": "Füg eine Aufgabe hinzu, bevor du die Liste veröffentlichst.",
+        "addSlotToReopen": "Füg eine Aufgabe hinzu, bevor du die Liste wieder öffnest.",
+        "publishFailed": "Die Liste konnte nicht veröffentlicht werden. Versuch es noch einmal.",
+        "closeFailed": "Die Liste konnte nicht geschlossen werden. Versuch es noch einmal.",
+        "reopenFailed": "Die Liste konnte nicht wieder geöffnet werden. Versuch es noch einmal."
+      }
+    },
+    "share": {
+      "button": "Teilen",
+      "close": "Schließen",
+      "heading": {
+        "firstTime": "Jetzt den Link verschicken",
+        "later": "Link teilen"
+      },
+      "published": "Veröffentlicht",
+      "announce": "Veröffentlicht. Wer den Link hat, kann sich jetzt eintragen.",
+      "lead": {
+        "firstTime": "Wer den Link hat, kann sich eintragen. Bis du ihn verschickst, hat ihn niemand.",
+        "desktop": "Schick den Link per E-Mail oder in einen Gruppenchat. Wer ihn hat, kann sich eintragen.",
+        "phone": "Schick den Link in einen Gruppenchat, per SMS oder per E-Mail. Wer ihn hat, kann sich eintragen."
+      },
+      "linkField": "Öffentlicher Link",
+      "copyLink": "Link kopieren",
+      "copied": "Kopiert",
+      "linkCopied": "Link kopiert",
+      "messageCopied": "Text kopiert",
+      "linkRefused": "Kopieren hat nicht geklappt. Markiere den Link und kopiere ihn selbst.",
+      "messageRefused": "Kopieren hat nicht geklappt. Markiere den Text und kopiere ihn selbst.",
+      "messageLabel": "Ein Text zum Mitschicken",
+      "copyMessage": "Text kopieren",
+      "emailIt": "Per E-Mail schicken",
+      "shareMenu": "Teilen…",
+      "shareMenuHint": "Öffnet das Teilen-Menü deines Handys mit dem Text und dem Link.",
+      "shareMenuSent": "Über das Teilen-Menü deines Handys verschickt.",
+      "unavailable": "Die anderen Möglichkeiten zum Teilen konnten nicht geladen werden. Lade die Seite neu, um es noch einmal zu versuchen.",
+      "qr": {
+        "alt": "QR-Code mit dem Link zur Liste „{title}“",
+        "lead": "Ein QR-Code für einen Flyer oder einen Infostand.",
+        "download": "Herunterladen",
+        "downloadLabel": "QR-Code herunterladen",
+        "show": "QR-Code",
+        "hide": "QR-Code ausblenden",
+        "save": "Bild speichern",
+        "saved": "Gespeichert",
+        "savedNotice": "QR-Code gespeichert"
+      },
+      "chip": {
+        "label": "Öffentlicher Link",
+        "copy": "Öffentlichen Link kopieren",
+        "copyTip": "Kopieren",
+        "open": "Öffentliche Seite öffnen",
+        "openTip": "Öffnen",
+        "copied": "Link kopiert"
+      }
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "signedInAs": "Angemeldet als <account>{email}</account>.",
+      "connectedApps": {
+        "title": "Verbundene Apps",
+        "description": "KI-Assistenten und andere Apps, denen du Zugriff auf dein Konto gegeben hast, und wie du sie trennst."
+      },
+      "language": {
+        "legend": "Sprache",
+        "help": "OpenSignup und deine neuen Listen verwenden diese Sprache. Die Sprache einer einzelnen Liste änderst du im Tab „Einstellungen“ dieser Liste.",
+        "save": "Speichern",
+        "toSwitch": "{count, plural, one {Eine deiner Listen ist offen und noch nicht auf <language>{name}</language>.} other {{count, number} deiner Listen sind offen und noch nicht auf <language>{name}</language>.}}",
+        "switch": "{count, plural, one {Liste auf <language>{name}</language> umstellen} other {Listen auf <language>{name}</language> umstellen}}",
+        "switchNote": "Nur die Texte von OpenSignup selbst ändern sich: Schaltflächen, Meldungen, Datumsangaben und E-Mails. Titel, Aufgaben und Felder, die du geschrieben hast, bleiben, wie sie sind. Wer schon eingetragen ist, sieht ebenfalls die neue Sprache.",
+        "switched": "Gespeichert. {count, plural, one {Eine deiner Listen ist offen und jetzt auf <language>{name}</language>.} other {{count, number} deiner Listen sind offen und jetzt alle auf <language>{name}</language>.}}"
+      }
+    },
+    "connectedApps": {
+      "title": "Verbundene Apps",
+      "intro": "Apps und KI-Assistenten, denen du Zugriff auf dein Konto gegeben hast. Jede dieser Apps handelt in deinem Namen: in allen Arbeitsbereichen, zu denen du gehörst, und mit den Berechtigungen, die du freigegeben hast.",
+      "disconnected": "Die App wurde getrennt. Neuen Zugriff bekommt sie nicht mehr, und Zugriff, den sie noch hat, endet innerhalb von {lifetime}.",
+      "empty": {
+        "title": "Keine verbundenen Apps",
+        "body": "Wenn du einen KI-Assistenten wie Claude oder ChatGPT mit deinem Konto verbindest, erscheint er hier."
+      },
+      "dates": "Freigegeben am {approved}{used, select, yes { · zuletzt genutzt am {lastUsed}} other { · noch nicht genutzt}}{expiring, select, yes { · endet ohne Verlängerung am {expires}} other {}}",
+      "disconnect": "Trennen",
+      "disconnecting": "Wird getrennt…",
+      "footnote": "Wenn du eine App trennst, bekommt sie sofort keinen neuen Zugriff mehr. Zugriff, den sie schon hat, läuft innerhalb von {lifetime} von selbst ab und lässt sich nicht früher beenden."
+    }
+  },
+  "auth": {
+    "tabTitle": "Anmelden",
+    "heading": "Bei {instance} anmelden",
+    "login": {
+      "intro": "Gib deine E-Mail-Adresse ein, dann schicken wir dir einen Anmeldelink. Ganz ohne Passwort.",
+      "introWithProviders": "Wähl unten einen Anbieter, oder lass dir einen Anmeldelink per E-Mail schicken. Ganz ohne Passwort.",
+      "linkInvalid": "Dieser Anmeldelink gilt nicht mehr. Vielleicht wurde er schon verwendet, oder er ist abgelaufen. Fordere unten einen neuen an.",
+      "failed": "Etwas ist schiefgelaufen. Versuch es noch einmal.",
+      "continueWith": "Weiter mit {provider}",
+      "or": "oder"
+    },
+    "form": {
+      "email": "E-Mail",
+      "emailPlaceholder": "du@example.com",
+      "send": "Anmeldelink senden",
+      "sending": "Wird gesendet…",
+      "sent": "Gesendet – schau in deine E-Mails",
+      "sentTo": "Wir haben den Link an {email} geschickt. Schau in deinen Posteingang.",
+      "sendAgain": "Noch einmal senden",
+      "tryAgain": "Noch einmal versuchen",
+      "errors": {
+        "invalidEmail": "Das sieht nicht nach einer gültigen E-Mail-Adresse aus.",
+        "sendFailed": "Senden hat nicht geklappt. Bitte versuch es noch einmal.",
+        "rateLimited": "Zu viele Anmeldelinks angefordert. Du musst vielleicht bis zu einer Stunde warten. Wenn wir dir schon einen Link per E-Mail geschickt haben, kannst du den verwenden."
+      }
+    },
+    "code": {
+      "label": "Hast du die E-Mail auf einem anderen Gerät geöffnet?",
+      "hint": "Gib den sechsstelligen Code aus der E-Mail ein, um dich stattdessen hier anzumelden.",
+      "submit": "Mit Code anmelden",
+      "checking": "Wird geprüft…",
+      "errors": {
+        "noEmail": "Fordere zuerst einen neuen Link an.",
+        "rateLimited": "Zu viele Versuche. Warte ein paar Minuten, oder klick auf den Link in der E-Mail.",
+        "expired": "Dieser Code ist abgelaufen. Fordere einen neuen Link an.",
+        "wrong": "Dieser Code stimmt nicht. Prüf die E-Mail und versuch es noch einmal.",
+        "failed": "Etwas ist schiefgelaufen. Versuch es noch einmal."
+      }
+    },
+    "check": {
+      "tabTitle": "Schau in deine E-Mails",
+      "heading": "Schau in deine E-Mails",
+      "body": "Wir haben dir einen Anmeldelink in deinen Posteingang geschickt. Klick darauf, um fortzufahren. Der Link gilt {duration} lang. Sobald du angemeldet bist, geht es auf dieser Seite automatisch weiter."
+    },
+    "confirm": {
+      "bodyAs": "Klick unten auf die Schaltfläche, um dich als <strong>{email}</strong> anzumelden.",
+      "body": "Klick unten auf die Schaltfläche, um dich anzumelden.",
+      "signIn": "Anmelden →",
+      "signingIn": "Wird angemeldet…",
+      "differentEmail": "Andere E-Mail-Adresse verwenden"
+    },
+    "email": {
+      "subject": "Bei OpenSignup anmelden",
+      "preview": "Als {email} bei OpenSignup anmelden",
+      "heading": "Bei OpenSignup anmelden",
+      "intro": "Klick unten auf die Schaltfläche, um dich als <b>{email}</b> anzumelden. Der Link gilt {duration} lang.",
+      "signIn": "Anmelden",
+      "code": "Liest du das auf einem anderen Gerät? Dann gib stattdessen diesen Code in dem Fenster ein, in dem du mit der Anmeldung begonnen hast. Er gilt {duration} lang:",
+      "copyUrl": "Oder kopier diesen Link:"
+    },
+    "consent": {
+      "tabTitle": "App verbinden",
+      "request": "Verbindungsanfrage",
+      "heading": "Möchtest du zulassen, dass <host>{domain}</host> dein Konto bei {instance} verwendet?",
+      "fromNamedApp": "<strong>{name}</strong> von <strong>{domain}</strong> möchte sich mit deinem Konto verbinden. Lass das nur zu, wenn du {domain} vertraust.",
+      "fromApp": "Eine App von <strong>{domain}</strong> möchte sich mit deinem Konto verbinden. Lass das nur zu, wenn du {domain} vertraust.",
+      "setUpBySite": "<strong>{name}</strong> wurde von dieser Website eingerichtet.",
+      "permissions": "Die App kann",
+      "sensitive": "Diese Angaben haben Teilnehmende dir anvertraut, nicht dieser App. Lass das nur zu, wenn du damit einverstanden bist, dass {domain} sie verarbeitet.",
+      "actsAs": "{workspaces, select, many {Die App handelt in allen Arbeitsbereichen, zu denen du gehörst, in deinem Namen (<strong>{email}</strong>) und kann nichts tun, was du nicht auch selbst tun könntest.} other {Die App handelt in deinem Namen (<strong>{email}</strong>) und kann nichts tun, was du nicht auch selbst tun könntest.}}",
+      "allow": "Zulassen",
+      "allowing": "Wird verbunden…",
+      "deny": "Nicht zulassen",
+      "denying": "Wird abgelehnt…",
+      "disconnect": "Du kannst die App jederzeit unter <link>Verbundene Apps</link> trennen.",
+      "notYou": "Nicht du?",
+      "switchAccount": "Mit einem anderen Konto anmelden",
+      "expired": {
+        "heading": "Diese Verbindungsanfrage ist abgelaufen",
+        "body": "Eine Verbindungsanfrage gilt nur wenige Minuten lang und nur in dem Browser, in dem sie gestartet wurde. Es wurde nichts verbunden. Geh zurück zur App und fang noch einmal an.",
+        "dashboard": "Zur Übersicht"
+      },
+      "decision": {
+        "tooManyAttempts": "Zu viele Verbindungsversuche. Warte {wait} und versuch es dann noch einmal.",
+        "failed": "Beim Speichern deiner Entscheidung ist etwas schiefgelaufen. Es wurde nichts verbunden."
+      }
+    },
+    "scopes": {
+      "signupsRead": "Deine Listen und ihre Aufgaben ansehen",
+      "signupsWrite": "Listen erstellen und bearbeiten",
+      "commitmentsRead": "Einträge samt Namen und E-Mail-Adressen ansehen",
+      "offlineAccess": "Verbunden bleiben, ohne dass du dich noch einmal anmelden musst"
+    },
+    "oauthErrors": {
+      "tabTitle": "Verbindung fehlgeschlagen",
+      "heading": "Diese Verbindung konnte nicht hergestellt werden",
+      "intro": "Die App, die dich hierher geschickt hat, hat eine Anfrage gestellt, die wir nicht annehmen konnten.",
+      "noDescription": "Die Anfrage konnte nicht abgeschlossen werden.",
+      "nothingConnected": "Mit deinem Konto wurde nichts verbunden. Schließ dieses Fenster und versuch es in der App noch einmal, oder <home>geh zur Startseite</home>.",
+      "tooManyRequests": "Zu viele Versuche. Warte {wait} und versuch es dann noch einmal."
+    }
+  }
+}

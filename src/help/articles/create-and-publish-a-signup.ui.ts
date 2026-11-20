@@ -74,6 +74,8 @@ export const UI = {
   askForEmail: 'Ask for an email address',
   emailRequired: 'Required',
   emailOptional: 'Optional',
+  // The Settings tab's card that says whether reminders are on.
+  reminders: 'Reminders',
   saved: 'Saved',
   // The email box on the signup page once it is optional.
   emailBoxOptional: 'Email (optional)',
@@ -147,6 +149,7 @@ export const FROM_CATALOG: {
   askForEmail: 'organizer.signupSettings.signupForm.askForEmail',
   emailRequired: 'organizer.signupSettings.signupForm.required',
   emailOptional: 'organizer.signupSettings.signupForm.optional',
+  reminders: 'organizer.signupSettings.reminders.title',
   saved: 'organizer.saveNotice.saved',
   emailBoxOptional: 'participant.fields.emailOptional',
   signupLanguage: 'organizer.signupSettings.language.legend',

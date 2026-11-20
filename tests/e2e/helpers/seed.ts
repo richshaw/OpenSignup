@@ -159,6 +159,27 @@ const ORGANIZER_TEXT: { [L in TestLocale]?: OrganizerText } = {
       groups: ['Ödla', 'Zebra', 'Äpple', 'Apa'],
     },
   },
+  de: {
+    person: { name: 'Gast', mailbox: 'gast' },
+    open: {
+      title: 'Kuchenbuffet zum Sommerfest',
+      description: 'Bring etwas Leckeres zum Sommerfest mit.',
+      slots: {
+        many: 'Apfelkuchen',
+        one: 'Kaffee',
+        full: 'Brezeln',
+        unlimitedOne: 'Abwasch',
+        unlimitedTwo: 'Aufräumen',
+      },
+    },
+    closed: { title: 'Flohmarkt in der Aula', mailbox: 'flohmarkt', slots: ['Kaffee', 'Torte'] },
+    archived: { title: 'Frühlingskonzert', slot: 'Kasse' },
+    build: {
+      title: 'Putztag im Park',
+      labels: { group: 'Gruppe', time: 'Uhrzeit' },
+      groups: ['Öl', 'Zebra', 'Äpfel', 'Affe'],
+    },
+  },
 };
 
 /**

@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { workspaceMembers } from '@/db/schema/members';
@@ -12,6 +12,7 @@ import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
 import { makeId } from '@/lib/ids';
+import { WORKSPACE_LIST_LIMIT } from '@/schemas/signups';
 import type { Actor, WorkspaceRole } from '@/lib/policy';
 import type { SignupTemplate } from '@/lib/signup-templates';
 import { listFieldsForSignup } from '@/services/slot-fields';
@@ -23,6 +24,7 @@ import { requiresEmail } from '@/schemas/signups';
 import {
   archiveSignup,
   closeSignup,
+  countSignupsForWorkspace,
   createSignup,
   deleteSignup,
   findDraftForOrganizer,
@@ -30,6 +32,7 @@ import {
   getSignupForOrganizer,
   getSignupRowBySlug,
   listSignupSummariesForWorkspace,
+  listSignupSummaryPageForWorkspace,
   listSignupsForWorkspace,
   publishSignup,
   recordPublishCheck,
@@ -467,22 +470,80 @@ describe('signups service (db)', () => {
       return row?.payload as Record<string, unknown>;
     }
 
-    it('records the language and the step that chose it on signup.created', async () => {
-      const r = await createSignup(
-        fx.db,
-        fx.actor,
-        fx.workspaceId,
-        { ...validCreateInput('Chosen locale'), settings: { locale: 'en' } },
-        { localeSource: 'instance' },
-      );
-      if (!r.ok) throw new Error('setup failed');
-      expect(await createdPayload(r.value.id)).toMatchObject({
-        locale: 'en',
-        localeSource: 'instance',
+    describe('with no language sent, from the organizer', () => {
+      it('stores the organizer’s saved language and records its step', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('Saved locale'),
+          { organizer: { locale: OTHER_LOCALE } },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        expect(r.value.settings).toMatchObject({ locale: OTHER_LOCALE });
+        expect(await createdPayload(r.value.id)).toMatchObject({
+          locale: OTHER_LOCALE,
+          localeSource: 'setting',
+        });
+      });
+
+      it('stores the instance’s language when the organizer saved none', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        instance.defaultLocale = OTHER_LOCALE;
+        try {
+          const r = await createSignup(
+            fx.db,
+            fx.actor,
+            fx.workspaceId,
+            validCreateInput('Instance locale'),
+            { organizer: { locale: null } },
+          );
+          if (!r.ok) throw new Error('setup failed');
+          expect(await createdPayload(r.value.id)).toMatchObject({
+            locale: OTHER_LOCALE,
+            localeSource: 'instance',
+          });
+        } finally {
+          instance.defaultLocale = undefined;
+        }
+      });
+
+      it('keeps a sent language over the organizer’s, as the caller’s (api)', async () => {
+        ship('participant', ['en', OTHER_LOCALE]);
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          { ...validCreateInput('Sent over saved'), settings: { locale: 'en' } },
+          { organizer: { locale: OTHER_LOCALE } },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        expect(r.value.settings).toMatchObject({ locale: 'en' });
+        expect(await createdPayload(r.value.id)).toMatchObject({
+          locale: 'en',
+          localeSource: 'api',
+        });
+      });
+
+      it('stores none while only one language has shipped to participants', async () => {
+        shipOnlyEnglish();
+        const r = await createSignup(
+          fx.db,
+          fx.actor,
+          fx.workspaceId,
+          validCreateInput('One language'),
+          { organizer: { locale: OTHER_LOCALE } },
+        );
+        if (!r.ok) throw new Error('setup failed');
+        expect(r.value.settings).not.toHaveProperty('locale');
+        const payload = await createdPayload(r.value.id);
+        expect(payload).not.toHaveProperty('locale');
+        expect(payload).not.toHaveProperty('localeSource');
       });
     });
 
-    it('records a language with no step as the caller’s (api)', async () => {
+    it('records a sent language as the caller’s (api)', async () => {
       const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
         ...validCreateInput('Sent locale'),
         settings: { locale: 'en' },
@@ -497,7 +558,6 @@ describe('signups service (db)', () => {
         fx.actor,
         fx.workspaceId,
         validCreateInput('Unstored locale'),
-        { localeSource: 'default' },
       );
       if (!r.ok) throw new Error('setup failed');
       const payload = await createdPayload(r.value.id);
@@ -816,6 +876,211 @@ describe('signups service (db)', () => {
 
     it('refuses a workspace the actor is not a member of', async () => {
       await expect(listSignupSummariesForWorkspace(fx.db, fx.actor, makeId('ws'))).rejects.toThrow(
+        /not a member/,
+      );
+    });
+  });
+
+  describe('listSignupSummaryPageForWorkspace and countSignupsForWorkspace', () => {
+    type PageFx = Awaited<ReturnType<typeof setupWorkspace>>;
+    // Plain rows: createSignup would also add fields and slots to each, which
+    // a list never reads.
+    async function insertPlain(pageFx: PageFx, n: number, createdAt: (i: number) => Date) {
+      const rows = Array.from({ length: n }, (_, i) => ({
+        id: makeId('sig'),
+        workspaceId: pageFx.workspaceId,
+        organizerId: pageFx.organizerId,
+        slug: `page-${pageFx.workspaceId.slice(-8).toLowerCase()}-${i}`,
+        title: `Signup ${i}`,
+        status: i === 0 ? ('archived' as const) : ('draft' as const),
+        createdAt: createdAt(i),
+      }));
+      await pageFx.db.insert(signups).values(rows);
+      return rows;
+    }
+
+    it('pages past the list limit, counting every live signup', async () => {
+      const pageFx = await setupWorkspace();
+      try {
+        const total = WORKSPACE_LIST_LIMIT + 1;
+        const base = Date.UTC(2030, 0, 1);
+        await insertPlain(pageFx, total, (i) => new Date(base + i * 1000));
+        const gone = await createSignup(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+          validCreateInput('Gone'),
+        );
+        if (!gone.ok) throw new Error('setup failed');
+        if (!(await deleteSignup(pageFx.db, pageFx.actor, gone.value.id)).ok)
+          throw new Error('delete failed');
+
+        const count = await countSignupsForWorkspace(pageFx.db, pageFx.actor, pageFx.workspaceId);
+        if (!count.ok) throw new Error('count failed');
+        expect(count.value).toBe(total);
+
+        const first = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+        );
+        if (!first.ok) throw new Error('list failed');
+        expect(first.value.rows).toHaveLength(WORKSPACE_LIST_LIMIT);
+        expect(first.value.rows[0]?.title).toBe(`Signup ${total - 1}`);
+        expect(first.value.rows.map((r) => r.title)).not.toContain('Signup 0');
+        expect(first.value.nextBefore).toBe(first.value.rows.at(-1)?.id);
+        expect(first.value.offset).toBe(0);
+        expect(first.value.prevAfter).toBeNull();
+
+        const second = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+          { before: first.value.nextBefore ?? undefined },
+        );
+        if (!second.ok) throw new Error('list failed');
+        // The oldest, archived one, which the first page left off.
+        expect(second.value.rows.map((r) => r.title)).toEqual(['Signup 0']);
+        expect(second.value.nextBefore).toBeNull();
+        expect(second.value.offset).toBe(WORKSPACE_LIST_LIMIT);
+        expect(second.value.prevAfter).toBe(second.value.rows[0]?.id);
+
+        // Newer, from the second page, is the first page again.
+        const back = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+          { after: second.value.prevAfter ?? undefined },
+        );
+        if (!back.ok) throw new Error('list failed');
+        expect(back.value).toEqual(first.value);
+      } finally {
+        await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
+      }
+    });
+
+    it('shows each signup once when several share a created_at across the page boundary', async () => {
+      const pageFx = await setupWorkspace();
+      try {
+        const total = WORKSPACE_LIST_LIMIT + 5;
+        const base = Date.UTC(2030, 0, 1);
+        // The ten around the boundary share one created_at.
+        const rows = await insertPlain(pageFx, total, (i) =>
+          i < 10 ? new Date(base) : new Date(base + i * 1000),
+        );
+        const first = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+        );
+        if (!first.ok || !first.value.nextBefore) throw new Error('list failed');
+        const second = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+          { before: first.value.nextBefore },
+        );
+        if (!second.ok) throw new Error('list failed');
+        expect(second.value.rows).toHaveLength(5);
+        expect(second.value.nextBefore).toBeNull();
+        const seen = [...first.value.rows, ...second.value.rows].map((r) => r.id);
+        expect(new Set(seen).size).toBe(total);
+        expect([...seen].sort()).toEqual(rows.map((r) => r.id).sort());
+      } finally {
+        await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
+      }
+    });
+
+    it('keeps rows created within the same millisecond apart', async () => {
+      const pageFx = await setupWorkspace();
+      try {
+        // created_at keeps microseconds; a cursor carried as a JavaScript Date
+        // would round them away and skip rows. These all fall in one
+        // millisecond, a microsecond apart.
+        const total = WORKSPACE_LIST_LIMIT + 3;
+        const prefix = makeId('sig');
+        await pageFx.db.execute(sql`
+          insert into signups (id, workspace_id, organizer_id, slug, title, status, created_at)
+          select ${prefix} || n, ${pageFx.workspaceId}, ${pageFx.organizerId},
+                 lower(${prefix}) || '-' || n, 'Signup ' || n, 'draft',
+                 '2030-01-01T00:00:00Z'::timestamptz + n * interval '1 microsecond'
+          from generate_series(1, ${total}::int) as n
+        `);
+        const first = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+        );
+        if (!first.ok || !first.value.nextBefore) throw new Error('list failed');
+        const second = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+          { before: first.value.nextBefore },
+        );
+        if (!second.ok) throw new Error('list failed');
+        const seen = [...first.value.rows, ...second.value.rows].map((r) => r.id);
+        expect(seen).toHaveLength(total);
+        expect(new Set(seen).size).toBe(total);
+      } finally {
+        await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
+      }
+    });
+
+    it('walks three pages older and back newer, knowing where each sits', async () => {
+      const pageFx = await setupWorkspace();
+      try {
+        const total = WORKSPACE_LIST_LIMIT * 2 + 5;
+        const base = Date.UTC(2030, 0, 1);
+        // A run sharing one created_at straddles the second page's far edge.
+        await insertPlain(pageFx, total, (i) =>
+          i < 10 ? new Date(base) : new Date(base + i * 1000),
+        );
+        const list = (opts: { before?: string; after?: string } = {}) =>
+          listSignupSummaryPageForWorkspace(pageFx.db, pageFx.actor, pageFx.workspaceId, opts);
+
+        const p1 = await list();
+        if (!p1.ok || !p1.value.nextBefore) throw new Error('list failed');
+        const p2 = await list({ before: p1.value.nextBefore });
+        if (!p2.ok || !p2.value.nextBefore) throw new Error('list failed');
+        const p3 = await list({ before: p2.value.nextBefore });
+        if (!p3.ok) throw new Error('list failed');
+
+        expect([p1, p2, p3].map((p) => p.value.offset)).toEqual([
+          0,
+          WORKSPACE_LIST_LIMIT,
+          WORKSPACE_LIST_LIMIT * 2,
+        ]);
+        expect(p3.value.rows).toHaveLength(5);
+        expect(p3.value.nextBefore).toBeNull();
+        const seen = [p1, p2, p3].flatMap((p) => p.value.rows.map((r) => r.id));
+        expect(new Set(seen).size).toBe(total);
+
+        // Newer from the third page is the second page, row for row.
+        const back = await list({ after: p3.value.prevAfter ?? undefined });
+        if (!back.ok) throw new Error('list failed');
+        expect(back.value).toEqual(p2.value);
+      } finally {
+        await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
+      }
+    });
+
+    it.each(['before', 'after'] as const)(
+      'finds nothing for %s naming no signup in the workspace',
+      async (direction) => {
+        const page = await listSignupSummaryPageForWorkspace(fx.db, fx.actor, fx.workspaceId, {
+          [direction]: makeId('sig'),
+        });
+        if (!page.ok) throw new Error('list failed');
+        expect(page.value).toEqual({ rows: [], offset: 0, nextBefore: null, prevAfter: null });
+      },
+    );
+
+    it('refuses a workspace the actor is not a member of', async () => {
+      await expect(
+        listSignupSummaryPageForWorkspace(fx.db, fx.actor, makeId('ws')),
+      ).rejects.toThrow(/not a member/);
+      await expect(countSignupsForWorkspace(fx.db, fx.actor, makeId('ws'))).rejects.toThrow(
         /not a member/,
       );
     });

@@ -103,10 +103,11 @@ export function WysiwygSlot({
   // Anchor placeholder shares one source of truth with the group header
   // (see emptyHeaderCopy) so identical fields read identically in both
   // surfaces — "Set a date" / "Set a time" for those types, "Set <label>"
-  // (lowercased) for everything else, "Set a value" without a label.
+  // (lowercased unless the signup's language capitalizes nouns) for everything
+  // else, "Set a value" without a label.
   const isTimeAnchor = anchorField?.config.fieldType === 'time';
   const placeholder = anchorField
-    ? emptyHeaderCopy(t, anchorField.config.fieldType, anchorField.name)
+    ? emptyHeaderCopy(t, anchorField.config.fieldType, locale, anchorField.name)
     : null;
 
   // aria-label must mirror what the row shows — the primary label, including

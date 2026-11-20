@@ -11,8 +11,7 @@ import type { CatalogLocale } from '@/i18n/config';
  * `gap` and `padding` are the spacing each page already had; they stay
  * separate props so moving a page onto the frame doesn't change its look.
  * `locale` is the page's language: the frame marks the page with it for
- * screen readers, and the footer is in it. A page that doesn't give one is
- * English, as the root layout says.
+ * screen readers, and the footer is in it.
  */
 export function CenteredPageFrame({
   children,
@@ -26,7 +25,7 @@ export function CenteredPageFrame({
   padding?: 'py-8' | 'py-16';
   /** Show the site name above the column. */
   header?: boolean;
-  locale?: CatalogLocale;
+  locale: CatalogLocale;
 }) {
   return (
     <div lang={locale} className="flex min-h-[100svh] flex-col">
@@ -34,7 +33,7 @@ export function CenteredPageFrame({
       <main className={`container-tight flex flex-1 flex-col justify-center ${gap} ${padding}`}>
         {children}
       </main>
-      <SiteFooter locale={locale ?? 'en'} />
+      <SiteFooter locale={locale} />
     </div>
   );
 }

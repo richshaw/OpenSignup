@@ -310,12 +310,16 @@
     },
     "dashboard": {
       "title": "Your signups",
-      "none": "No signups yet. Start one below.",
-      "total": "{count, number, ::group-off} total",
       "newSignup": "New signup",
       "emptyPitch": "Coordinate snacks, carpool, potluck, volunteer shifts, or anything else.",
       "createFirst": "Create your first signup",
       "draftOnlyYou": "Only you can see this draft",
+      "pager": {
+        "label": "Signup pages",
+        "range": "{start, number, ::group-off}–{end, number, ::group-off} of {total, number, ::group-off}",
+        "newer": "Newer",
+        "older": "Older"
+      },
       "noWorkspace": {
         "title": "Welcome to {instance}",
         "body": "Your workspace isn't set up yet. Sign out and back in to finish provisioning."
@@ -349,7 +353,8 @@
       },
       "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
       "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
-      "disconnectFailed": "Could not disconnect. Try again."
+      "disconnectFailed": "Couldn’t disconnect. Try again.",
+      "alreadyDisconnected": "That app is already disconnected."
     },
     "signupSettings": {
       "signupForm": {
@@ -358,12 +363,19 @@
         "required": "Required",
         "optional": "Optional",
         "requiredHelp": "We email everyone their link to change or cancel.",
+        "requiredHelpReminders": "We email everyone their link to change or cancel, and a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} their slot.",
         "optionalHelp": "People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab."
       },
       "language": {
         "title": "Language",
         "legend": "Signup language",
         "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too."
+      },
+      "reminders": {
+        "title": "Reminders",
+        "on": "People who give an email get a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} their slot’s {label}. To turn reminders off, open Fields on the Build tab and choose {label}.",
+        "off": "Reminders are off. To turn them on, open Fields on the Build tab and choose {label}.",
+        "none": "No reminders: your slots have no date field."
       },
       "save": "Save",
       "saving": "Saving…",
@@ -786,6 +798,7 @@
       "closed": {
         "title": "Signup closed",
         "body": "People can’t sign up now. Everyone already signed up keeps their spot.",
+        "help": "How closing and reopening work",
         "dismiss": "Dismiss"
       },
       "reopen": {
