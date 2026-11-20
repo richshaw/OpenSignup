@@ -281,6 +281,9 @@ test.describe('help: create and publish your first signup', () => {
 
     await page.goto(`/app/signups/${signup.id}/build`);
     await page.getByRole('tab', { name: UI.settings }).click();
+    // "To check whether reminders are on, look under Reminders on your
+    // signup's Settings tab."
+    await expect(page.getByRole('region', { name: UI.reminders })).toBeVisible();
     const ask = page
       .getByRole('region', { name: UI.signupForm })
       .getByRole('group', { name: UI.askForEmail });
