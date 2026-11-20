@@ -400,7 +400,8 @@ declare const messages: {
         "titleLabel": "Signup title",
         "descriptionPlaceholder": "Add a short description for volunteers",
         "descriptionLabel": "Signup description",
-        "addDate": "Add date"
+        "addDate": "Add date",
+        "slotCount": "{count, plural, one {{count, number, ::group-off} slot} other {{count, number, ::group-off} slots}}"
       },
       "group": {
         "header": "Group header — {heading}",
