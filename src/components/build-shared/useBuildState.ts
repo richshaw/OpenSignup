@@ -98,7 +98,7 @@ export type BuildState = {
 // Actions
 // ---------------------------------------------------------------------------
 
-export type BuildAction =
+type BuildAction =
   | { type: 'SET_FIELDS'; fields: BuildField[] }
   | { type: 'SET_ROWS'; rows: BuildRow[] }
   | { type: 'SET_GROUP_BY'; ref: string | null }
