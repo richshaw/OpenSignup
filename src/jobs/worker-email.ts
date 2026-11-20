@@ -71,6 +71,7 @@ export async function workerEmailParts(db: Db, row: CommitmentRow) {
       unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
       ...(await slotText(db, row.signup.id, row.slot.values, locale)),
       notes: row.commitment.notes,
+      quantity: row.commitment.quantity,
     },
     unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken),
   };
