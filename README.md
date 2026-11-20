@@ -132,6 +132,8 @@ Unlike the values above, `DEFAULT_LOCALE` is read when the app starts, so changi
 
 To link pages of your own from the footer of every page, list them in `src/lib/footer-links.ts`. This one is a code change, not an environment variable. The file holds only that list, so your copy merges cleanly when you update.
 
+If your site does more than the OpenSignup software does, such as sending an email of its own, say so on the privacy page by filling in `src/lib/privacy-additions.ts`: the date your sections last changed, written YYYY-MM-DD, and one or more sections, each with a heading, paragraphs of plain text saying what you collect or send, an item for "Why we use your data" (what it's for, and what allows it), and one for "How long we keep it". The page shows the sections under "Added on this site", lists each section's reason and retention with its own, points to the sections wherever it would otherwise read as the whole story, and shows the later of its own date and yours as "Last updated". A date that isn't a real day stops the build. Like the footer list, the file holds only that value, so your copy merges cleanly. It covers the privacy page only: the cookies page has no place for cookies of your own, and the terms tell organizers that participants' details are used only as the privacy policy describes, so anything you add there is something you, not the organizer, decide to do with their participants' details. Like any change to the code, it also means pointing `NEXT_PUBLIC_SOURCE_URL` at where your copy's code can be read, if your site is open to other people.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md). To report a security issue, see [`SECURITY.md`](SECURITY.md).
