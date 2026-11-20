@@ -2747,3 +2747,119 @@ describe('useBuildState slot writes behind a list choice being added', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// useBuildState slotMoved (#599)
+// ---------------------------------------------------------------------------
+
+describe('useBuildState slotMoved', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  const whenField = makeApiField({
+    id: 'f-when',
+    ref: 'when',
+    label: 'When',
+    fieldType: 'date',
+    config: { fieldType: 'date' },
+  });
+  const atField = makeApiField({
+    id: 'f-at',
+    ref: 'at',
+    label: 'At',
+    fieldType: 'time',
+    sortOrder: 1,
+    config: { fieldType: 'time' },
+  });
+  const setupField = makeApiField({
+    id: 'f-setup',
+    ref: 'setup',
+    label: 'Set-up day',
+    fieldType: 'date',
+    sortOrder: 2,
+    config: { fieldType: 'date' },
+  });
+  const slot: BuildSlot = {
+    id: 'r1',
+    capacity: 2,
+    sortOrder: 0,
+    values: { when: '2040-05-01', at: '09:00', setup: '2040-04-30' },
+  };
+
+  function render(settings: Partial<SignupSettings> = {}) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ data: {} })),
+    );
+    return renderHook(() =>
+      useBuildState('sig_test', [whenField, atField, setupField], [slot], {
+        ...defaultSettings,
+        reminderFromFieldRef: 'when',
+        ...settings,
+      }),
+    );
+  }
+
+  async function edit(
+    result: { current: ReturnType<typeof useBuildState> },
+    ref: string,
+    value: string,
+  ) {
+    act(() => result.current.editCell('r1', ref, value));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+  }
+
+  it('is true once a new reminder date has saved, not while it waits to', async () => {
+    vi.useFakeTimers();
+    const { result } = render();
+    expect(result.current.slotMoved('r1')).toBe(false);
+
+    act(() => result.current.editCell('r1', 'when', '2040-05-02'));
+    expect(result.current.slotMoved('r1')).toBe(false);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current.state.saveStatus.kind).toBe('saved');
+    expect(result.current.slotMoved('r1')).toBe(true);
+  });
+
+  it('is true for a new time in the paired time field', async () => {
+    vi.useFakeTimers();
+    const { result } = render();
+    await edit(result, 'at', '10:30');
+    expect(result.current.slotMoved('r1')).toBe(true);
+  });
+
+  it('is false again once the date is put back', async () => {
+    vi.useFakeTimers();
+    const { result } = render();
+    await edit(result, 'when', '2040-05-02');
+    await edit(result, 'when', '2040-05-01');
+    expect(result.current.slotMoved('r1')).toBe(false);
+  });
+
+  it('is false for a change to a date field reminders are not sent from', async () => {
+    vi.useFakeTimers();
+    const { result } = render();
+    await edit(result, 'setup', '2040-04-29');
+    expect(result.current.slotMoved('r1')).toBe(false);
+  });
+
+  it('is false with reminders off', async () => {
+    vi.useFakeTimers();
+    const { result } = render({ sendReminders: false });
+    await edit(result, 'when', '2040-05-02');
+    expect(result.current.slotMoved('r1')).toBe(false);
+  });
+
+  it('is false for a slot moved into the past, which nobody is emailed about', async () => {
+    vi.useFakeTimers();
+    const { result } = render();
+    await edit(result, 'when', '2001-05-01');
+    expect(result.current.slotMoved('r1')).toBe(false);
+  });
+});

@@ -281,6 +281,7 @@
   "organizer.build.editor.delete": "Delete",
   "organizer.build.editor.done": "Done",
   "organizer.build.editor.signedUp": "{taken, plural, one {{taken, number, ::group-off} person is} other {{taken, number, ::group-off} people are}} signed up for this slot. {reminders, select, on {If you change its date or time, we’ll email them to let them know.} other {Reminders are off, so we won’t email them if you change it.}}",
+  "organizer.build.editor.moved": "You moved this slot. We’ll email {taken, plural, one {the person} other {the {taken, number, ::group-off} people}} signed up in about {minutes, plural, one {# minute} other {# minutes}}, with the new details.",
   "organizer.build.editor.value": "{field} value",
   "organizer.build.editor.spots": "Spots",
   "organizer.build.editor.noLimit": "No limit",

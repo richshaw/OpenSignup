@@ -32,6 +32,8 @@ type WysiwygGroupProps = {
   takenBySlot: Record<string, number>;
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
+  /** Whether a save has moved a slot, so its people are to be emailed (`slotMoved`). */
+  slotMoved?: (rowId: string) => boolean;
   expandedRowId: string | null;
   /** The row whose editor takes focus when it opens: a copy just made by Duplicate. */
   focusRowId?: string | null;
@@ -60,6 +62,7 @@ export function WysiwygGroup({
   fields,
   takenBySlot,
   remindersOn,
+  slotMoved,
   expandedRowId,
   focusRowId = null,
   onRowFocused,
@@ -113,6 +116,7 @@ export function WysiwygGroup({
             row={row}
             taken={takenBySlot[row.id] ?? 0}
             remindersOn={remindersOn}
+            moved={slotMoved?.(row.id) ?? false}
             fields={fields}
             displayFields={displayFields}
             expanded={expandedRowId === row.id}

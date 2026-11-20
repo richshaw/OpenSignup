@@ -426,6 +426,7 @@
         "delete": "Löschen",
         "done": "Fertig",
         "signedUp": "{taken, plural, one {Hier ist {taken, number} Person eingetragen.} other {Hier sind {taken, number} Personen eingetragen.}} {reminders, select, on {Wenn du Datum oder Uhrzeit änderst, {taken, plural, one {bekommt die Person} other {bekommen sie}} eine E-Mail dazu.} other {Die Erinnerungen sind abgestellt, deshalb {taken, plural, one {bekommt die Person} other {bekommen sie}} keine E-Mail, wenn du Datum oder Uhrzeit änderst.}}",
+        "moved": "Du hast diese Aufgabe verschoben. In etwa {minutes, plural, one {# Minute} other {# Minuten}} {taken, plural, one {bekommt die eingetragene Person} other {bekommen die {taken, number} eingetragenen Personen}} eine E-Mail mit den neuen Angaben.",
         "value": "Wert für {field}",
         "spots": "Plätze",
         "noLimit": "Unbegrenzt",

@@ -9,6 +9,7 @@ import {
   FIELD_VALUE_INPUTS,
 } from '../build-shared/fieldTypes';
 import { InlineNote } from '@/components/ui/inline-note';
+import { SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
 import { TimeSelect } from '../build-shared/TimeSelect';
 import { EnumPicker } from './EnumPicker';
 import { useSignupLanguage } from './signup-language';
@@ -34,6 +35,12 @@ type SlotEditorProps = {
    * switch (src/jobs/slot-changes.ts).
    */
   remindersOn: boolean;
+  /**
+   * A save has moved the slot since the page loaded, with reminders on, so
+   * the people holding it are to be emailed once it settles
+   * (`slotMoved` in useBuildState).
+   */
+  moved?: boolean;
   onCellChange: (fieldRef: string, value: string) => void;
   onCapacity: (capacity: number | null) => void;
   /** Append `value` to the field's enum choices config. Only called for enum cells. */
@@ -58,6 +65,7 @@ export function SlotEditor({
   onFocused,
   taken,
   remindersOn,
+  moved = false,
   onCellChange,
   onCapacity,
   onAddEnumOption,
@@ -75,6 +83,8 @@ export function SlotEditor({
   }, [focusOnOpen, onFocused]);
 
   const spotsHelpId = useId();
+  // The wait the worker keeps before it emails (src/jobs/notify-rules.ts).
+  const movedNote = t('editor.moved', { taken, minutes: SLOT_CHANGE_SETTLE_MINUTES });
   return (
     <div
       role="group"
@@ -128,8 +138,18 @@ export function SlotEditor({
       </div>
       {taken > 0 && (
         <InlineNote className="mb-2.5">
-          {t('editor.signedUp', { taken, reminders: remindersOn ? 'on' : 'off' })}
+          {remindersOn && moved
+            ? movedNote
+            : t('editor.signedUp', { taken, reminders: remindersOn ? 'on' : 'off' })}
         </InlineNote>
+      )}
+      {/* A note's new text isn't announced, so the moved line is said here
+          too, once, when a save moves the slot: the note itself stays a note
+          rather than a live region read out whole on every change. */}
+      {taken > 0 && remindersOn && (
+        <span role="status" className="sr-only">
+          {moved ? movedNote : ''}
+        </span>
       )}
       <div ref={gridRef} className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2.5">
         {fields.map((f) => {
