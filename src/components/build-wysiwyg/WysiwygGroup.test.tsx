@@ -82,6 +82,7 @@ function renderGroup(
       onEditCell={onEditCell}
       onSetCapacity={onSetCapacity}
       onAddEnumOption={onAddEnumOption}
+      onAddField={vi.fn()}
       onDuplicateRow={onDuplicateRow}
       onDeleteRow={onDeleteRow}
       onAddSlot={onAddSlot}
@@ -262,6 +263,7 @@ describe('WysiwygGroup', () => {
         onEditCell={vi.fn()}
         onSetCapacity={vi.fn()}
         onAddEnumOption={vi.fn()}
+        onAddField={vi.fn()}
         onDuplicateRow={vi.fn()}
         onDeleteRow={vi.fn()}
         onAddSlot={vi.fn()}

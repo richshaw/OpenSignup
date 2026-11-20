@@ -11,7 +11,7 @@ import { languageName, SHIPPED } from '@/i18n/config';
 import { loginAsSeededOrganizer } from '../helpers/auth';
 import { loadSeed } from '../helpers/fixtures';
 import { helpElementShot } from '../helpers/help-shots';
-import { createPublishedSignup } from '../helpers/signups';
+import { createDraft, createPublishedSignup } from '../helpers/signups';
 
 const SLUG = 'create-and-publish-a-signup';
 const CAPTURE = process.env.HELP_SCREENSHOTS === '1';
@@ -267,6 +267,37 @@ test.describe('help: create and publish your first signup', () => {
     const signUp = page.getByRole('button', { name: new RegExp(`^${UI.signUp} for`) });
     await expect(signUp).toHaveCount(2);
     await expect(signUp.first()).toHaveText(UI.signUp);
+  });
+
+  test('a field is added from an open slot', async ({ page, context, isMobile }) => {
+    test.skip(isMobile, 'the same steps on a phone');
+    await loginAsSeededOrganizer(context);
+    const draft = await createDraft(page.request, {
+      title: `Add a field ${Date.now()}`,
+      values: { what: 'Fruit and water', date: '2030-04-06' },
+    });
+
+    await page.goto(`/app/signups/${draft.id}/build`);
+    await page.getByRole('button', { name: /^Edit slot — Fruit and water, / }).click();
+    const slotEditor = page.locator('[data-testid^="slot-editor-"]');
+    await slotEditor.getByRole('button', { name: UI.addAField }).click();
+    const dialog = page.getByRole('dialog');
+    // By the box's visible label, which is what the article names.
+    await dialog
+      .locator('label')
+      .filter({ has: page.getByText(UI.fieldName, { exact: true }) })
+      .getByRole('textbox')
+      .fill('Meeting place');
+    await dialog.getByRole('button', { name: UI.addField, exact: true }).click();
+    // "The slot stays open with a box for it."
+    await expect(dialog).toHaveCount(0);
+    await expect(slotEditor.getByRole('textbox', { name: 'Meeting place value' })).toBeVisible();
+    await expect(slotEditor.getByRole('button', { name: UI.addAField })).toBeFocused();
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    // The field is saved for the signup, not only shown in this slot.
+    await page.reload();
+    await page.getByRole('button', { name: /^Edit slot — Fruit and water, / }).click();
+    await expect(slotEditor.getByRole('textbox', { name: 'Meeting place value' })).toBeVisible();
   });
 
   test('people can sign up without an email', async ({ page, context, browser, isMobile }) => {

@@ -106,9 +106,9 @@ export function CreateAndPublishASignup() {
             </p>
             <Screenshot
               src="/help/create-and-publish-a-signup/slot.png"
-              alt="A slot being edited, with What set to Fruit and water, a date set, and Spots set to 2."
+              alt="A slot being edited, with What set to Fruit and water, a date set, Spots set to 2, and Add a field under them."
               width={520}
-              height={181}
+              height={219}
             />
           </Step>
           <Step>
@@ -129,6 +129,12 @@ export function CreateAndPublishASignup() {
             </p>
           </Step>
         </Steps>
+        <p>
+          A field is a detail every slot has, like its date. To add one, like a meeting place, open
+          a slot and choose <Ui>{UI.addAField}</Ui>. Type its name in <Ui>{UI.fieldName}</Ui>,
+          choose its type, then choose <Ui>{UI.addField}</Ui>. The slot stays open with a box for
+          it, and every other slot gets one too.
+        </p>
         <p>
           You can&apos;t undo deleting a slot. To remove one you don&apos;t need, open it and choose{' '}
           <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}

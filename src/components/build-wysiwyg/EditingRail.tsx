@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, Settings } from 'lucide-react';
+import { Columns3, Pencil } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { SaveStatus } from '../build-shared/SaveStatus';
 import type { SaveStatus as SaveStatusType } from '../build-shared/useBuildState';
@@ -43,7 +43,8 @@ export function EditingRail({
               : 'border-surface-sunk bg-white text-ink hover:bg-surface-raised')
           }
         >
-          <Settings size={12} />
+          {/* Not a cog: Fields is where fields are added, not a settings menu. */}
+          <Columns3 size={12} />
           <span>{t('fields', { count: fieldCount })}</span>
         </button>
       </div>

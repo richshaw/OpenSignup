@@ -430,7 +430,8 @@
         "spots": "Plätze",
         "noLimit": "Unbegrenzt",
         "spotsHelp": "Wie viele Plätze die Aufgabe hat. Lass das Feld leer, wenn es keine Grenze geben soll.",
-        "noTime": "Keine Uhrzeit"
+        "noTime": "Keine Uhrzeit",
+        "addField": "Feld hinzufügen"
       },
       "placeholder": {
         "text": "z. B. Servietten mitbringen",

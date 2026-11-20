@@ -80,6 +80,7 @@ function renderSlot(overrides: RenderProps = {}) {
       onEditCell={onEditCell}
       onSetCapacity={onSetCapacity}
       onAddEnumOption={onAddEnumOption}
+      onAddField={vi.fn()}
       onDuplicate={onDuplicate}
       onDelete={onDelete}
     />,

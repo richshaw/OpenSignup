@@ -286,6 +286,7 @@
   "organizer.build.editor.noLimit": "No limit",
   "organizer.build.editor.spotsHelp": "How many spots this slot has. Leave blank for no limit.",
   "organizer.build.editor.noTime": "No time",
+  "organizer.build.editor.addField": "Add a field",
   "organizer.build.placeholder.text": "e.g. Bring napkins",
   "organizer.build.placeholder.date": "YYYY-MM-DD",
   "organizer.build.placeholder.number": "e.g. 12",
