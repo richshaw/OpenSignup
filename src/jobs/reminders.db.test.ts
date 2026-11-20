@@ -15,11 +15,14 @@ import { log } from '@/lib/log';
 import { makeId } from '@/lib/ids';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
-import { createSignup, publishSignup } from '@/services/signups';
+import { createSignup, publishSignup, updateSignup } from '@/services/signups';
+import { deleteField, listFieldsForSignup, updateField } from '@/services/slot-fields';
 import { addSlot, updateSlot } from '@/services/slots';
+import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import { removeParticipantEmail } from '@/services/testing/participants';
 import { SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
 import { selectDueReminders, sendReminderJob } from './reminders';
+import { sendSlotChangeJob } from './slot-changes';
 
 interface Fixture {
   db: Db;
@@ -76,6 +79,8 @@ interface ScenarioOptions {
   settings?: Record<string, unknown>;
   /** Give the signup a date field, `day`, so `updateSlot` can move the slot. */
   dated?: boolean;
+  /** The signup's fields, in place of `dated`'s one. */
+  fields?: Omit<SlotFieldDefinition, 'id'>[];
 }
 
 /**
@@ -99,23 +104,25 @@ async function makeScenario(
       visibility: 'unlisted' as const,
       settings: opts.settings ?? {},
     },
-    opts.dated
-      ? {
-          template: {
-            id: 'reminder-test',
-            fields: [
-              {
-                ref: 'day',
-                label: 'Day',
-                fieldType: 'date',
-                sortOrder: 0,
-                config: { fieldType: 'date' },
-              },
-            ],
-            slots: [],
-          },
-        }
-      : {},
+    opts.fields
+      ? { template: { id: 'reminder-test', fields: opts.fields, slots: [] } }
+      : opts.dated
+        ? {
+            template: {
+              id: 'reminder-test',
+              fields: [
+                {
+                  ref: 'day',
+                  label: 'Day',
+                  fieldType: 'date',
+                  sortOrder: 0,
+                  config: { fieldType: 'date' },
+                },
+              ],
+              slots: [],
+            },
+          }
+        : {},
   );
   if (!created.ok) throw new Error(`createSignup failed: ${created.error.message}`);
 
@@ -165,12 +172,75 @@ async function moveSlotTo(fx: Fixture, slotId: string, day: string, hoursAhead: 
     .where(eq(slots.id, slotId));
 }
 
+/** Pushes everything the signup's activity log records `minutes` into the past, as if time passed. */
+async function ageActivity(db: Db, signupId: string, minutes: number) {
+  await db
+    .update(activity)
+    .set({ occurredAt: sql`${activity.occurredAt} - make_interval(mins => ${minutes})` })
+    .where(eq(activity.signupId, signupId));
+}
+
 /** Pushes the signup's recorded slot moves `minutes` into the past, as if time passed. */
 async function ageMoves(db: Db, signupId: string, minutes: number) {
   await db
     .update(activity)
     .set({ occurredAt: sql`${activity.occurredAt} - make_interval(mins => ${minutes})` })
     .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'slot.rescheduled')));
+}
+
+/**
+ * A slot a field change re-timed, put back inside the lead time as if time
+ * passed: the slot 20 hours from now, and its reminder's recorded time moved
+ * the same way, so the two still differ by what the field change did. `from`
+ * is the instant the slot's values gave before the change.
+ */
+async function letTimePass(db: Db, slotId: string, commitmentId: string, from: Date) {
+  const [slot] = await db.select({ slotAt: slots.slotAt }).from(slots).where(eq(slots.id, slotId));
+  const to = slot!.slotAt!;
+  expect(to.getTime()).not.toBe(from.getTime());
+  const slotAt = new Date(Date.now() + 20 * 3600_000);
+  const remindedFor = new Date(slotAt.getTime() - (to.getTime() - from.getTime()));
+  await db.update(slots).set({ slotAt }).where(eq(slots.id, slotId));
+  await db
+    .update(activity)
+    .set({
+      payload: sql`jsonb_set(${activity.payload}, '{slotAt}', to_jsonb(${remindedFor.toISOString()}::text))`,
+    })
+    .where(
+      and(
+        eq(activity.eventType, 'reminder.sent'),
+        sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
+      ),
+    );
+}
+
+/**
+ * Moves the slot's time, and every slot time the signup's activity records,
+ * `ms` earlier, as if that much time passed.
+ */
+async function letTimePassBy(db: Db, signupId: string, slotId: string, ms: number) {
+  const secs = ms / 1000;
+  await db
+    .update(slots)
+    .set({ slotAt: sql`${slots.slotAt} - make_interval(secs => ${secs})` })
+    .where(eq(slots.id, slotId));
+  for (const key of ['slotAt', 'from', 'to']) {
+    await db
+      .update(activity)
+      .set({
+        payload: sql`jsonb_set(${activity.payload}, ${`{${key}}`}::text[], to_jsonb(
+          (${activity.payload}->>${key})::timestamptz - make_interval(secs => ${secs})
+        ))`,
+      })
+      .where(
+        and(
+          eq(activity.signupId, signupId),
+          // A slot move's `from` and `to`, and the time an email was for.
+          key === 'slotAt' ? undefined : eq(activity.eventType, 'slot.rescheduled'),
+          sql`jsonb_typeof(${activity.payload}->${key}) = 'string'`,
+        ),
+      );
+  }
 }
 
 async function reminderSentRows(db: Db, commitmentId: string): Promise<number> {
@@ -491,27 +561,10 @@ describe('selectDueReminders (db)', () => {
 
       // The week passes: every stored instant moves the same distance closer to
       // now, until the new time is 20 hours away and inside the lead time.
-      const movedAt = moved.value.slotAt!.getTime();
-      const elapsed = movedAt - (Date.now() + 20 * 3600_000);
-      await fx.db
-        .update(slots)
-        .set({ slotAt: new Date(movedAt - elapsed) })
-        .where(eq(slots.id, slotId));
-      await fx.db
-        .update(activity)
-        .set({
-          payload: sql`jsonb_set(${activity.payload}, '{slotAt}', to_jsonb(
-          ((${activity.payload}->>'slotAt')::timestamptz - make_interval(secs => ${elapsed / 1000}))
-        ))`,
-        })
-        .where(
-          and(
-            eq(activity.eventType, 'reminder.sent'),
-            sql`(${activity.payload}->>'commitmentId') = ${commitmentId}`,
-          ),
-        );
-
-      await ageMoves(fx.db, signupId, 7 * 24 * 60);
+      const elapsed = moved.value.slotAt!.getTime() - (Date.now() + 20 * 3600_000);
+      await letTimePassBy(fx.db, signupId, slotId, elapsed);
+      // The reminder went out before the move, and still did after the week.
+      await ageActivity(fx.db, signupId, 7 * 24 * 60);
 
       expect(await dueIds()).toContain(commitmentId);
       await sendReminderJob({ commitmentId });
@@ -526,6 +579,172 @@ describe('selectDueReminders (db)', () => {
     } finally {
       send.mockRestore();
     }
+  });
+
+  describe('a field change after the reminder went out', () => {
+    const day = new Date(Date.now() + 10 * 24 * 3600_000).toISOString().slice(0, 10);
+    const dayAfter = new Date(Date.now() + 11 * 24 * 3600_000).toISOString().slice(0, 10);
+    const dayField = {
+      ref: 'day',
+      label: 'Day',
+      fieldType: 'date',
+      sortOrder: 0,
+      config: { fieldType: 'date' },
+    } as const;
+
+    /**
+     * Sends the reminder for a slot with these fields and values, makes the
+     * field change, lets time pass, and checks the reminder isn't sent again.
+     * `from` is the instant the values give before the change.
+     */
+    async function expectOneReminder(
+      title: string,
+      fields: Omit<SlotFieldDefinition, 'id'>[],
+      values: Record<string, string>,
+      from: string,
+      change: (signupId: string, fields: SlotFieldDefinition[]) => Promise<{ ok: boolean }>,
+    ) {
+      const { signupId, slotId, commitmentId } = await makeScenario(fx, title, {
+        slotInHours: 20,
+        fields,
+      });
+      await fx.db.update(slots).set({ values }).where(eq(slots.id, slotId));
+      const send = vi.spyOn(getEmailTransport(), 'send');
+      try {
+        await sendReminderJob({ commitmentId });
+        expect(send).toHaveBeenCalledTimes(1);
+
+        const changed = await change(signupId, await listFieldsForSignup(fx.db, signupId));
+        expect(changed.ok, JSON.stringify(changed)).toBe(true);
+        await letTimePass(fx.db, slotId, commitmentId, new Date(from));
+        const moves = await fx.db
+          .select({ id: activity.id })
+          .from(activity)
+          .where(and(eq(activity.signupId, signupId), eq(activity.eventType, 'slot.rescheduled')));
+        expect(moves).toEqual([]);
+
+        expect(await dueIds()).not.toContain(commitmentId);
+        await sendReminderJob({ commitmentId });
+        expect(send).toHaveBeenCalledTimes(1);
+        expect(await reminderSentRows(fx.db, commitmentId)).toBe(1);
+      } finally {
+        send.mockRestore();
+      }
+    }
+
+    const whenField = {
+      ref: 'when',
+      label: 'When',
+      fieldType: 'text',
+      sortOrder: 1,
+      config: { fieldType: 'text', maxLength: 200 },
+    } as const;
+
+    it('reads as a plain reminder when a field change, not a move, gave the slot its time', async () => {
+      const { signupId, slotId, commitmentId } = await makeScenario(fx, 'Told, then retyped', {
+        slotInHours: 20,
+        fields: [dayField, whenField],
+      });
+      const send = vi.spyOn(getEmailTransport(), 'send');
+      try {
+        // The organizer moves the slot, and the participant is told its new time.
+        const moved = await updateSlot(fx.db, fx.actor, slotId, { values: { day, when: '13:00' } });
+        if (!moved.ok) throw new Error(`updateSlot failed: ${moved.error.message}`);
+        await ageMoves(fx.db, signupId, 11);
+        await sendSlotChangeJob({ commitmentId });
+        expect(send).toHaveBeenCalledTimes(1);
+
+        // Retyping the text field to Time gives the slot a new instant, though
+        // its date and time didn't change.
+        const fields = await listFieldsForSignup(fx.db, signupId);
+        const retyped = await updateField(
+          fx.db,
+          fx.actor,
+          fields.find((f) => f.ref === 'when')!.id,
+          {
+            fieldType: 'time',
+            config: { fieldType: 'time' },
+          },
+        );
+        expect(retyped.ok, JSON.stringify(retyped)).toBe(true);
+        const [slot] = await fx.db.select().from(slots).where(eq(slots.id, slotId));
+        expect(slot!.slotAt!.toISOString()).toBe(`${day}T13:00:00.000Z`);
+        await letTimePassBy(
+          fx.db,
+          signupId,
+          slotId,
+          slot!.slotAt!.getTime() - (Date.now() + 20 * 3600_000),
+        );
+
+        await sendReminderJob({ commitmentId });
+        expect(send).toHaveBeenCalledTimes(2);
+        expect(send.mock.calls[1]![0].subject).toMatch(/^Reminder: /);
+      } finally {
+        send.mockRestore();
+      }
+    });
+
+    it('does not remind again when a text field is retyped to Time', async () => {
+      await expectOneReminder(
+        'Retyped to Time',
+        [
+          dayField,
+          {
+            ref: 'when',
+            label: 'When',
+            fieldType: 'text',
+            sortOrder: 1,
+            config: { fieldType: 'text', maxLength: 200 },
+          },
+        ],
+        { day, when: '13:00' },
+        `${day}T12:00:00.000Z`,
+        (_, fields) =>
+          updateField(fx.db, fx.actor, fields.find((f) => f.ref === 'when')!.id, {
+            fieldType: 'time',
+            config: { fieldType: 'time' },
+          }),
+      );
+    });
+
+    it('does not remind again when a Time field is deleted', async () => {
+      await expectOneReminder(
+        'Time deleted',
+        [
+          dayField,
+          {
+            ref: 'at',
+            label: 'At',
+            fieldType: 'time',
+            sortOrder: 1,
+            config: { fieldType: 'time' },
+          },
+        ],
+        { day, at: '18:30' },
+        `${day}T18:30:00.000Z`,
+        (_, fields) => deleteField(fx.db, fx.actor, fields.find((f) => f.ref === 'at')!.id),
+      );
+    });
+
+    it('does not remind again when reminders follow another date field', async () => {
+      await expectOneReminder(
+        'Other date followed',
+        [
+          dayField,
+          {
+            ref: 'other',
+            label: 'Other',
+            fieldType: 'date',
+            sortOrder: 1,
+            config: { fieldType: 'date' },
+          },
+        ],
+        { day, other: dayAfter },
+        `${day}T12:00:00.000Z`,
+        (signupId) =>
+          updateSignup(fx.db, fx.actor, signupId, { settings: { reminderFromFieldRef: 'other' } }),
+      );
+    });
   });
 
   it('writes the reminder in the signup’s language', async () => {
