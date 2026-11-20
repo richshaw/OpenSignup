@@ -791,6 +791,7 @@
       "closed": {
         "title": "Liste geschlossen",
         "body": "Zurzeit kann sich niemand eintragen. Alle, die schon eingetragen sind, behalten ihren Platz.",
+        "help": "So funktioniert das Schließen und Wiederöffnen",
         "dismiss": "Ausblenden"
       },
       "reopen": {

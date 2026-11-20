@@ -791,6 +791,7 @@
       "closed": {
         "title": "Anmälan är stängd",
         "body": "Det går inte att anmäla sig nu. Alla som redan är anmälda behåller sin plats.",
+        "help": "Så fungerar det att stänga och öppna anmälan igen",
         "dismiss": "Dölj"
       },
       "reopen": {

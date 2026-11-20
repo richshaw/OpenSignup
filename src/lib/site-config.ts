@@ -44,7 +44,7 @@ const schema = z.object({
     }),
 });
 
-export type SiteConfig = {
+type SiteConfig = {
   INSTANCE_NAME: string;
   SUPPORT_EMAIL: string;
   SOURCE_URL: string;
