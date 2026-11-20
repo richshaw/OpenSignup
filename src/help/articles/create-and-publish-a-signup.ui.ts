@@ -29,6 +29,9 @@ export const UI = {
   done: 'Done',
   addSlot: 'Add a slot',
   duplicate: 'Duplicate',
+  // In a slot's editor, beside Duplicate.
+  moveUp: 'Move up',
+  moveDown: 'Move down',
   delete: 'Delete',
   // What people see on the signup page for a slot left empty.
   untitledSlot: 'Untitled slot',
@@ -118,6 +121,8 @@ export const FROM_CATALOG: {
   done: 'organizer.build.editor.done',
   addSlot: 'organizer.build.group.addSlot',
   duplicate: 'organizer.build.editor.duplicate',
+  moveUp: 'organizer.build.editor.moveUp',
+  moveDown: 'organizer.build.editor.moveDown',
   delete: 'organizer.build.editor.delete',
   untitledSlot: 'participant.signupView.untitledSlot',
   preview: 'organizer.signup.preview',

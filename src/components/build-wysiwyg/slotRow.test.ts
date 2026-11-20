@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
-import { slotActionLabels, slotRowLabel, takenText } from './slotRow';
+import { neighborInGroup, slotActionLabels, slotRowLabel, takenText } from './slotRow';
 
 /** The Build tab's messages in English, from the catalog. */
 const t = getTestTranslator('organizer.build');
@@ -74,5 +74,24 @@ describe('in the organizer’s language', () => {
 
   it('counts past a thousand as English always printed it, with no separator', () => {
     expect(takenText(t, 1234, 2000)).toBe('1234 of 2000 taken');
+  });
+});
+
+describe('neighborInGroup', () => {
+  const rows = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+
+  it('names the slot before or after it', () => {
+    expect(neighborInGroup(rows, 'b', 'up')).toBe('a');
+    expect(neighborInGroup(rows, 'b', 'down')).toBe('c');
+  });
+
+  it('gives null at the ends of the group', () => {
+    expect(neighborInGroup(rows, 'a', 'up')).toBeNull();
+    expect(neighborInGroup(rows, 'c', 'down')).toBeNull();
+    expect(neighborInGroup([{ id: 'a' }], 'a', 'down')).toBeNull();
+  });
+
+  it('gives null for a slot not in the group', () => {
+    expect(neighborInGroup(rows, 'z', 'up')).toBeNull();
   });
 });

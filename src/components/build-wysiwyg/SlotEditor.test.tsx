@@ -41,6 +41,9 @@ function renderEditor(
     onCellChange?: Mock<(fieldRef: string, value: string) => void>;
     onCapacity?: Mock<(capacity: number | null) => void>;
     onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+    position?: number;
+    groupSize?: number;
+    onMove?: Mock<(direction: 'up' | 'down') => void>;
     onDuplicate?: Mock<() => void>;
     onDelete?: Mock<() => void>;
     onClose?: Mock<() => void>;
@@ -52,6 +55,7 @@ function renderEditor(
   const onCapacity = overrides.onCapacity ?? vi.fn<(capacity: number | null) => void>();
   const onAddEnumOption =
     overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onMove = overrides.onMove ?? vi.fn<(direction: 'up' | 'down') => void>();
   const onDuplicate = overrides.onDuplicate ?? vi.fn<() => void>();
   const onDelete = overrides.onDelete ?? vi.fn<() => void>();
   const onClose = overrides.onClose ?? vi.fn<() => void>();
@@ -67,12 +71,24 @@ function renderEditor(
       onCellChange={onCellChange}
       onCapacity={onCapacity}
       onAddEnumOption={onAddEnumOption}
+      position={overrides.position ?? 1}
+      groupSize={overrides.groupSize ?? 1}
+      onMove={onMove}
       onDuplicate={onDuplicate}
       onDelete={onDelete}
       onClose={onClose}
     />,
   );
-  return { ...utils, onCellChange, onCapacity, onAddEnumOption, onDuplicate, onDelete, onClose };
+  return {
+    ...utils,
+    onCellChange,
+    onCapacity,
+    onAddEnumOption,
+    onMove,
+    onDuplicate,
+    onDelete,
+    onClose,
+  };
 }
 
 describe('SlotEditor', () => {
@@ -330,5 +346,62 @@ describe('SlotEditor', () => {
     expect(screen.getByRole('button', { name: 'Kind value' })).toBeTruthy();
     // Other cells keep their label.
     expect(screen.getByLabelText('Name value').closest('label')).not.toBeNull();
+  });
+});
+
+describe('SlotEditor — Move up and Move down', () => {
+  it('asks to move the slot, and says where it went once it has', () => {
+    const { onMove, rerender } = renderEditor({ position: 3, groupSize: 4 });
+    const up = screen.getByRole('button', { name: 'Move up' });
+    up.focus();
+    fireEvent.click(up);
+    expect(onMove).toHaveBeenCalledWith('up');
+    rerender(
+      <SlotEditor
+        row={makeRow({ values: { name: 'Existing' } })}
+        label="Editing slot — Existing"
+        fields={[makeField()]}
+        taken={0}
+        remindersOn
+        onCellChange={vi.fn()}
+        onCapacity={vi.fn()}
+        onAddEnumOption={vi.fn()}
+        position={2}
+        groupSize={4}
+        onMove={onMove}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('status').textContent).toBe('Moved to 2 of 4');
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move up' }));
+  });
+
+  it('does nothing at the top, says so, and keeps focus on the button', () => {
+    const { onMove } = renderEditor({ position: 1, groupSize: 3 });
+    const up = screen.getByRole('button', { name: 'Move up' });
+    expect(up.getAttribute('aria-disabled')).toBe('true');
+    expect((up as HTMLButtonElement).disabled).toBe(false);
+    up.focus();
+    fireEvent.click(up);
+    expect(onMove).not.toHaveBeenCalled();
+    expect(screen.getByRole('status').textContent).toBe('Already at the top');
+    expect(document.activeElement).toBe(up);
+    expect(screen.getByRole('button', { name: 'Move down' }).getAttribute('aria-disabled')).toBe(
+      'false',
+    );
+  });
+
+  it('does nothing at the bottom, and says so', () => {
+    const { onMove } = renderEditor({ position: 3, groupSize: 3 });
+    fireEvent.click(screen.getByRole('button', { name: 'Move down' }));
+    expect(onMove).not.toHaveBeenCalled();
+    expect(screen.getByRole('status').textContent).toBe('Already at the bottom');
+  });
+
+  it('says nothing on the status line before a move', () => {
+    renderEditor({ position: 2, groupSize: 3 });
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 });

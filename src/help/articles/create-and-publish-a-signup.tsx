@@ -130,6 +130,11 @@ export function CreateAndPublishASignup() {
           </Step>
         </Steps>
         <p>
+          People see your slots in the order you put them in. To change it, open a slot and choose{' '}
+          <Ui>{UI.moveUp}</Ui> or <Ui>{UI.moveDown}</Ui>. You can also drag a slot by the dots at
+          its left. If your slots are grouped by date, a slot moves only within its date.
+        </p>
+        <p>
           You can&apos;t undo deleting a slot. To remove one you don&apos;t need, open it and choose{' '}
           <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}
           <Ui>{UI.untitledSlot}</Ui>.

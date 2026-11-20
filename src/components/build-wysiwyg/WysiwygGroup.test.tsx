@@ -4,7 +4,7 @@ import { render as renderUi, screen, fireEvent } from '@testing-library/react';
 import { WysiwygGroup, type SlotGroup } from './WysiwygGroup';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 import { FIELD_VALUE_INPUT_CLASS } from '../build-shared/fieldTypes';
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { englishMessages } from '@/i18n/testing/client-messages';
 import { BUILD_TAB_NAMESPACES } from './client-namespaces';
 
@@ -44,6 +44,7 @@ function renderGroup(
     onEditCell?: Mock<(rowId: string, fieldRef: string, value: string) => void>;
     onSetCapacity?: Mock<(rowId: string, capacity: number | null) => void>;
     onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
+    onMoveRow?: Mock<(rowId: string, neighborId: string) => void>;
     onDuplicateRow?: Mock<(rowId: string) => void>;
     onDeleteRow?: Mock<(rowId: string) => void>;
     onAddSlot?: Mock<(groupKey: string) => void>;
@@ -60,6 +61,7 @@ function renderGroup(
     overrides.onSetCapacity ?? vi.fn<(rowId: string, capacity: number | null) => void>();
   const onAddEnumOption =
     overrides.onAddEnumOption ?? vi.fn<(fieldId: string, value: string) => void | Promise<void>>();
+  const onMoveRow = overrides.onMoveRow ?? vi.fn<(rowId: string, neighborId: string) => void>();
   const onDuplicateRow = overrides.onDuplicateRow ?? vi.fn<(rowId: string) => void>();
   const onDeleteRow = overrides.onDeleteRow ?? vi.fn<(rowId: string) => void>();
   const group: SlotGroup = {
@@ -82,6 +84,7 @@ function renderGroup(
       onEditCell={onEditCell}
       onSetCapacity={onSetCapacity}
       onAddEnumOption={onAddEnumOption}
+      onMoveRow={onMoveRow}
       onDuplicateRow={onDuplicateRow}
       onDeleteRow={onDeleteRow}
       onAddSlot={onAddSlot}
@@ -90,6 +93,7 @@ function renderGroup(
   );
   return {
     ...utils,
+    onMoveRow,
     onAddSlot,
     onRenameGroup,
     onExpandRow,
@@ -262,6 +266,7 @@ describe('WysiwygGroup', () => {
         onEditCell={vi.fn()}
         onSetCapacity={vi.fn()}
         onAddEnumOption={vi.fn()}
+        onMoveRow={vi.fn()}
         onDuplicateRow={vi.fn()}
         onDeleteRow={vi.fn()}
         onAddSlot={vi.fn()}
@@ -293,5 +298,76 @@ describe('WysiwygGroup', () => {
     });
     expect(screen.getByRole('button', { name: /Group header.*Set what/ })).toBeTruthy();
     expect(screen.getByText('Set what')).toBeTruthy();
+  });
+});
+
+describe('WysiwygGroup — moving a slot from its editor', () => {
+  /** A group that puts a slot in its neighbor's place, as the Build tab does. */
+  function MovingGroup({ onMoveRow }: { onMoveRow: (rowId: string, neighborId: string) => void }) {
+    const [rows, setRows] = useState<BuildRow[]>([
+      makeRow({ id: 'r1' }),
+      makeRow({ id: 'r2' }),
+      makeRow({ id: 'r3' }),
+    ]);
+    return (
+      <WysiwygGroup
+        group={{ key: '__flat__', rawValue: '', rows }}
+        groupField={null}
+        displayFields={[]}
+        fields={[]}
+        takenBySlot={{}}
+        remindersOn={false}
+        expandedRowId="r2"
+        onExpandRow={vi.fn()}
+        onEditCell={vi.fn()}
+        onSetCapacity={vi.fn()}
+        onAddEnumOption={vi.fn()}
+        onMoveRow={(rowId, neighborId) => {
+          onMoveRow(rowId, neighborId);
+          setRows((current) => {
+            const next = current.slice();
+            const from = next.findIndex((r) => r.id === rowId);
+            const to = next.findIndex((r) => r.id === neighborId);
+            const [moved] = next.splice(from, 1);
+            if (moved) next.splice(to, 0, moved);
+            return next;
+          });
+        }}
+        onDuplicateRow={vi.fn()}
+        onDeleteRow={vi.fn()}
+        onAddSlot={vi.fn()}
+        onRenameGroup={vi.fn()}
+      />
+    );
+  }
+
+  const order = () =>
+    screen.getAllByTestId(/^wysiwyg-slot-/).map((el) => el.dataset.testid?.replace(/^.*-/, ''));
+
+  it('moves the slot down past its neighbor and keeps focus on Move down', () => {
+    const onMoveRow = vi.fn<(rowId: string, neighborId: string) => void>();
+    render(<MovingGroup onMoveRow={onMoveRow} />);
+    const down = screen.getByRole('button', { name: 'Move down' });
+    down.focus();
+    fireEvent.click(down);
+    expect(onMoveRow).toHaveBeenCalledWith('r2', 'r3');
+    expect(order()).toEqual(['r1', 'r3', 'r2']);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move down' }));
+    expect(screen.getByRole('status').textContent).toBe('Moved to 3 of 3');
+    expect(screen.getByRole('button', { name: 'Move down' }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
+  });
+
+  it('moves the slot up before its neighbor and keeps focus on Move up', () => {
+    const onMoveRow = vi.fn<(rowId: string, neighborId: string) => void>();
+    render(<MovingGroup onMoveRow={onMoveRow} />);
+    const up = screen.getByRole('button', { name: 'Move up' });
+    up.focus();
+    fireEvent.click(up);
+    expect(onMoveRow).toHaveBeenCalledWith('r2', 'r1');
+    expect(order()).toEqual(['r2', 'r1', 'r3']);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Move up' }));
+    expect(screen.getByRole('status').textContent).toBe('Moved to 1 of 3');
   });
 });

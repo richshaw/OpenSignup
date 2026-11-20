@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
-import { Check, Copy, Hash, Trash2 } from 'lucide-react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, Check, Copy, Hash, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
   FIELD_TYPE_META,
@@ -38,11 +38,28 @@ type SlotEditorProps = {
   onCapacity: (capacity: number | null) => void;
   /** Append `value` to the field's enum choices config. Only called for enum cells. */
   onAddEnumOption: (fieldId: string, value: string) => void;
+  /** The slot's place in its group, from 1, and how many slots the group has. */
+  position: number;
+  groupSize: number;
+  /**
+   * Move up or Move down: swap places with the slot before or after it in its
+   * group. Not called at that end of the group.
+   */
+  onMove: (direction: 'up' | 'down') => void;
   onDuplicate: () => void;
   onDelete: () => void;
   /** Done, or Escape in any of the editor's boxes. */
   onClose: () => void;
 };
+
+/** What the editor's status line last said about a move. */
+type MoveNote = 'moved' | 'atTop' | 'atBottom' | null;
+
+const EDITOR_ACTION_CLASS =
+  'inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium';
+
+/** Move up and Move down: dimmed, and still focusable, at their end of the group. */
+const MOVE_CLASS = `${EDITOR_ACTION_CLASS} text-ink-muted hover:bg-surface-raised hover:text-ink aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-ink-muted`;
 
 /**
  * Inline accordion editor for a single slot. Auto-fit grid keeps small
@@ -61,6 +78,9 @@ export function SlotEditor({
   onCellChange,
   onCapacity,
   onAddEnumOption,
+  position,
+  groupSize,
+  onMove,
   onDuplicate,
   onDelete,
   onClose,
@@ -73,6 +93,37 @@ export function SlotEditor({
     gridRef.current?.querySelector<HTMLElement>('input, select, button')?.focus();
     onFocused?.();
   }, [focusOnOpen, onFocused]);
+
+  // Move up and Move down, the keyboard's way to reorder slots (the grip is
+  // for dragging only). Each says on the status line where the slot went, or
+  // that it's already at that end. At an end its button is aria-disabled,
+  // not disabled, so focus stays on it rather than dropping to the page.
+  const [moveNote, setMoveNote] = useState<MoveNote>(null);
+  const upRef = useRef<HTMLButtonElement>(null);
+  const downRef = useRef<HTMLButtonElement>(null);
+  // The button pressed, to put focus back on once the move has rendered, if
+  // it was lost: React keeps the editor mounted, but on a move down it
+  // re-inserts the editor's node at the slot's new place. Chromium keeps
+  // focus through that; this is for a browser that drops it.
+  const refocus = useRef<HTMLButtonElement | null>(null);
+  useLayoutEffect(() => {
+    const button = refocus.current;
+    if (!button) return;
+    refocus.current = null;
+    if (document.activeElement !== button) button.focus();
+  });
+  const atTop = position <= 1;
+  const atBottom = position >= groupSize;
+  const move = (direction: 'up' | 'down') => {
+    const atEnd = direction === 'up' ? atTop : atBottom;
+    if (atEnd) {
+      setMoveNote(direction === 'up' ? 'atTop' : 'atBottom');
+      return;
+    }
+    refocus.current = direction === 'up' ? upRef.current : downRef.current;
+    setMoveNote('moved');
+    onMove(direction);
+  };
 
   const spotsHelpId = useId();
   return (
@@ -93,15 +144,35 @@ export function SlotEditor({
       // put focus in when Publish's check opens this slot.
       data-slot-editor={row.id}
     >
-      <div className="mb-2.5 flex items-center justify-between">
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-ink-soft">
           {t('editor.title')}
         </span>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
+          <button
+            ref={upRef}
+            type="button"
+            onClick={() => move('up')}
+            aria-disabled={atTop}
+            className={MOVE_CLASS}
+          >
+            <ArrowUp size={11} />
+            {t('editor.moveUp')}
+          </button>
+          <button
+            ref={downRef}
+            type="button"
+            onClick={() => move('down')}
+            aria-disabled={atBottom}
+            className={MOVE_CLASS}
+          >
+            <ArrowDown size={11} />
+            {t('editor.moveDown')}
+          </button>
           <button
             type="button"
             onClick={onDuplicate}
-            className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-ink-muted hover:bg-surface-raised hover:text-ink"
+            className={`${EDITOR_ACTION_CLASS} text-ink-muted hover:bg-surface-raised hover:text-ink`}
           >
             <Copy size={11} />
             {t('editor.duplicate')}
@@ -109,7 +180,7 @@ export function SlotEditor({
           <button
             type="button"
             onClick={onDelete}
-            className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-danger hover:bg-danger/10"
+            className={`${EDITOR_ACTION_CLASS} text-danger hover:bg-danger/10`}
           >
             <Trash2 size={11} />
             {t('editor.delete')}
@@ -119,13 +190,22 @@ export function SlotEditor({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1 rounded-md border-none bg-transparent px-1.5 py-1 text-[11px] font-medium text-brand-hover hover:bg-brand-soft"
+            className={`${EDITOR_ACTION_CLASS} text-brand-hover hover:bg-brand-soft`}
           >
             <Check size={11} />
             {t('editor.done')}
           </button>
         </div>
       </div>
+      {/* Where a move took the slot, for a screen reader: on screen the slot
+          itself has moved. */}
+      <p role="status" className="sr-only">
+        {moveNote === 'moved'
+          ? t('editor.moved', { position, count: groupSize })
+          : moveNote
+            ? t(`editor.${moveNote}`)
+            : ''}
+      </p>
       {taken > 0 && (
         <InlineNote className="mb-2.5">
           {t('editor.signedUp', { taken, reminders: remindersOn ? 'on' : 'off' })}

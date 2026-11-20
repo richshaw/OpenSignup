@@ -43,6 +43,10 @@ type WysiwygSlotProps = {
   onSetCapacity: (capacity: number | null) => void;
   /** Threaded through to EnumPicker. */
   onAddEnumOption: (fieldId: string, value: string) => void;
+  /** The slot's place in its group, from 1, and the group's size, for the editor's Move up and Move down. */
+  position: number;
+  groupSize: number;
+  onMove: (direction: 'up' | 'down') => void;
   onDuplicate: () => void;
   onDelete: () => void;
   /** Optional drag-reorder bindings. When omitted, the grip is hidden. */
@@ -69,6 +73,9 @@ export function WysiwygSlot({
   onEditCell,
   onSetCapacity,
   onAddEnumOption,
+  position,
+  groupSize,
+  onMove,
   onDuplicate,
   onDelete,
   reorder,
@@ -136,6 +143,9 @@ export function WysiwygSlot({
           onCellChange={onEditCell}
           onCapacity={onSetCapacity}
           onAddEnumOption={onAddEnumOption}
+          position={position}
+          groupSize={groupSize}
+          onMove={onMove}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
           onClose={onCollapse}
