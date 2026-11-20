@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 type PageParams = { params: Promise<{ id: string }> };
 
 export default async function SignupDetailPage({ params }: PageParams) {
   const { id } = await params;
-  redirect(`/app/signups/${id}/build`);
+  redirect(signupTabPath(id, 'build'));
 }

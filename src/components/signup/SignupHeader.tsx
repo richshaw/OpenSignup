@@ -19,6 +19,7 @@ import { ShareButton } from './ShareButton';
 import { ShareScope } from './ShareScope';
 import { signupStatusLabel } from './status-label';
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 interface SignupHeaderProps {
   /** The organizer's language, which all of the header's own text is in. */
@@ -71,7 +72,7 @@ export function SignupHeader({
   const t = getServerTranslator(locale, 'organizer.signup');
   // The `lang` of the signup's own words, inside the header's.
   const contentLang = langWhereDifferent(contentLocale, locale);
-  const previewHref = `/app/signups/${signupId}/preview`;
+  const previewHref = signupTabPath(signupId, 'preview');
   const closeQuestion = spots
     ? closeSignupQuestion(spots, getServerTranslator(locale, 'organizer.signup.close'))
     : '';

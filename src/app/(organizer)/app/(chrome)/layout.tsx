@@ -40,7 +40,7 @@ export default async function OrganizerLayout({
             className="flex min-w-0 items-center gap-2 text-sm text-ink-muted"
           >
             <Link href="/app" className="font-semibold tracking-tight text-ink">
-              {t('home')}
+              {INSTANCE_NAME}
             </Link>
             {crumbs}
           </nav>

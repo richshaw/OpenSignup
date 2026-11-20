@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SHIPPED } from '@/i18n/config';
+import { newSignupLocale } from '@/i18n/locale';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { serviceError, ServiceException } from '@/lib/errors';
@@ -307,9 +308,25 @@ describe('create_signup and the signup’s language', () => {
       },
     });
     const call = svc.createSignup.mock.calls[0] as
-      | [unknown, unknown, string, { settings: Record<string, unknown> }, { localeSource?: string }]
+      | [
+          unknown,
+          unknown,
+          string,
+          { settings: Record<string, unknown> },
+          { organizer?: { locale: string | null } },
+        ]
       | undefined;
-    return { r, settings: call?.[3].settings, localeSource: call?.[4].localeSource };
+    // createSignup is mocked, so work out what it would store: the language
+    // sent (`api`), else the organizer's for new signups.
+    const sent = call?.[3].settings;
+    const organizer = call?.[4].organizer;
+    const chosen = sent?.locale === undefined && organizer ? newSignupLocale(organizer) : null;
+    return {
+      r,
+      organizer,
+      settings: chosen ? { ...sent, locale: chosen.locale } : sent,
+      localeSource: sent?.locale === undefined ? chosen?.source : 'api',
+    };
   }
 
   it('offers locale on the tool, not on the draft Magic Compose shares, and lists what it takes', async () => {
@@ -331,8 +348,12 @@ describe('create_signup and the signup’s language', () => {
   });
 
   it('stores a language the assistant sends, as sent by the caller', async () => {
-    const { r, settings, localeSource } = await create(unitContext({ locale: OTHER_LOCALE }), 'en');
+    const { r, settings, localeSource, organizer } = await create(
+      unitContext({ locale: OTHER_LOCALE }),
+      'en',
+    );
     expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    expect(organizer).toEqual({ locale: OTHER_LOCALE });
     expect(settings).toEqual({ locale: 'en' });
     expect(localeSource).toBe('api');
   });

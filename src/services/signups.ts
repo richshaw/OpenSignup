@@ -1,11 +1,11 @@
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slotFields } from '@/db/schema/slot-fields';
 import type { Slot as SlotRow } from '@/db/schema/slots';
-import { type CatalogLocale, SHIPPED, type SignupLocaleSource, isShipped } from '@/i18n/config';
+import { type CatalogLocale, SHIPPED, isShipped } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
-import { localeOfSignup } from '@/i18n/locale';
+import { localeOfSignup, newSignupLocale } from '@/i18n/locale';
 import {
   activityActor,
   recordActivities,
@@ -119,11 +119,11 @@ export interface SignupWithSlots extends SignupRow {
 
 /**
  * Create a draft signup, with the template's fields and slots, in one
- * transaction. Its language is the `settings.locale` in `rawInput`, refused
- * unless it has shipped to participants; the route decides it (the one its
- * caller sent, else `newSignupLocale`'s) and puts it there. `localeSource`
- * says which step chose it, for `signup.created`; a language with none was
- * sent by the caller (`api`). Without `opts.template` it starts from
+ * transaction. Its language is the `settings.locale` in `rawInput` if the
+ * caller sent one, refused unless it has shipped to participants, with source
+ * `api` on `signup.created`. Without one, `opts.organizer`'s language for new
+ * signups (`newSignupLocale`, which records the step that chose it), and
+ * without an organizer, none. Without `opts.template` it starts from
  * `defaultTemplate`, its columns named in the language its participants will
  * get (`localeOfSignup`).
  */
@@ -132,14 +132,20 @@ export async function createSignup(
   actor: Actor,
   workspaceId: string,
   rawInput: unknown,
-  opts: { template?: SignupTemplate; localeSource?: SignupLocaleSource } = {},
+  opts: { template?: SignupTemplate; organizer?: { locale: string | null } } = {},
 ): Promise<Result<SignupRow, ServiceError>> {
   requireOrganizer(actor);
   requireWorkspaceWrite(actor, workspaceId);
 
   const input = parseInputSafe(SignupCreateInputSchema, rawInput, SIGNUP_INPUT_REASONS);
   if (!input.ok) return input;
-  const data = input.value;
+  const sentLocale =
+    isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined;
+  const chosen =
+    sentLocale === undefined && opts.organizer ? newSignupLocale(opts.organizer) : null;
+  const data = chosen
+    ? { ...input.value, settings: { ...input.value.settings, locale: chosen.locale } }
+    : input.value;
 
   // A language that hasn't shipped reads as the instance's here; it's
   // refused below, so its names never reach a row.
@@ -214,9 +220,7 @@ export async function createSignup(
   if (!anchor.ok) return anchor;
   const grouping = checkGroupByRefs(data.settings.groupByFieldRefs, fieldDefs);
   if (!grouping.ok) return grouping;
-  const locale = checkSignupLocale(
-    isObject(rawInput) && isObject(rawInput.settings) ? rawInput.settings.locale : undefined,
-  );
+  const locale = checkSignupLocale(sentLocale);
   if (!locale.ok) return locale;
   const settings: SignupSettings =
     anchor.value === null
@@ -281,7 +285,7 @@ export async function createSignup(
         slotsAdded: template.slots.length,
         ...(settings.locale === undefined
           ? {}
-          : { locale: settings.locale, localeSource: opts.localeSource ?? 'api' }),
+          : { locale: settings.locale, localeSource: chosen?.source ?? 'api' }),
       },
     });
     return inserted;
@@ -850,6 +854,110 @@ export async function listSignupSummariesForWorkspace(
     .orderBy(desc(signups.createdAt))
     .limit(WORKSPACE_LIST_LIMIT);
   return ok(rows);
+}
+
+/** One page of a workspace's signups, newest first, and where it sits in the list. */
+export type SignupSummaryPage = {
+  rows: (SignupSummary & { locale: string | null })[];
+  /** How many live signups come before this page, so its first row is number offset + 1. */
+  offset: number;
+  /** The id to pass as `before` for the next, older page; null on the last page. */
+  nextBefore: string | null;
+  /** The id to pass as `after` for the previous, newer page; null on the first page. */
+  prevAfter: string | null;
+};
+
+/**
+ * A page of up to WORKSPACE_LIST_LIMIT live signups, ordered by
+ * (created_at, id) descending, so signups sharing a created_at keep one order
+ * across page boundaries. `before` is the id of the last row of a newer page,
+ * and the page starts just after that row; `after` is the id of the first row
+ * of an older page, and the page ends just before it. A cursor's place is
+ * looked up in Postgres rather than carried in the URL, because created_at
+ * holds microseconds and a JavaScript Date keeps only milliseconds. A cursor
+ * that names no signup in this workspace matches nothing, so the caller falls
+ * back to the first page.
+ *
+ * The first page reads one row more than it shows to learn whether an older
+ * page follows. A page from a cursor runs one more query, counting the
+ * signups either side of it, which gives its offset and both links.
+ */
+export async function listSignupSummaryPageForWorkspace(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+  opts: { before?: string; after?: string } = {},
+): Promise<Result<SignupSummaryPage, ServiceError>> {
+  requireWorkspaceAccess(actor, workspaceId);
+  const key = sql`(${signups.createdAt}, ${signups.id})`;
+  const placeOf = (id: string) => sql`(
+    select c.created_at, c.id from signups c
+    where c.id = ${id} and c.workspace_id = ${workspaceId}
+  )`;
+  const live = workspaceSignupsWhere(workspaceId, {});
+
+  if (!opts.before && !opts.after) {
+    const rows = await db
+      .select(signupSummaryColumns)
+      .from(signups)
+      .where(live)
+      .orderBy(desc(signups.createdAt), desc(signups.id))
+      .limit(WORKSPACE_LIST_LIMIT + 1);
+    const more = rows.length > WORKSPACE_LIST_LIMIT;
+    const page = more ? rows.slice(0, WORKSPACE_LIST_LIMIT) : rows;
+    return ok({
+      rows: page,
+      offset: 0,
+      nextBefore: more ? (page.at(-1)?.id ?? null) : null,
+      prevAfter: null,
+    });
+  }
+
+  const rows = opts.before
+    ? await db
+        .select(signupSummaryColumns)
+        .from(signups)
+        .where(and(live, sql`${key} < ${placeOf(opts.before)}`))
+        .orderBy(desc(signups.createdAt), desc(signups.id))
+        .limit(WORKSPACE_LIST_LIMIT)
+    : (
+        await db
+          .select(signupSummaryColumns)
+          .from(signups)
+          .where(and(live, sql`${key} > ${placeOf(opts.after ?? '')}`))
+          .orderBy(asc(signups.createdAt), asc(signups.id))
+          .limit(WORKSPACE_LIST_LIMIT)
+      ).reverse();
+  const first = rows[0];
+  const last = rows.at(-1);
+  if (!first || !last) return ok({ rows, offset: 0, nextBefore: null, prevAfter: null });
+
+  const [around] = await db
+    .select({
+      newer: sql<number>`count(*) filter (where ${key} > ${placeOf(first.id)})`.mapWith(Number),
+      older: sql<number>`count(*) filter (where ${key} < ${placeOf(last.id)})`.mapWith(Number),
+    })
+    .from(signups)
+    .where(live);
+  const newer = around?.newer ?? 0;
+  const older = around?.older ?? 0;
+  return ok({
+    rows,
+    offset: newer,
+    nextBefore: older > 0 ? last.id : null,
+    prevAfter: newer > 0 ? first.id : null,
+  });
+}
+
+/** How many live signups the workspace has, archived ones included, uncapped. */
+export async function countSignupsForWorkspace(
+  db: Db,
+  actor: Actor,
+  workspaceId: string,
+): Promise<Result<number, ServiceError>> {
+  requireWorkspaceAccess(actor, workspaceId);
+  const total = await db.$count(signups, workspaceSignupsWhere(workspaceId, {}));
+  return ok(total);
 }
 
 /**

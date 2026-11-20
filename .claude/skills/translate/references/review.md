@@ -110,12 +110,25 @@ Check every message for:
 Also list the glossary's open questions you have a view on, with your answer
 and why.
 
+<Only for one reviewer, when a whole language is reviewed in parts that were
+translated apart; leave this paragraph out otherwise.> Then read the whole
+of `src/messages/<code>.json` for consistency: list every English term or
+recurring phrase it renders in two or more ways where it should read the
+same ("Try again", "Couldn't reach the server", "Reload the page",
+"Save"/"Saved", "Copy link", "Something went wrong", field, button, dates,
+your dashboard, the organizer), with each variant's keys and the one to
+use. Also flag any message anywhere that breaks the glossary's settled
+choices: the wrong form of address, a word it rules out, or a way of naming
+people it rules out.
+
 Output, in this order:
 
 1. **Findings**, one per line, most serious first:
    `<key> | <screenshot or email, if any> | <kind: wrong, unclear, unnatural, glossary, grammar, fit, format, nit> | <what's wrong, in one sentence> | <the text you'd write instead, whole, placeholders and tags kept>`.
-2. **Open questions**: your answer to each you have a view on.
-3. **Read and fine**: the namespaces or screens you read with nothing to
+2. **Consistency**, if you were asked for it, one line per term:
+   `<English term> | <variant: keys> | <variant: keys> | <the one to use, and why>`.
+3. **Open questions**: your answer to each you have a view on.
+4. **Read and fine**: the namespaces or screens you read with nothing to
    report, so the translator knows what was covered.
 
 Don't rewrite messages that are already right in another way you'd prefer;

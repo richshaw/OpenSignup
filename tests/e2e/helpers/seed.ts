@@ -65,6 +65,8 @@ export interface SeedData {
   /** Published signup whose settings make the email optional, with an open slot. */
   optionalEmailSlug: string;
   optionalEmailSlotLabel: string;
+  /** The unsubscribe link of someone on a signup of its own who has turned reminders off. */
+  optedOutUnsubscribePath: string;
   /**
    * In each test language (`TEST_LOCALES`): an open signup, a draft for its
    * Build tab, and a closed and an archived signup (see makeSignupsIn), and
@@ -155,6 +157,27 @@ const ORGANIZER_TEXT: { [L in TestLocale]?: OrganizerText } = {
       title: 'Städdag i parken',
       labels: { group: 'Grupp', time: 'Tid' },
       groups: ['Ödla', 'Zebra', 'Äpple', 'Apa'],
+    },
+  },
+  de: {
+    person: { name: 'Gast', mailbox: 'gast' },
+    open: {
+      title: 'Kuchenbuffet zum Sommerfest',
+      description: 'Bring etwas Leckeres zum Sommerfest mit.',
+      slots: {
+        many: 'Apfelkuchen',
+        one: 'Kaffee',
+        full: 'Brezeln',
+        unlimitedOne: 'Abwasch',
+        unlimitedTwo: 'Aufräumen',
+      },
+    },
+    closed: { title: 'Flohmarkt in der Aula', mailbox: 'flohmarkt', slots: ['Kaffee', 'Torte'] },
+    archived: { title: 'Frühlingskonzert', slot: 'Kasse' },
+    build: {
+      title: 'Putztag im Park',
+      labels: { group: 'Gruppe', time: 'Uhrzeit' },
+      groups: ['Öl', 'Zebra', 'Äpfel', 'Affe'],
     },
   },
 };
@@ -851,6 +874,24 @@ export async function seedE2E(): Promise<SeedData> {
     { requireEmail: false },
   );
 
+  // A signup of its own, so nothing else counts the sign-up on it: its
+  // person has turned reminders off, for the unsubscribe page's opted-out state.
+  const optedOutSignup = await makePublishedSignup(db, actor, workspaceId, 'Reading Rota', [
+    { label: 'Monday story time', capacity: 4 },
+  ]);
+  const optedOut = unwrap(
+    await commitToSlot(db, optedOutSignup.slotIds[0]!, {
+      name: 'Morgan Quiet',
+      email: 'morgan@example.test',
+      quantity: 1,
+    }),
+    'commitToSlot(Monday story time)',
+  ).commitment.participantId;
+  unwrap(
+    await optOutOfReminders(db, optedOut, reminderOptOutTokenFor(optedOut)),
+    'optOutOfReminders(Reading Rota)',
+  );
+
   const languages = {} as Record<TestLocale, LanguageSeed>;
   for (const locale of TEST_LOCALES) {
     languages[locale] = {
@@ -890,6 +931,11 @@ export async function seedE2E(): Promise<SeedData> {
     deletedToken: deletedCommit.editToken,
     optionalEmailSlug: optionalEmailSignup.slug,
     optionalEmailSlotLabel: 'Park gate',
+    optedOutUnsubscribePath: unsubscribePath(
+      optedOutSignup.slug,
+      optedOut,
+      reminderOptOutTokenFor(optedOut),
+    ),
     languages,
   };
   writeFileSync(SEED_FILE, JSON.stringify(data, null, 2));

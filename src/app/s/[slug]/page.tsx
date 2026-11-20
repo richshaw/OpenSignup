@@ -22,6 +22,7 @@ import { OrganizerStrip } from './organizer-strip';
 import { signupLocaleForSlug } from './signup-locale';
 import SignupView, { toSignupViewProps } from './signup-view';
 import { SignupStateMessage } from './state-message';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 type PageParams = { params: Promise<{ slug: string }> };
 
@@ -139,7 +140,7 @@ export default async function PublicSignupPage({ params }: PageParams) {
             locale={draft.locale}
             title={own('title')}
             body={own('body', { title: t('draft.title') })}
-            action={{ label: own('open'), href: `/app/signups/${draft.id}/build` }}
+            action={{ label: own('open'), href: signupTabPath(draft.id, 'build') }}
           />
         );
       }

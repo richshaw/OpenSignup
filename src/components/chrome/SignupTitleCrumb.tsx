@@ -7,9 +7,10 @@ import { loadSignupForOrganizer } from '@/services/signups.cached';
 type CrumbParams = { params: Promise<{ id: string }> };
 
 /**
- * The signup's title as the last crumb, shared by the signup page and its
- * tabs, marked with the signup's language where it isn't the organizer's,
- * which the crumbs around it are in.
+ * The signup's title as the last crumb, shared by the signup's tabs
+ * (build, responses, settings), marked with the signup's language where it
+ * isn't the organizer's, which the crumbs around it are in. The bare
+ * `/app/signups/<id>` redirects to `/build`, so it has no crumb of its own.
  */
 export async function SignupTitleCrumb({ params }: CrumbParams) {
   const { id } = await params;

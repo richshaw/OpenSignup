@@ -21,6 +21,7 @@ import {
 } from './draft-errors';
 import { useHandFillHref } from './hand-fill';
 import { writeAiDraftWarnings } from './ai-draft-warnings';
+import { signupTabPath } from '@/lib/organizer-paths';
 
 // The questions, and the Drafting from card after them, show only once the AI
 // has replied, so they stay out of the page's first-load JavaScript
@@ -107,7 +108,7 @@ export function MagicComposeRoot({
   useEffect(() => {
     if (phase.kind !== 'drafting') return;
     if (phase.animationDone && phase.response) {
-      router.push(`/app/signups/${phase.response.id}/build?aiDraft=1`);
+      router.push(`${signupTabPath(phase.response.id, 'build')}?aiDraft=1`);
     }
   }, [phase, router]);
 

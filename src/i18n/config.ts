@@ -11,7 +11,7 @@
  * the translator fills its gaps with English. Having a catalog doesn't make a
  * language one anybody gets or can choose: that's `SHIPPED`.
  */
-export const CATALOG_LOCALES = ['en', 'sv'] as const;
+export const CATALOG_LOCALES = ['en', 'sv', 'de'] as const;
 
 export type CatalogLocale = (typeof CATALOG_LOCALES)[number];
 
@@ -50,16 +50,10 @@ export function isShipped(audience: Audience, value: unknown): value is CatalogL
 /**
  * Which step of `resolveLocale` chose a language, in the order they're tried:
  * the stored language, the instance's `DEFAULT_LOCALE`, or English.
- * `signup.created` records it, so don't rename the values.
+ * `signup.created` records it next to a new signup's language, or `api` when
+ * the caller sent one (`createSignup`), so don't rename the values.
  */
 type LocaleSource = 'setting' | 'instance' | 'default';
-
-/**
- * Which step chose a new signup's language: one of `resolveLocale`'s, or the
- * caller, which sent one (`api`). `signup.created` records it next to the
- * language.
- */
-export type SignupLocaleSource = LocaleSource | 'api';
 
 /**
  * The rule for which language anybody gets: `stored` once it has shipped to
@@ -132,6 +126,24 @@ function capitalized(name: string, locale: CatalogLocale): string {
  */
 export function languageName(locale: CatalogLocale, inLocale: CatalogLocale = locale): string {
   return capitalized(cldrLanguageName(locale, inLocale), inLocale);
+}
+
+/**
+ * Whether a language writes every noun with a capital, wherever it falls in a
+ * sentence. Each language with a catalog decides, so a new one can't be
+ * forgotten.
+ */
+const CAPITALIZES_NOUNS: Record<CatalogLocale, boolean> = { en: false, sv: false, de: true };
+
+/**
+ * An organizer's field label as it reads inside a sentence, "(no date)" or
+ * "Set role": in lower case, as English and Swedish write a common noun there,
+ * but as the organizer wrote it in a language that capitalizes nouns, as
+ * German does ("(ohne Datum)", "Rolle festlegen"). `locale` is the language
+ * the label is in, the signup's.
+ */
+export function labelInSentence(label: string, locale: CatalogLocale): string {
+  return CAPITALIZES_NOUNS[locale] ? label : label.toLocaleLowerCase(locale);
 }
 
 /**

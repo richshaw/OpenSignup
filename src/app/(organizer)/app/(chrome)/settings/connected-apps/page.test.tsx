@@ -160,6 +160,33 @@ describe('Connected apps', () => {
     );
   });
 
+  it('says an app is already disconnected, or that a disconnect failed', async () => {
+    await renderPage({ error: 'not_found' });
+    expect(screen.getByRole('alert')).toHaveTextContent(/^That app is already disconnected\.$/);
+    cleanup();
+
+    await renderPage({ error: 'internal' });
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn’t disconnect\. Try again\.$/);
+  });
+
+  it.each(OTHER_LANGUAGES)(
+    'says a disconnect was refused in the organizer’s language, %s',
+    async (other) => {
+      ship('organizer', ['en', other]);
+      request.session.locale = other;
+      await renderPage({ error: 'not_found' });
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        `organizer.errors.alreadyDisconnected in ${other}`,
+      );
+      cleanup();
+
+      await renderPage({ error: 'internal' });
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        `organizer.errors.disconnectFailed in ${other}`,
+      );
+    },
+  );
+
   it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     request.session.locale = other;

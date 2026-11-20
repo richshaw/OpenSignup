@@ -81,7 +81,7 @@ export function WysiwygGroup({
     ? prettyHeader(t, group.rawValue, groupField.config.fieldType, locale, groupField.name)
     : '';
   const placeholder = groupField
-    ? emptyHeaderCopy(t, groupField.config.fieldType, groupField.name)
+    ? emptyHeaderCopy(t, groupField.config.fieldType, locale, groupField.name)
     : '';
 
   return (

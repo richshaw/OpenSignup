@@ -5,6 +5,7 @@ import {
   type CatalogLocale,
   SHIPPED,
   isShipped,
+  labelInSentence,
   langWhereDifferent,
   languageName,
   languageNameInSentence,
@@ -252,10 +253,12 @@ describe('languageNameInSentence', () => {
    */
   const inSentence: Record<CatalogLocale, Record<CatalogLocale, string>> = {
     // English capitalizes a language's name in a sentence, as in a list.
-    en: { en: 'English', sv: 'Svenska' },
+    en: { en: 'English', sv: 'Svenska', de: 'Deutsch' },
     // Swedish writes language names in lower case in a sentence ("byt till
     // svenska"), and keeps English's own capital.
-    sv: { en: 'English', sv: 'svenska' },
+    sv: { en: 'English', sv: 'svenska', de: 'Deutsch' },
+    // German capitalizes a language's name as a noun ("auf Deutsch").
+    de: { en: 'English', sv: 'Svenska', de: 'Deutsch' },
   };
 
   it.each(CATALOG_LOCALES.flatMap((sentence) => CATALOG_LOCALES.map((name) => [name, sentence])))(
@@ -264,4 +267,21 @@ describe('languageNameInSentence', () => {
       expect(languageNameInSentence(name, sentence)).toBe(inSentence[sentence][name]);
     },
   );
+});
+
+describe('labelInSentence', () => {
+  it('lowercases a label in a language that writes common nouns in lower case', () => {
+    expect(labelInSentence('Game Day', 'en')).toBe('game day');
+    expect(labelInSentence('Roll', 'sv')).toBe('roll');
+  });
+
+  it('keeps the organizer’s capitals in a language that capitalizes nouns', () => {
+    expect(labelInSentence('Rolle', 'de')).toBe('Rolle');
+    expect(labelInSentence('Datum', 'de')).toBe('Datum');
+  });
+
+  it('decides for every language with a catalog', () => {
+    for (const locale of CATALOG_LOCALES)
+      expect(typeof labelInSentence('A', locale)).toBe('string');
+  });
 });

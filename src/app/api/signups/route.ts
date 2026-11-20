@@ -1,7 +1,4 @@
-import type { OrganizerSession } from '@/auth/organizer-session';
 import { getOrganizerSession } from '@/auth/session';
-import { newSignupLocale } from '@/i18n/locale';
-import type { SignupLocaleSource } from '@/i18n/config';
 import { fail, readJson, respond } from '@/lib/api-response';
 import { link, publicSignupUrl } from '@/lib/links';
 import { organizerRoute } from '@/lib/organizer-route';
@@ -33,44 +30,17 @@ export const POST = organizerRoute(async ({ req, db, actor }) => {
   requireWorkspaceWrite(actor, workspace.value);
   await consumeRateLimit(db, RateLimits.signupCreatePerOrganizer, actor.id);
 
-  const { input, localeSource } = withLanguage(body, session);
-  const created = await createSignup(db, actor, workspace.value, input, { localeSource });
+  // A language the caller sent is kept (source `api`); without one, the
+  // signup starts in the organizer's language for new signups.
+  const created = await createSignup(db, actor, workspace.value, body, {
+    organizer: { locale: session?.locale ?? null },
+  });
   return respond(created, (signup) => ({
     self: link(`/api/signups/${signup.id}`),
     publish: link(`/api/signups/${signup.id}/publish`, 'POST'),
     public: link(publicSignupUrl(signup.slug)),
   }));
 });
-
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
-
-/**
- * The body to create from, with the new signup's language in its settings.
- * A `settings.locale` the caller sent stays as sent (`createSignup` refuses
- * one that hasn't shipped), and its source is `api`. Without one, the
- * organizer's language goes in (`newSignupLocale`): none while only one
- * language has shipped. A body or `settings` that isn't an object is left as
- * it is, for `createSignup` to refuse.
- */
-function withLanguage(
-  body: unknown,
-  session: Pick<OrganizerSession, 'locale'> | null,
-): { input: unknown; localeSource?: SignupLocaleSource } {
-  if (!isObject(body)) return { input: body };
-  const { settings } = body;
-  if (isObject(settings) && settings.locale !== undefined) {
-    return { input: body, localeSource: 'api' };
-  }
-  if (settings !== undefined && !isObject(settings)) return { input: body };
-  const chosen = newSignupLocale({ locale: session?.locale ?? null });
-  if (!chosen) return { input: body };
-  return {
-    input: { ...body, settings: { ...settings, locale: chosen.locale } },
-    localeSource: chosen.source,
-  };
-}
 
 export const GET = organizerRoute(async ({ req, db, actor }) => {
   const url = new URL(req.url);
