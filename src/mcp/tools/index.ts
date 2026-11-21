@@ -11,7 +11,13 @@ import {
   reopenSignupTool,
   updateSignupTool,
 } from './signups-write';
-import { addSlotsTool, deleteSlotTool, reorderSlotsTool, updateSlotTool } from './slots';
+import {
+  addSlotsTool,
+  deleteSlotTool,
+  reorderSlotsTool,
+  updateSlotsTool,
+  updateSlotTool,
+} from './slots';
 import { listWorkspaces } from './workspaces';
 
 /** Every tool the server exposes, in the order `tools/list` returns them. */
@@ -32,6 +38,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   deleteFieldTool,
   addSlotsTool,
   updateSlotTool,
+  updateSlotsTool,
   reorderSlotsTool,
   deleteSlotTool,
 ];

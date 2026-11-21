@@ -4,7 +4,13 @@ import { serviceError } from '@/lib/errors';
 import { connectTestClient } from '../testing/client';
 import { unitContext } from '../testing/fixtures';
 import { addFieldTool, deleteFieldTool, reorderFieldsTool, updateFieldTool } from './fields';
-import { addSlotsTool, deleteSlotTool, reorderSlotsTool, updateSlotTool } from './slots';
+import {
+  addSlotsTool,
+  deleteSlotTool,
+  reorderSlotsTool,
+  updateSlotsTool,
+  updateSlotTool,
+} from './slots';
 
 const fields = {
   addField: vi.fn(),
@@ -15,6 +21,7 @@ const fields = {
 const slots = {
   addSlotsBulk: vi.fn(),
   updateSlot: vi.fn(),
+  updateSlotsBulk: vi.fn(),
   deleteSlot: vi.fn(),
   reorderSlots: vi.fn(),
 };
@@ -27,6 +34,7 @@ vi.mock('@/services/slot-fields', () => ({
 vi.mock('@/services/slots', () => ({
   addSlotsBulk: (...a: unknown[]) => slots.addSlotsBulk(...a),
   updateSlot: (...a: unknown[]) => slots.updateSlot(...a),
+  updateSlotsBulk: (...a: unknown[]) => slots.updateSlotsBulk(...a),
   deleteSlot: (...a: unknown[]) => slots.deleteSlot(...a),
   reorderSlots: (...a: unknown[]) => slots.reorderSlots(...a),
 }));
@@ -39,6 +47,7 @@ const TOOLS = [
   deleteFieldTool,
   addSlotsTool,
   updateSlotTool,
+  updateSlotsTool,
   deleteSlotTool,
   reorderSlotsTool,
 ];
@@ -355,6 +364,47 @@ describe('slot tools', () => {
   it('update_slot sends order changes to reorder_slots', () => {
     expect(updateSlotTool.description).toContain('reorder_slots');
     expect(updateSlotTool.description).not.toContain('sortOrder');
+  });
+
+  it('update_slots hands the rows to the service and lists the slots it returns', async () => {
+    slots.updateSlotsBulk.mockResolvedValueOnce(
+      ok([
+        { ...slot, values: { what: 'x', where: 'Hall' } },
+        { ...slot, id: 'slot_2', capacity: 3 },
+      ]),
+    );
+    const client = await connectTestClient(ctx, TOOLS);
+    const rows = [
+      { slotId: 'slot_1', values: { what: 'x', where: 'Hall' } },
+      { slotId: 'slot_2', capacity: 3 },
+    ];
+    const r = await client.callTool({
+      name: 'update_slots',
+      arguments: { signupId: 'sig_1', slots: rows },
+    });
+    expect(slots.updateSlotsBulk).toHaveBeenCalledWith(ctx.db, ctx.actor, 'sig_1', {
+      slots: rows,
+    });
+    const out = (r.structuredContent as { slots: { id: string }[] }).slots;
+    expect(out.map((s) => s.id)).toEqual(['slot_1', 'slot_2']);
+  });
+
+  it('update_slots refuses a row with a sortOrder and points at reorder_slots', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const r = await client.callTool({
+      name: 'update_slots',
+      arguments: { signupId: 'sig_1', slots: [{ slotId: 'slot_1', sortOrder: 0 }] },
+    });
+    expect(r.isError).toBe(true);
+    expect(JSON.stringify(r.structuredContent)).toContain('invalid_input');
+    expect(JSON.stringify(r.structuredContent)).toContain('reorder_slots');
+    expect(slots.updateSlotsBulk).not.toHaveBeenCalled();
+  });
+
+  it('add_field points at update_slots for filling in the new field', () => {
+    expect(addFieldTool.description).toContain('update_slots');
+    expect(updateSlotsTool.scope).toBe('signups:write');
+    expect(updateSlotsTool.description).toContain('nothing changes');
   });
 
   it('delete_slot asks the service not to force unless told, and relays the conflict', async () => {

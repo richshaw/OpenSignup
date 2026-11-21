@@ -142,6 +142,7 @@ describe('the tool registry', () => {
       'update_field',
       'update_signup',
       'update_slot',
+      'update_slots',
     ]);
   });
 });
