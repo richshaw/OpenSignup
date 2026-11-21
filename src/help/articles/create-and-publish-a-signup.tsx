@@ -271,6 +271,10 @@ export function CreateAndPublishASignup() {
             </p>
           </Step>
         </Steps>
+        <p>
+          To check whether reminders are on, look under <Ui>{UI.reminders}</Ui> on your
+          signup&apos;s <Ui>{UI.settings}</Ui> tab.
+        </p>
       </section>
 
       <section className="space-y-4">

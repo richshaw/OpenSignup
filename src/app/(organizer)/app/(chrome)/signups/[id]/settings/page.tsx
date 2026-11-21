@@ -7,7 +7,9 @@ import { getServerTranslator } from '@/i18n/server';
 import type { Translator } from '@/i18n/translator';
 import { localeOfOrganizer, localeOfSignup, offersLanguageChoice } from '@/i18n/locale';
 import { refusalFromQuery } from '@/lib/organizer-errors';
-import { requiresEmail } from '@/schemas/signups';
+import { findReminderFields } from '@/lib/reminder-fields';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
+import { requiresEmail, sendsReminders } from '@/schemas/signups';
 import { loadSignupForOrganizer } from '@/services/signups.cached';
 import { trackOrganizerView } from '@/lib/view-tracker';
 import { FormError } from '@/components/ui/form-error';
@@ -27,6 +29,9 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   if (!result.ok) return null;
   const sig = result.value;
   const requireEmail = requiresEmail(sig.settings);
+  // The field reminders count from, or null when the slots have no date.
+  const { dateField } = findReminderFields(sig.settings, sig.fields);
+  const reminders = dateField ? { on: sendsReminders(sig.settings), label: dateField.label } : null;
   await trackOrganizerView({
     actor: toActor(session),
     signupId: sig.id,
@@ -43,7 +48,9 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
   const refusal = refusalFromQuery(getServerTranslator(locale, 'organizer.errors'), error);
 
   // Reminders are configured on the date field itself, in the Build tab's
-  // field editor. This tab keeps what has no better home: whether the sign-up
+  // field editor, so there's one switch (#200). This tab only says whether
+  // they're on and where to change them (#592), since it's where organizers
+  // look. Otherwise it keeps what has no better home: whether the sign-up
   // form asks for an email, the signup's language once there's a choice, and
   // deletion. The first two are one form with one Save (#899's tophat: with a
   // Save on each card, saving one dropped an unsaved change in the other
@@ -107,7 +114,9 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
               id="require-email-required-help"
               className="mt-2 text-sm text-ink-muted group-has-[#require-email-optional:checked]:hidden"
             >
-              {t('signupForm.requiredHelp')}
+              {reminders?.on
+                ? t('signupForm.requiredHelpReminders', { hours: REMINDER_LEAD_HOURS })
+                : t('signupForm.requiredHelp')}
             </p>
             <p
               id="require-email-optional-help"
@@ -128,6 +137,21 @@ export default async function SettingsTab({ params, searchParams }: PageParams) 
           {saved === '1' ? <SavedNotice role="status">{savedText}</SavedNotice> : null}
         </div>
       </form>
+      <section
+        aria-labelledby="reminders-heading"
+        className="space-y-1 rounded-xl border border-surface-sunk bg-white p-6"
+      >
+        <h2 id="reminders-heading" className="text-sm font-semibold">
+          {t('reminders.title')}
+        </h2>
+        <p className="text-sm text-ink-muted">
+          {reminders === null
+            ? t('reminders.none')
+            : reminders.on
+              ? t('reminders.on', { hours: REMINDER_LEAD_HOURS, label: reminders.label })
+              : t('reminders.off', { label: reminders.label })}
+        </p>
+      </section>
       <section
         aria-labelledby="delete-signup-heading"
         className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6"

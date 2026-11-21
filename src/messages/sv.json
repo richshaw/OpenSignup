@@ -302,12 +302,19 @@
         "required": "Obligatoriskt",
         "optional": "Valfritt",
         "requiredHelp": "Alla får ett mejl med sin länk för att ändra eller avboka.",
+        "requiredHelpReminders": "Alla får ett mejl med sin länk för att ändra eller avboka, och en påminnelse {hours, plural, =24 {dagen före} one {# timme före} other {# timmar före}} sitt pass.",
         "optionalHelp": "Deltagarna kan lämna e-postfältet tomt. Då får de inga mejl, inte ens påminnelser, så de behöver spara sin länk. Om de tappar bort den kan de anmäla sig igen, och du kan ta bort den gamla anmälan på fliken Anmälningar."
       },
       "language": {
         "title": "Språk",
         "legend": "Anmälningslistans språk",
         "help": "Det här språket används för knappar, meddelanden och datum på anmälningslistans sida och i mejlen till deltagarna. Skriv titeln och passen på samma språk. De som redan är anmälda ser också anmälningslistan på det nya språket."
+      },
+      "reminders": {
+        "title": "Påminnelser",
+        "on": "Deltagare som anger en e-postadress får en påminnelse {hours, plural, =24 {dagen före} one {# timme före} other {# timmar före}} sitt pass, enligt fältet {label}. Om du vill stänga av påminnelserna öppnar du Fält på fliken Bygg och väljer {label}.",
+        "off": "Påminnelserna är avstängda. Om du vill slå på dem öppnar du Fält på fliken Bygg och väljer {label}.",
+        "none": "Inga påminnelser: passen har inget datumfält."
       },
       "save": "Spara",
       "saving": "Sparar…",
@@ -792,6 +799,7 @@
       "closed": {
         "title": "Anmälan är stängd",
         "body": "Det går inte att anmäla sig nu. Alla som redan är anmälda behåller sin plats.",
+        "help": "Så fungerar det att stänga och öppna anmälan igen",
         "dismiss": "Dölj"
       },
       "reopen": {
