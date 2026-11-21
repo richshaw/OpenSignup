@@ -50,7 +50,7 @@ export async function confirmationFor(
   const locale = localeOfSignup(row.signup.settings.locale);
   return {
     locale,
-    participantName: row.participant.name,
+    participantName: row.name,
     signupTitle: row.signup.title,
     manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
     ...(await slotText(db, row.signup.id, row.slot.values, locale)),

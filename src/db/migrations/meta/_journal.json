@@ -113,6 +113,13 @@
       "when": 1794622492277,
       "tag": "0015_organizer_locale",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795237172332,
+      "tag": "0016_commitment_name",
+      "breakpoints": true
     }
   ]
 }

@@ -600,6 +600,33 @@ describe('selectDueReminders (db)', () => {
     }
   });
 
+  it('greets the name the reminded sign-up was made under', async () => {
+    const first = await makeScenario(fx, 'Two names, one email', { slotInHours: 20 });
+    const [p] = await fx.db
+      .select({ email: participants.email })
+      .from(participants)
+      .where(eq(participants.id, first.participantId));
+    const second = await addSlot(fx.db, fx.actor, first.signupId, { values: {}, capacity: 5 });
+    if (!second.ok) throw new Error(`addSlot failed: ${second.error.message}`);
+    const later = await commitToSlot(fx.db, second.value.id, {
+      name: 'Sam Example',
+      email: p!.email!,
+      quantity: 1,
+    });
+    if (!later.ok) throw new Error(`commitToSlot failed: ${later.error.message}`);
+    expect(later.value.commitment.participantId).toBe(first.participantId);
+
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendReminderJob({ commitmentId: first.commitmentId });
+      const [mail] = send.mock.calls.map(([m]) => m);
+      expect(mail?.text).toContain('Reminder Tester');
+      expect(mail?.text).not.toContain('Sam Example');
+    } finally {
+      send.mockRestore();
+    }
+  });
+
   describe('a field change after the reminder went out', () => {
     const day = new Date(Date.now() + 10 * 24 * 3600_000).toISOString().slice(0, 10);
     const dayAfter = new Date(Date.now() + 11 * 24 * 3600_000).toISOString().slice(0, 10);

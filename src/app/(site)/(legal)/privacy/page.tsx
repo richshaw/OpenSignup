@@ -32,7 +32,7 @@ export default function PrivacyPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: 15 November 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 21 November 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -144,7 +144,10 @@ export default function PrivacyPage() {
           slot we store:
         </p>
         <ul className="list-disc space-y-1 pl-6">
-          <li>Display name.</li>
+          <li>
+            Display name, kept with each slot you sign up for, so several people signed up with one
+            email address each keep their own.
+          </li>
           <li>
             Email address, if you give one. The organizer decides whether a signup requires it. We
             use it to send you a confirmation with your link to change or cancel, and, if the

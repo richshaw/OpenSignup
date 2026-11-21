@@ -59,7 +59,7 @@ export async function workerEmailParts(db: Db, row: CommitmentRow) {
   return {
     props: {
       locale,
-      participantName: row.participant.name,
+      participantName: row.name,
       signupTitle: row.signup.title,
       // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive
       // the participant's own link without storing anything recoverable.

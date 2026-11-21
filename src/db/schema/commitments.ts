@@ -32,6 +32,14 @@ export const commitments = pgTable(
     // confirmed | tentative | waitlist | cancelled | no_show
     quantity: integer('quantity').notNull().default(1),
     notes: text('notes').notNull().default(''),
+    /**
+     * The name typed for this sign-up. One email can sign up several people
+     * (a parent for two children), so a sign-up keeps its own name rather than
+     * the participant's, which is the latest name typed with that email. Null
+     * on sign-ups made before this column: read it through `commitmentName`
+     * (`src/lib/commitment-name.ts`), which falls back to the participant's.
+     */
+    name: text('name'),
     // notes_visibility (only ever its default, 'public') and payment_id (never
     // written) are out of this schema but still in the database: the build
     // serving during a deploy selects them, so the migration that drops them
