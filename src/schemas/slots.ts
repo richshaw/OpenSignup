@@ -54,3 +54,17 @@ export const SlotUpdateInputSchema = z
   })
   .strict();
 export type SlotUpdateInput = z.infer<typeof SlotUpdateInputSchema>;
+
+/**
+ * Several slots of one signup changed in one call (`updateSlotsBulk`): each
+ * row is a slot's id and what changes, as in an update, without `sortOrder`
+ * (reordering takes the whole order, `SlotReorderInputSchema`). Up to the bulk
+ * add's cap, and each slot once; the service checks the ids are this signup's.
+ */
+export const SlotUpdateRowSchema = SlotUpdateInputSchema.omit({ sortOrder: true }).extend({
+  slotId: z.string(),
+});
+
+export const SlotUpdateBulkInputSchema = z.object({
+  slots: z.array(SlotUpdateRowSchema).min(1).max(MAX_BULK_SLOT_ROWS),
+});

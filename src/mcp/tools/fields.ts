@@ -34,7 +34,7 @@ export const addFieldTool = defineTool({
   name: 'add_field',
   scope: 'signups:write',
   title: 'Add field',
-  description: `Add a column that every slot in the signup has, in the same shape create_signup takes: ref (lowercase-kebab key used in slot values), label, fieldType, and choices for an enum. ${FIELD_GUIDE} The field goes last, unless you pass beforeFieldId: then it goes in front of that field, and that field and every one after it move along one. Existing slots have no value for a new field until one is set with update_slot.`,
+  description: `Add a column that every slot in the signup has, in the same shape create_signup takes: ref (lowercase-kebab key used in slot values), label, fieldType, and choices for an enum. ${FIELD_GUIDE} The field goes last, unless you pass beforeFieldId: then it goes in front of that field, and that field and every one after it move along one. Existing slots have no value for a new field until one is set: update_slots sets it on many slots in one call.`,
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: AddFieldSchema,
   handler: async (ctx, input) => {

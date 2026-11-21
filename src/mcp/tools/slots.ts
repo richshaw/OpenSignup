@@ -6,8 +6,15 @@ import {
   SlotCreateInputSchema,
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
+  SlotUpdateRowSchema,
 } from '@/schemas/slots';
-import { addSlotsBulk, deleteSlot, reorderSlots, updateSlot } from '@/services/slots';
+import {
+  addSlotsBulk,
+  deleteSlot,
+  reorderSlots,
+  updateSlot,
+  updateSlotsBulk,
+} from '@/services/slots';
 import { defineTool } from '../registry';
 import { slotOut } from './signups-read';
 import { SLOT_VALUE_FORMATS, SLOT_VALUES_GUIDE } from './guides';
@@ -67,6 +74,28 @@ export const updateSlotTool = defineTool({
     const { slotId, ...rest } = input;
     const r = await updateSlot(ctx.db, ctx.actor, slotId, rest);
     return r.ok ? ok({ slot: slotOut(r.value) }) : r;
+  },
+});
+
+/** update_slot's input for each slot, strict for the same reason. */
+const SlotUpdateRowToolSchema = SlotUpdateRowSchema.strict(
+  'A row takes slotId, values, capacity and status. To reorder, call reorder_slots.',
+);
+
+export const updateSlotsTool = defineTool({
+  name: 'update_slots',
+  scope: 'signups:write',
+  title: 'Update slots',
+  description: `Change several slots of one signup in one call (up to ${MAX_BULK_SLOT_ROWS}), by the same rules as update_slot. Each row has a slotId and what changes for that slot: values, capacity (a number, or null for unlimited) or status (open or closed). If a row passes values, they replace all of that slot's values, so include every field. Each slot can appear once. If any row is refused, nothing changes, and the error's field names the row (slots.3.capacity). The result lists the slots in the order given. Filling in a field on every slot after add_field is one call.`,
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  inputSchema: z.object({
+    signupId: z.string(),
+    slots: z.array(SlotUpdateRowToolSchema).min(1).max(MAX_BULK_SLOT_ROWS),
+  }),
+  handler: async (ctx, input) => {
+    const { signupId, ...rest } = input;
+    const r = await updateSlotsBulk(ctx.db, ctx.actor, signupId, rest);
+    return r.ok ? ok({ slots: r.value.map(slotOut) }) : r;
   },
 });
 
