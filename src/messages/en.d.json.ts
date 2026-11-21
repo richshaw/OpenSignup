@@ -761,6 +761,7 @@ declare const messages: {
     },
     "signup": {
       "draftLine": "Only you can see this draft until you publish it.",
+      "draftHowPeopleSignUp": "Then people open its link, choose a slot and type their name.",
       "preview": "Preview",
       "moreActions": "More actions",
       "closeSheet": "Close",
