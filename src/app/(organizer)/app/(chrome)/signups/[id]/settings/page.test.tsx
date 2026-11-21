@@ -22,6 +22,7 @@ vi.mock('@/i18n/server', async () => ({
 // session, the view it records and the server actions, which need a database.
 const stored = vi.hoisted(() => ({
   settings: {} as Record<string, unknown>,
+  fields: [] as { ref: string; label: string; fieldType: string; sortOrder: number }[],
   /** The language stored on the organizer's account. */
   organizerLocale: null as string | null,
 }));
@@ -32,7 +33,7 @@ vi.mock('@/auth/session', () => ({
 vi.mock('@/services/signups.cached', () => ({
   loadSignupForOrganizer: async () => ({
     ok: true,
-    value: { id: 'sig_1', workspaceId: 'ws_1', settings: stored.settings },
+    value: { id: 'sig_1', workspaceId: 'ws_1', settings: stored.settings, fields: stored.fields },
   }),
 }));
 vi.mock('@/lib/view-tracker', () => ({ trackOrganizerView: async () => {} }));
@@ -69,6 +70,7 @@ const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 afterEach(() => {
   cleanup();
   stored.settings = {};
+  stored.fields = [];
   stored.organizerLocale = null;
   instance.defaultLocale = undefined;
 });
@@ -204,6 +206,90 @@ describe('Settings tab: one Save', () => {
     // No language to send, so the action sends none.
     expect(form.elements.namedItem('localeShown')).toBeNull();
     expect(form.elements.namedItem('locale')).toBeNull();
+  });
+});
+
+// #592: reminders are switched on the date field, on the Build tab. This tab
+// says whether they're on, by the field's own label, and where to change them.
+describe('Settings tab: Reminders', () => {
+  const remindersCard = () => within(screen.getByRole('region', { name: 'Reminders' }));
+  const shift = { ref: 'when', label: 'Shift day', fieldType: 'date', sortOrder: 1 };
+  const what = { ref: 'what', label: 'What', fieldType: 'text', sortOrder: 0 };
+  const required = 'We email everyone their link to change or cancel.';
+  const requiredWithReminder =
+    'We email everyone their link to change or cancel, and a reminder the day before their slot.';
+
+  it('says they’re on, by the date field’s label, and where to turn them off', async () => {
+    stored.fields = [what, shift];
+    stored.settings = { reminderFromFieldRef: 'when' };
+    await renderTab();
+    expect(
+      remindersCard().getByText(
+        'People who give an email get a reminder the day before their slot’s Shift day. To turn reminders off, open Fields on the Build tab and choose Shift day.',
+      ),
+    ).toBeInTheDocument();
+    // The email line says a reminder comes too.
+    expect(screen.getByText(requiredWithReminder)).toBeInTheDocument();
+    expect(screen.queryByText(required)).not.toBeInTheDocument();
+  });
+
+  it('says they’re off, and where to turn them on', async () => {
+    stored.fields = [what, shift];
+    stored.settings = { reminderFromFieldRef: 'when', sendReminders: false };
+    await renderTab();
+    expect(
+      remindersCard().getByText(
+        'Reminders are off. To turn them on, open Fields on the Build tab and choose Shift day.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(required)).toBeInTheDocument();
+    expect(screen.queryByText(requiredWithReminder)).not.toBeInTheDocument();
+  });
+
+  it('says there are none when the slots have no date field', async () => {
+    stored.fields = [what];
+    await renderTab();
+    expect(
+      remindersCard().getByText('No reminders: your slots have no date field.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText(required)).toBeInTheDocument();
+  });
+
+  it('keeps the Optional line’s word on reminders', async () => {
+    stored.fields = [what, shift];
+    stored.settings = { reminderFromFieldRef: 'when', requireEmail: false };
+    await renderTab();
+    expect(screen.getByRole('radio', { name: 'Optional' })).toBeChecked();
+    expect(
+      screen.getByText(/They get no emails, not even reminders/, { selector: 'p' }),
+    ).toBeInTheDocument();
+    expect(
+      remindersCard().getByText(/^People who give an email get a reminder/),
+    ).toBeInTheDocument();
+  });
+
+  it('has no switch of its own', async () => {
+    stored.fields = [what, shift];
+    stored.settings = { reminderFromFieldRef: 'when' };
+    await renderTab();
+    expect(remindersCard().queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(remindersCard().queryByRole('radio')).not.toBeInTheDocument();
+    expect(remindersCard().queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+    ship('organizer', ['en', other]);
+    stored.organizerLocale = other;
+    stored.fields = [what, shift];
+    stored.settings = { reminderFromFieldRef: 'when' };
+    await renderTab();
+    const card = within(
+      screen.getByRole('region', { name: `organizer.signupSettings.reminders.title in ${other}` }),
+    );
+    expect(card.getByText(`organizer.signupSettings.reminders.on in ${other}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`organizer.signupSettings.signupForm.requiredHelpReminders in ${other}`),
+    ).toBeInTheDocument();
   });
 });
 
