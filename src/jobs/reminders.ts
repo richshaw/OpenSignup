@@ -11,9 +11,10 @@ import { sendReminder } from '@/email/send';
 import {
   allOf,
   joinCommitmentTables,
+  moveOfSlot,
   notifiableRules,
+  slotMovedSinceTold,
   slotSettled,
-  wasToldDifferentTime,
 } from './notify-rules';
 import { getBoss, type ReminderSendPayload } from './queue';
 import { QUEUES } from './queue-names';
@@ -47,15 +48,33 @@ const reminderDueRules = {
 } satisfies Record<string, SQL>;
 
 /**
- * Whether the reminder.sent row whose payload is `payload` was for the slot
- * time `slotAt`. A row counts only for the time it reminded about, so a slot
- * the organizer moves after its reminder went out is reminded again for the
- * new time. Rows recorded before reminders named their time have no `slotAt`,
- * and count for any time, so a deploy sends nothing twice. The slot side is
- * cut to milliseconds, the precision the ISO string in the payload keeps.
+ * Whether a reminder.sent row still stands for the slot as it is now, so no
+ * other reminder goes out. `reminder` is the row's payload and time, `slot`
+ * the slot's signup, id and time.
+ *
+ * A row stands for the time it reminded about, so a slot the organizer moves
+ * after its reminder went out is reminded again for the new time. Rows
+ * recorded before reminders named their time have no `slotAt`, and stand for
+ * any time, so a deploy sends nothing twice. The slot side is cut to
+ * milliseconds, the precision the ISO string in the payload keeps.
+ *
+ * A row also stands while the slot hasn't moved since it was sent, whatever
+ * its time says: a field change can give the slot a new `slot_at` without
+ * moving it (see `slotTimeFromMove`), and the participant already has their
+ * reminder for that slot.
  */
-function remindedForTime(payload: SQL, slotAt: SQL): SQL {
-  return sql`coalesce((${payload}->>'slotAt')::timestamptz = date_trunc('milliseconds', ${slotAt}), true)`;
+function reminderStands(
+  reminder: { payload: SQL; occurredAt: SQL },
+  slot: { signupId: SQL; slotId: SQL; slotAt: SQL },
+): SQL {
+  return sql`(
+    coalesce((${reminder.payload}->>'slotAt')::timestamptz = date_trunc('milliseconds', ${slot.slotAt}), true)
+    OR NOT EXISTS (
+      SELECT 1 FROM activity m
+      WHERE ${moveOfSlot(slot.signupId, slot.slotId)}
+        AND m.occurred_at > ${reminder.occurredAt}
+    )
+  )`;
 }
 
 /** Every rule in `reminderDueRules`: the reminder is due now. */
@@ -90,7 +109,14 @@ export async function selectDueReminders(db: Db): Promise<{ commitmentId: string
           SELECT 1 FROM activity a
           WHERE a.event_type = 'reminder.sent'
             AND (a.payload->>'commitmentId') = ${commitments.id}
-            AND ${remindedForTime(sql`a.payload`, sql`${slots.slotAt}`)}
+            AND ${reminderStands(
+              { payload: sql`a.payload`, occurredAt: sql`a.occurred_at` },
+              {
+                signupId: sql`${commitments.signupId}`,
+                slotId: sql`${slots.id}`,
+                slotAt: sql`${slots.slotAt}`,
+              },
+            )}
         )`,
     ),
   );
@@ -135,30 +161,38 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
 
   // Idempotency guard, and the only one: the queue does not dedupe (see
   // dispatchReminders), so a commitment can have several jobs, and the first
-  // to send records reminder.sent for the rest to find here, for this slot
-  // time (see remindedForTime). A check, not a lock: it holds only while a
-  // single worker process runs send jobs one at a time. Two worker processes
-  // could each take a job for the same commitment, both find no row here, and
-  // both send, which is why an instance runs exactly one `pnpm worker`. It
-  // also cannot catch an email that went out when recording it then failed;
-  // that job's retry sends it again.
+  // to send records reminder.sent for the rest to find here, standing for the
+  // slot as it is now (see reminderStands). A check, not a lock: it holds only
+  // while a single worker process runs send jobs one at a time. Two worker
+  // processes could each take a job for the same commitment, both find no row
+  // here, and both send, which is why an instance runs exactly one `pnpm
+  // worker`. It also cannot catch an email that went out when recording it
+  // then failed; that job's retry sends it again.
   if (
     await alreadyRecorded(
       db,
       'reminder.sent',
       row.signup.id,
       payload.commitmentId,
-      remindedForTime(sql`${activity.payload}`, sql`${slotAt.toISOString()}::timestamptz`),
+      reminderStands(
+        { payload: sql`${activity.payload}`, occurredAt: sql`${activity.occurredAt}` },
+        {
+          signupId: sql`${row.signup.id}`,
+          slotId: sql`${row.slot.id}`,
+          slotAt: sql`${slotAt.toISOString()}::timestamptz`,
+        },
+      ),
     )
   ) {
     log.info({ commitmentId: payload.commitmentId }, 'reminder already sent; skipping');
     return;
   }
   // The last email the participant got, a reminder, a change email or the
-  // confirmation, was for another slot time: the organizer moved the slot
-  // since, and this one says so. A move they were already told about by a
-  // change email reads as a normal reminder.
-  const changed = await wasToldDifferentTime(db, payload.commitmentId);
+  // confirmation, was for another slot time, and the organizer moved the slot
+  // to this one since: this reminder says so. A move they were already told
+  // about by a change email reads as a normal reminder, and so does a new
+  // time a field change gave the slot, as for the slot-change email.
+  const changed = await slotMovedSinceTold(db, payload.commitmentId);
 
   const { props, unsubscribePostUrl } = await workerEmailParts(db, row);
   await sendReminder(to, { ...props, changed }, { unsubscribePostUrl });

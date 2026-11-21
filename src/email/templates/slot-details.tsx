@@ -16,8 +16,9 @@ export interface SlotDetailsTextProps {
 
 /**
  * The block of `Label: value` lines describing a slot. Shared by the
- * confirmation and the reminder so both name a slot identically — the two
- * templates used to each hand-roll a "What:"/"When:" pair, in opposite orders.
+ * confirmation, the reminder and the slot-change email so all three name a
+ * slot identically, the "Spots" line included — the confirmation and the
+ * reminder used to each hand-roll a "What:"/"When:" pair, in opposite orders.
  * The labels are the organizer's own and the values come formatted in the
  * email's language (`slotDetails()`); the catalog gives the line around them
  * and the "Spots" label.

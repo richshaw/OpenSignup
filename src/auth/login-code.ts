@@ -111,7 +111,6 @@ export async function issueLoginCode(
           tokenHash: hashLoginCode(email, code),
           email,
           purpose: PURPOSE,
-          scopeId: null,
           payloadEncrypted,
           expiresAt,
         })
