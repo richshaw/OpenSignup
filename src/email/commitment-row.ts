@@ -11,18 +11,26 @@ import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import type { CatalogLocale } from '@/i18n/config';
 import { joinCommitmentTables } from '@/jobs/notify-rules';
+import { commitmentName } from '@/lib/commitment-name';
 import { slotDetails, type SlotDetail } from '@/lib/slot-label';
 import { summarizeSlotValues } from '@/lib/slot-summary';
 import { listFieldsForSignup } from '@/services/slot-fields';
 
 /**
- * The commitment with its slot, signup and participant, or undefined when there
- * is no such commitment or it fails `where`, a condition over those four tables.
+ * The commitment with its slot, signup and participant, and the name it was
+ * made under (`commitmentName`), or undefined when there is no such commitment
+ * or it fails `where`, a condition over those four tables.
  */
 export async function loadCommitmentRow(db: Db, commitmentId: string, where?: SQL) {
   const [row] = await joinCommitmentTables(
     db
-      .select({ commitment: commitments, slot: slots, signup: signups, participant: participants })
+      .select({
+        commitment: commitments,
+        slot: slots,
+        signup: signups,
+        participant: participants,
+        name: commitmentName,
+      })
       .from(commitments)
       .$dynamic(),
   )

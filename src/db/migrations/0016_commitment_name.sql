@@ -1,0 +1,1 @@
+ALTER TABLE "commitments" ADD COLUMN "name" text;

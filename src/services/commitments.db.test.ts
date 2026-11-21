@@ -21,6 +21,8 @@ import type { Actor } from '@/lib/policy';
 import { formatSlotDate } from '@/lib/slot-label';
 import { PUBLIC_COMMITMENT_FIELDS } from '@/lib/public-commitment';
 import { editTokenFor } from '@/lib/token';
+import { getTestTranslator } from '@/i18n/testing/translator';
+import { responsesCsv } from '@/lib/responses-csv';
 import type { StoredSignupSettings } from '@/schemas/signups';
 import {
   cancelledCommitmentState,
@@ -32,6 +34,7 @@ import {
   getOwnCommitment,
   getOwnCommitmentsForSignup,
   howCommitmentsEnded,
+  listCommitmentsForSignup,
   removeCommitment,
   updateOwnCommitment,
   type CommitResult,
@@ -1389,6 +1392,116 @@ describe('removeCommitment (db)', () => {
     expect((await running!).ok).toBe(true);
     expect((await commitmentRow(s.commitment.id))?.status).toBe('cancelled');
     expect(await removedRows(s.signupId)).toHaveLength(1);
+  });
+});
+
+describe('one email signing up under two names (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  /** Alex on the first slot, then Sam on a second, both with one email. */
+  async function twoNamesOneEmail(title: string) {
+    const { signupId, slotId } = await makeOpenSignupWithSlot(fx, title);
+    const second = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!second.ok) throw new Error(`addSlot failed: ${second.error.message}`);
+    const alex = await commitToSlot(fx.db, slotId, {
+      name: 'Alex Example',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!alex.ok) throw new Error(`first commit failed: ${alex.error.message}`);
+    const sam = await commitToSlot(fx.db, second.value.id, {
+      name: 'Sam Example',
+      email: 'pat@example.test',
+      quantity: 1,
+    });
+    if (!sam.ok) throw new Error(`second commit failed: ${sam.error.message}`);
+    expect(sam.value.commitment.participantId).toBe(alex.value.commitment.participantId);
+    return { signupId, slotIds: [slotId, second.value.id], alex: alex.value, sam: sam.value };
+  }
+
+  async function namesOn(signupId: string) {
+    const rows = await listCommitmentsForSignup(fx.db, signupId);
+    return Object.fromEntries(rows.map((r) => [r.id, r.participantName]));
+  }
+
+  it('keeps the name each sign-up was made under', async () => {
+    const { signupId, slotIds, alex, sam } = await twoNamesOneEmail('Two names');
+
+    const rows = await listCommitmentsForSignup(fx.db, signupId);
+    expect(await namesOn(signupId)).toEqual({
+      [alex.commitment.id]: 'Alex Example',
+      [sam.commitment.id]: 'Sam Example',
+    });
+
+    const csv = responsesCsv(
+      {
+        fields: [],
+        slots: slotIds.map((id) => ({ id, values: {} })),
+        commitments: rows,
+        ended: new Map(),
+      },
+      getTestTranslator('organizer.responses'),
+    );
+    const lines = csv.split('\n').slice(1);
+    expect(lines[0]).toMatch(/^Alex Example,/);
+    expect(lines[1]).toMatch(/^Sam Example,/);
+
+    const ownAlex = await getOwnCommitment(fx.db, alex.commitment.id, alex.editToken);
+    const ownSam = await getOwnCommitment(fx.db, sam.commitment.id, sam.editToken);
+    expect(ownAlex.ok && ownAlex.value.participantName).toBe('Alex Example');
+    expect(ownSam.ok && ownSam.value.participantName).toBe('Sam Example');
+  });
+
+  it('renames only the sign-up whose edit link changed the name', async () => {
+    const { signupId, alex, sam } = await twoNamesOneEmail('Rename one');
+
+    const r = await updateOwnCommitment(fx.db, alex.commitment.id, alex.editToken, {
+      name: 'Alex Renamed',
+    });
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+
+    expect(await namesOn(signupId)).toEqual({
+      [alex.commitment.id]: 'Alex Renamed',
+      [sam.commitment.id]: 'Sam Example',
+    });
+  });
+
+  it('keeps the name of a sign-up that moves without a new one', async () => {
+    const { signupId, sam } = await twoNamesOneEmail('Move keeps name');
+    const third = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!third.ok) throw new Error(`addSlot failed: ${third.error.message}`);
+
+    const moved = await updateOwnCommitment(fx.db, sam.commitment.id, sam.editToken, {
+      swapToSlotId: third.value.id,
+    });
+    if (!moved.ok) throw new Error(`move failed: ${moved.error.message}`);
+
+    const names = await namesOn(signupId);
+    expect(names[moved.value.id]).toBe('Sam Example');
+  });
+
+  it('names a moved sign-up by the name the move sends', async () => {
+    const { signupId, alex, sam } = await twoNamesOneEmail('Move renames');
+    const third = await addSlot(fx.db, fx.actor, signupId, { values: {}, capacity: 5 });
+    if (!third.ok) throw new Error(`addSlot failed: ${third.error.message}`);
+
+    const moved = await updateOwnCommitment(fx.db, alex.commitment.id, alex.editToken, {
+      swapToSlotId: third.value.id,
+      name: 'Alex Moved',
+    });
+    if (!moved.ok) throw new Error(`move failed: ${moved.error.message}`);
+
+    const names = await namesOn(signupId);
+    expect(names[moved.value.id]).toBe('Alex Moved');
+    expect(names[sam.commitment.id]).toBe('Sam Example');
   });
 });
 

@@ -11,6 +11,7 @@ import { signups, type Signup } from '@/db/schema/signups';
 import { slots, type Slot } from '@/db/schema/slots';
 import type { CatalogLocale } from '@/i18n/config';
 import { activityActor, alreadyRecorded, recordActivity } from '@/lib/activity';
+import { commitmentName } from '@/lib/commitment-name';
 import { serviceError, ServiceException, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
@@ -258,12 +259,15 @@ export async function commitToSlot(
 
 /**
  * Takes a place on the slot. Someone signing up (`commitToSlot`) is found or
- * added by `email`, and their participant takes the `name` they typed. One who
+ * added by `email`, and their participant takes the `name` they typed, as does
+ * the commitment, which keeps it when a later sign-up with the same email
+ * brings another (one email can sign up several people). One who
  * gave no email (`email: null`), which only a signup with `requireEmail` off
  * accepts, is always added. Someone moving from another slot
  * (`updateOwnCommitment`) passes their `participantId`, so the move keeps the
  * participant it had and never depends on the email or on `requireEmail`;
- * their name changes only when the move sends one. Every other check is the
+ * their name changes only when the move sends one, and the new commitment
+ * otherwise keeps the old one's (`keptName`). Every other check is the
  * same for both.
  *
  * A sign-up sent with an `idempotencyKey` and details that an earlier one on
@@ -286,6 +290,8 @@ async function commitParticipantToSlot(
   who: { email: string | null; participantId?: never } | { participantId: string; email?: never },
   data: Pick<CommitmentCreateInput, 'notes' | 'quantity'> & {
     name?: string;
+    /** The name a move keeps when it sends none: the one its old commitment had. */
+    keptName?: string | null;
     idempotencyKeyHash?: string;
   },
   onRefused?: (payload: Record<string, unknown>) => void,
@@ -519,6 +525,7 @@ async function commitParticipantToSlot(
         status: 'confirmed',
         quantity: data.quantity,
         notes: data.notes ?? '',
+        name: data.name ?? data.keptName ?? null,
         editTokenHash: hashToken(editToken),
         idempotencyKeyHash: keyHash,
       })
@@ -564,7 +571,7 @@ export async function getOwnCommitment(
   const row = await db
     .select({
       c: commitments,
-      pname: participants.name,
+      pname: commitmentName,
       pemail: participants.email,
       slug: signups.slug,
       locale: sql<string | null>`${signups.settings}->>'locale'`,
@@ -686,6 +693,7 @@ export async function updateOwnCommitment(
             id: commitments.id,
             quantity: commitments.quantity,
             notes: commitments.notes,
+            name: commitments.name,
           });
         if (!cancelled) {
           // Nothing was mutated (the UPDATE matched no active row), so there is
@@ -708,6 +716,7 @@ export async function updateOwnCommitment(
           { participantId: current.participantId },
           {
             name: data.name,
+            keptName: cancelled.name,
             notes: data.notes ?? cancelled.notes,
             quantity: data.quantity ?? cancelled.quantity,
           },
@@ -851,6 +860,7 @@ export async function updateOwnCommitment(
       .set({
         ...(data.notes !== undefined ? { notes: data.notes } : {}),
         ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
+        ...(data.name ? { name: data.name } : {}),
         updatedAt: new Date(),
       })
       .where(and(eq(commitments.id, commitmentId), isActiveCommitment))
@@ -1008,7 +1018,7 @@ export async function listCommitmentsForSignup(db: Db, signupId: string) {
       quantity: commitments.quantity,
       notes: commitments.notes,
       createdAt: commitments.createdAt,
-      participantName: participants.name,
+      participantName: commitmentName,
       participantEmail: participants.email,
     })
     .from(commitments)

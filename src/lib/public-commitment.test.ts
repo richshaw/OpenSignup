@@ -13,6 +13,7 @@ const row: Commitment = {
   status: 'confirmed',
   quantity: 1,
   notes: '',
+  name: 'Pat Example',
   customFieldValues: {},
   editTokenHash: 'deadbeef',
   idempotencyKeyHash: 'cafebabe',
@@ -54,7 +55,9 @@ describe('toPublicCommitment', () => {
 describe('PUBLIC_COMMITMENT_FIELDS', () => {
   // Fails when a column is added to `commitments`: decide whether participants
   // see it, then add it to PUBLIC_COMMITMENT_FIELDS or to this list.
-  const SERVER_ONLY_FIELDS = ['editTokenHash', 'idempotencyKeyHash'];
+  // `name` goes out as `participantName`, from `getOwnCommitment`, which falls
+  // back to the participant's on a sign-up made before commitments kept one.
+  const SERVER_ONLY_FIELDS = ['editTokenHash', 'idempotencyKeyHash', 'name'];
 
   it('covers every commitments column but the server-only ones', () => {
     const columns = Object.keys(getTableColumns(commitments));
