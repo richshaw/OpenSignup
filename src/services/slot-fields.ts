@@ -426,6 +426,7 @@ export async function updateField(
     // reminders. The rows are read, not locked: the signup lock is what keeps
     // writers out, and a slot row lock would only make this wait for, and hold
     // up, people signing up.
+    const converted: { id: string; values: Record<string, unknown> }[] = [];
     if (sent.fieldType !== undefined || sent.config !== undefined) {
       const slotRows = await tx
         .select({ id: slots.id, values: slots.values })
@@ -438,8 +439,12 @@ export async function updateField(
       };
       const offending: string[] = [];
       for (const row of slotRows) {
-        const r = validateOneValue(nextDef, row.values[current.ref]);
+        const value = convertedValue(current.fieldType, nextDef.fieldType, row.values[current.ref]);
+        const r = validateOneValue(nextDef, value);
         if (!r.ok) offending.push(row.id);
+        else if (value !== row.values[current.ref]) {
+          converted.push({ id: row.id, values: { ...row.values, [current.ref]: value } });
+        }
       }
       if (offending.length > 0) {
         return err(
@@ -465,6 +470,20 @@ export async function updateField(
       .where(eq(slotFields.id, fieldId))
       .returning();
     if (!row) throw new Error('field update returned nothing');
+
+    // A Number field that became Text or a List keeps its values, as text.
+    // Only the slots that held a number are written, so a type change that
+    // converts nothing touches no slot row. Each write takes that slot's row
+    // lock, and so waits for anyone part-way through signing up for it; a
+    // type change is rare enough for that to be fine. Written whole: every
+    // service that writes slot values takes the signup lock this holds, so
+    // the row read above is still the row.
+    for (const slot of converted) {
+      await tx
+        .update(slots)
+        .set({ values: slot.values, updatedAt: new Date() })
+        .where(and(eq(slots.id, slot.id), eq(slots.signupId, current.signupId)));
+    }
 
     // Retyping the anchor away from `date` would leave reminderFromFieldRef
     // naming something that is no longer a date, and reminders would stop for
@@ -505,6 +524,7 @@ export async function updateField(
         ref: row.ref,
         changes,
         ...(anchor !== undefined ? { reminderFromFieldRef: anchor } : {}),
+        ...(converted.length > 0 ? { convertedSlotValues: converted.length } : {}),
       },
     });
     return ok(rowToDefinition(row));
@@ -683,6 +703,20 @@ function timeline(fields: SlotFieldDefinition[]): string {
 /** The only field types the reminder anchor and `slots.slot_at` are read from. */
 function isDateOrTime(fieldType: string): boolean {
   return fieldType === 'date' || fieldType === 'time';
+}
+
+/**
+ * A stored value as a field retyped from `fromType` to `toType` keeps it. A
+ * number going to Text or a List becomes its `String(n)`, which loses nothing
+ * and reads back the same. Anything else is kept as it is, for the new type
+ * to accept or refuse: turning text into a number would mean guessing what
+ * "2 dozen" or "1,5" was meant to be.
+ */
+function convertedValue(fromType: string, toType: string, value: unknown): unknown {
+  if (fromType === 'number' && (toType === 'text' || toType === 'enum')) {
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return value;
 }
 
 function validateOneValue(field: SlotFieldDefinition, value: unknown): Result<void, ServiceError> {

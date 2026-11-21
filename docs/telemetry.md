@@ -83,12 +83,14 @@ outside any transaction, and a failed write never fails the request.
 | `slot.deleted`       | organizer | `{ slotId, commitmentsRemoved, places }` (the sign-ups deleted with it, as commitments and as places)                                                           | `services/slots.ts`                                                                                     |
 | `commitment.removed` | organizer | `{ commitmentId, participantId, slotId }` (an organizer took the person off their slot on the Responses tab; nobody is emailed)                                 | `services/commitments.ts` (`removeCommitment`)                                                          |
 | `field.created`      | organizer | `{ fieldId, ref, fieldType, beforeFieldId?, reminderFromFieldRef? }` (`beforeFieldId` when the field was put in front of another)                               | `services/slot-fields.ts`                                                                               |
-| `field.updated`      | organizer | `{ fieldId, ref, changes, reminderFromFieldRef? }` (`changes` maps each key the update sent to its new value)                                                   | `services/slot-fields.ts`                                                                               |
+| `field.updated`      | organizer | `{ fieldId, ref, changes, reminderFromFieldRef?, convertedSlotValues? }` (`changes`: each key sent, to its new value)                                           | `services/slot-fields.ts`                                                                               |
 | `field.reordered`    | organizer | `{ fieldIds, reminderFromFieldRef? }` (every field, in the new order; written even when the order did not change)                                               | `services/slot-fields.ts` (`reorderFields`, from a drag in the Build tab and the `reorder_fields` tool) |
 | `field.deleted`      | organizer | `{ fieldId, ref, reminderFromFieldRef?, removedFromGroupByFieldRefs? }`                                                                                         | `services/slot-fields.ts`                                                                               |
 
 `reminderFromFieldRef` is present only when the change moved the date field
 reminders are timed from (`null` when none is left).
+`convertedSlotValues` is present only when a Number field became Text or a
+List and some slots' numbers were turned into text: how many slots.
 
 ### Magic Compose (AI drafting)
 
