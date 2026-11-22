@@ -10,7 +10,7 @@
  *
  * Each participant one takes a translator for `email.subject` in the email's language,
  * `getServerTranslator(locale, 'email.subject')`, and a slot summary made in
- * that language too (`slotText` in ./commitment-row.ts). `subjectOf` makes
+ * that language too (`commitmentEmailProps` in ./commitment-row.ts). `subjectOf` makes
  * each from the email's own props; the template's preview text, its `send*`
  * function and its sample in scripts/lib/email-samples.ts all go through it,
  * so a new input reaches all three at once.
