@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { ok } from '@/lib/result';
+import { boundedArray } from '@/schemas/common';
 import {
   MAX_BULK_SLOT_ROWS,
-  SlotBulkInputSchema,
+  SlotBulkRowSchema,
   SlotCreateInputSchema,
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
@@ -20,8 +21,7 @@ import { SLOT_VALUE_FORMATS, SLOT_VALUES_GUIDE } from './guides';
  * Strict, so a sortOrder from an assistant that remembers the old input is
  * refused: dropping it would put the slot last and report a success.
  */
-const SlotRowSchema = SlotBulkInputSchema.shape.rows.element
-  .omit({ sortOrder: true })
+const SlotRowSchema = SlotBulkRowSchema.omit({ sortOrder: true })
   .extend({ capacity: SlotCreateInputSchema.shape.capacity })
   .strict('A row takes values and capacity only. To place rows, pass beforeSlotId.');
 
@@ -33,7 +33,7 @@ export const addSlotsTool = defineTool({
   annotations: { readOnlyHint: false, destructiveHint: false },
   inputSchema: z.object({
     signupId: z.string(),
-    rows: z.array(SlotRowSchema).min(1).max(MAX_BULK_SLOT_ROWS),
+    rows: boundedArray(SlotRowSchema, { min: 1, max: MAX_BULK_SLOT_ROWS }),
     beforeSlotId: z
       .string()
       .optional()

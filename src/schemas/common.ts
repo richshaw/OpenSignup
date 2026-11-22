@@ -30,4 +30,34 @@ export const MAX_SORT_ORDER = 2_147_483_647;
 // rather than an out-of-range error from Postgres.
 export const SortOrderSchema = z.number().int().nonnegative().max(MAX_SORT_ORDER);
 
-export const TagsSchema = z.array(z.string().min(1).max(40)).max(20).default([]);
+/**
+ * An array of at most `max` items, whose length is checked before any item is.
+ * Zod 3 parses every item even once `.max()` has failed, recording an issue for
+ * each bad one, so a 1 MB body of half a million wrong items built half a million
+ * issues (some 150 MB) in a single request. This refuses a too-long array with
+ * one issue instead, and the items are only parsed once the length is in bounds.
+ * The JSON Schema an MCP client sees is the inner array's, `maxItems` included.
+ */
+export function boundedArray<T extends z.ZodTypeAny>(
+  item: T,
+  { min, max }: { min?: number; max: number },
+) {
+  const array = z.array(item).max(max);
+  return z.preprocess(
+    (value, ctx) => {
+      if (Array.isArray(value) && value.length > max) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.too_big,
+          maximum: max,
+          type: 'array',
+          inclusive: true,
+          fatal: true,
+        });
+      }
+      return value;
+    },
+    min === undefined ? array : array.min(min),
+  );
+}
+
+export const TagsSchema = boundedArray(z.string().min(1).max(40), { max: 20 }).default([]);

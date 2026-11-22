@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { makeId } from '@/lib/ids';
+import { MAX_JSON_BODY_BYTES } from '@/lib/request-body';
 import {
+  MAX_REORDER_IDS,
   SlotBulkInputSchema,
   SlotCapacitySchema,
   SlotCreateInputSchema,
+  SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from './slots';
 
@@ -34,5 +38,23 @@ describe('slot inputs keep their own capacity defaults', () => {
     expect(SlotCreateInputSchema.safeParse({ capacity: 0 }).success).toBe(false);
     expect(SlotBulkInputSchema.safeParse({ rows: [{ capacity: 1.5 }] }).success).toBe(false);
     expect(SlotUpdateInputSchema.safeParse({ capacity: -2 }).success).toBe(false);
+  });
+});
+
+describe('SlotReorderInputSchema', () => {
+  it('takes more ids than fit in a body, so no real reorder meets its cap', () => {
+    const shortest = makeId('fld');
+    const bodyBytes = JSON.stringify({
+      fieldIds: Array(MAX_REORDER_IDS + 1).fill(shortest),
+    }).length;
+    expect(bodyBytes).toBeGreaterThan(MAX_JSON_BODY_BYTES);
+  });
+
+  it('refuses a body-sized array of wrong items with a single issue', () => {
+    const result = SlotReorderInputSchema.safeParse({
+      slotIds: Array(MAX_REORDER_IDS + 1).fill(0),
+    });
+    expect(result.error?.issues).toHaveLength(1);
+    expect(result.error?.issues[0]).toMatchObject({ code: 'too_big', path: ['slotIds'] });
   });
 });

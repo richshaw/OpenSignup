@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isRealDate, isRealTime } from '@/lib/reminder-fields';
+import { boundedArray } from '@/schemas/common';
 import {
   HOW_MANY_MAX,
   WHAT_ITEM_MAX_LENGTH,
@@ -56,12 +57,13 @@ export const FollowUpSchema: z.ZodType<FollowUp, z.ZodTypeDef, unknown> = z
   .object({
     what: z
       .object({
-        picked: z.array(Item).max(WHAT_OPTIONS_MAX),
-        added: z.array(Item).max(WHAT_ITEMS_MAX),
+        picked: boundedArray(Item, { max: WHAT_OPTIONS_MAX }),
+        added: boundedArray(Item, { max: WHAT_ITEMS_MAX }),
       })
       .strict(),
     when: WhenSchema.optional(),
-    howMany: z.array(CountSchema).optional(),
+    // One count per thing people sign up for, so never more than `WHAT_ITEMS_MAX`.
+    howMany: boundedArray(CountSchema, { max: WHAT_ITEMS_MAX }).optional(),
   })
   .strict()
   .superRefine((f, ctx) => {
