@@ -245,7 +245,6 @@ describe('buildReducer SET_SAVE_STATUS', () => {
     const status = {
       kind: 'error',
       code: 'conflict',
-      field: 'slotId',
       details: { reason: 'slot_has_signups', filled: 2 },
     } as const;
     const next = buildReducer(state, { type: 'SET_SAVE_STATUS', status });
@@ -545,7 +544,6 @@ describe('useBuildState moveField', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'fieldIds',
       details: { reason: 'field_ids_mismatch', unknown: ['c'] },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
@@ -759,7 +757,6 @@ describe('useBuildState moveRow', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'slotIds',
       details: { reason: 'slot_ids_mismatch', missing: ['r3'] },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
@@ -925,7 +922,6 @@ describe('useBuildState moveRow into another group', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'slotIds',
       details: { reason: 'slot_ids_mismatch', missing: ['d'] },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
@@ -1280,7 +1276,6 @@ describe('useBuildState updateSignupMeta', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'title',
       details: { reason: 'title_too_short' },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
