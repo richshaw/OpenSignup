@@ -20,9 +20,5 @@ export async function SignupTitleCrumb({ params }: CrumbParams) {
   if (!result.ok) return null;
   const sig = result.value;
   const lang = langWhereDifferent(localeOfSignup(sig.settings.locale), localeOfOrganizer(session));
-  return (
-    <Crumb truncate lang={lang}>
-      {sig.title}
-    </Crumb>
-  );
+  return <Crumb lang={lang}>{sig.title}</Crumb>;
 }
