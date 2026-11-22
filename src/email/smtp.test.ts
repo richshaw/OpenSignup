@@ -196,6 +196,8 @@ describe('SmtpTransport against a server without STARTTLS', () => {
 async function startAcceptingServer({ closeAfterEach = false } = {}) {
   let connections = 0;
   const delivered: string[] = [];
+  /** Each email the server took: its envelope sender and the lines it sent, headers first. */
+  const received: { mailFrom: string; lines: string[] }[] = [];
   const sockets = new Set<Socket>();
   const server: Server = createServer((socket) => {
     connections += 1;
@@ -206,22 +208,32 @@ async function startAcceptingServer({ closeAfterEach = false } = {}) {
     let buffered = '';
     let inData = false;
     let to = '';
+    let mailFrom = '';
+    let lines: string[] = [];
     socket.on('data', (chunk) => {
       buffered += chunk.toString('latin1');
       for (let end = buffered.indexOf('\r\n'); end >= 0; end = buffered.indexOf('\r\n')) {
         const line = buffered.slice(0, end);
         buffered = buffered.slice(end + 2);
         if (inData) {
-          if (line !== '.') continue;
+          if (line !== '.') {
+            lines.push(line);
+            continue;
+          }
           inData = false;
           delivered.push(to);
+          received.push({ mailFrom, lines });
+          lines = [];
           socket.write('250 Queued\r\n');
           if (closeAfterEach) socket.end();
         } else if (/^EHLO /i.test(line)) socket.write('250-mail.example.com\r\n250 8BITMIME\r\n');
         else if (/^RCPT TO:/i.test(line)) {
           to = line.replace(/^RCPT TO:\s*<?([^>]*)>?.*$/i, '$1');
           socket.write('250 OK\r\n');
-        } else if (/^(MAIL FROM:|RSET)/i.test(line)) socket.write('250 OK\r\n');
+        } else if (/^MAIL FROM:/i.test(line)) {
+          mailFrom = line.replace(/^MAIL FROM:\s*<?([^>]*)>?.*$/i, '$1');
+          socket.write('250 OK\r\n');
+        } else if (/^RSET/i.test(line)) socket.write('250 OK\r\n');
         else if (/^DATA/i.test(line)) {
           inData = true;
           socket.write('354 Go ahead\r\n');
@@ -237,6 +249,7 @@ async function startAcceptingServer({ closeAfterEach = false } = {}) {
     port: address.port,
     connections: () => connections,
     delivered,
+    received,
     close: () =>
       new Promise<void>((resolve) => {
         for (const socket of sockets) socket.destroy();
@@ -313,5 +326,49 @@ describe('smtpTransportOptions with the real nodemailer', () => {
       /^File access rejected for package\.json/,
     );
     expect(server?.delivered).toEqual([]);
+  });
+});
+
+describe('SmtpTransport addresses', () => {
+  let server: Awaited<ReturnType<typeof startAcceptingServer>> | undefined;
+  afterEach(async () => {
+    await server?.close();
+    server = undefined;
+  });
+
+  const message = { to: 'pat@example.com', subject: 'Hello', html: '<p>Hi</p>', text: 'Hi' };
+
+  /** Sends `msg` to a local server, and returns the envelope sender and the headers it got. */
+  async function received(msg: Parameters<SmtpTransport['send']>[0], from = cfg.from) {
+    server = await startAcceptingServer();
+    await new SmtpTransport({ ...cfg, from, host: '127.0.0.1', port: server.port }).send(msg);
+    const email = server.received[0];
+    if (!email) throw new Error('the server got no email');
+    const headers = email.lines.slice(0, email.lines.indexOf(''));
+    return { mailFrom: email.mailFrom, headers };
+  }
+
+  it('sends from EMAIL_FROM, with no Reply-To, when the email names neither', async () => {
+    const { mailFrom, headers } = await received(message);
+    expect(mailFrom).toBe('hello@example.com');
+    expect(headers).toContain('From: hello@example.com');
+    expect(headers.some((h) => /^Reply-To:/i.test(h))).toBe(false);
+  });
+
+  it("sends from the email's own address, with its Reply-To, and keeps bounces at EMAIL_FROM", async () => {
+    const { mailFrom, headers } = await received(
+      { ...message, from: 'Pat at Example <pat@example.com>', replyTo: 'pat.inbox@example.com' },
+      'OpenSignup <hello@example.com>',
+    );
+    expect(mailFrom).toBe('hello@example.com');
+    expect(headers).toContain('From: Pat at Example <pat@example.com>');
+    expect(headers).toContain('Reply-To: pat.inbox@example.com');
+  });
+
+  it('takes a blank address as none', async () => {
+    const { mailFrom, headers } = await received({ ...message, from: '', replyTo: '' });
+    expect(mailFrom).toBe('hello@example.com');
+    expect(headers).toContain('From: hello@example.com');
+    expect(headers.some((h) => /^Reply-To:/i.test(h))).toBe(false);
   });
 });
