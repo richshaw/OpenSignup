@@ -62,8 +62,11 @@ export const FollowUpSchema: z.ZodType<FollowUp, z.ZodTypeDef, unknown> = z
       })
       .strict(),
     when: WhenSchema.optional(),
-    // One count per thing people sign up for, so never more than `WHAT_ITEMS_MAX`.
-    howMany: boundedArray(CountSchema, { max: WHAT_ITEMS_MAX }).optional(),
+    // One count per thing people sign up for. Capped at the most items \`what\`
+    // can list, not at \`WHAT_ITEMS_MAX\`: a too-long list fails the whole object,
+    // and a lower cap would hide the refinement below that says there are too
+    // many things, which is the error the organizer needs.
+    howMany: boundedArray(CountSchema, { max: WHAT_OPTIONS_MAX + WHAT_ITEMS_MAX }).optional(),
   })
   .strict()
   .superRefine((f, ctx) => {

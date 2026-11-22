@@ -9,6 +9,7 @@ import {
   SlotReorderInputSchema,
   SlotUpdateInputSchema,
 } from './slots';
+import { SlotFieldReorderInputSchema } from './slot-fields';
 
 describe('SlotCapacitySchema', () => {
   it('takes a whole number from 1, or null for no limit', () => {
@@ -41,20 +42,19 @@ describe('slot inputs keep their own capacity defaults', () => {
   });
 });
 
-describe('SlotReorderInputSchema', () => {
+describe.each([
+  ['slot', SlotReorderInputSchema, 'slotIds'],
+  ['fld', SlotFieldReorderInputSchema, 'fieldIds'],
+] as const)('reordering %s ids', (prefix, schema, key) => {
   it('takes more ids than fit in a body, so no real reorder meets its cap', () => {
-    const shortest = makeId('fld');
-    const bodyBytes = JSON.stringify({
-      fieldIds: Array(MAX_REORDER_IDS + 1).fill(shortest),
-    }).length;
-    expect(bodyBytes).toBeGreaterThan(MAX_JSON_BODY_BYTES);
+    const ids = Array(MAX_REORDER_IDS + 1).fill(makeId(prefix));
+    expect(JSON.stringify({ [key]: ids }).length).toBeGreaterThan(MAX_JSON_BODY_BYTES);
+    expect(schema.safeParse({ [key]: ids.slice(1) }).success).toBe(true);
   });
 
   it('refuses a body-sized array of wrong items with a single issue', () => {
-    const result = SlotReorderInputSchema.safeParse({
-      slotIds: Array(MAX_REORDER_IDS + 1).fill(0),
-    });
+    const result = schema.safeParse({ [key]: Array(MAX_REORDER_IDS + 1).fill(0) });
     expect(result.error?.issues).toHaveLength(1);
-    expect(result.error?.issues[0]).toMatchObject({ code: 'too_big', path: ['slotIds'] });
+    expect(result.error?.issues[0]).toMatchObject({ code: 'too_big', path: [key] });
   });
 });
