@@ -473,9 +473,10 @@ Two lists in `src/i18n/config.ts` decide it:
   can be stored on a new organizer account (below). A site's `DEFAULT_LOCALE`
   counts only for audiences its language has shipped to (`resolveLocale`).
 
-Today `CATALOG_LOCALES` is `en` and `sv`. `SHIPPED` holds both for
-participants and organizers, and only `en` for `site`, the pages outside the
-app, which have no messages yet.
+Today `CATALOG_LOCALES` is `en`, `sv` and `de`. `SHIPPED` holds `en` and
+`sv` for participants and organizers (German has a catalog but hasn't
+shipped), and only `en` for `site`, the pages outside the app, which have no
+messages yet.
 
 A language launches for participants and organizers together: its launch
 adds it to `SHIPPED.participant` and `SHIPPED.organizer` in one change, and
@@ -505,17 +506,15 @@ other module reads it. The web
 server and the worker log a warning when they start with it set. Never set it
 on a real site.
 
-Every language with a catalog has shipped today, so the list is empty, and
-nothing in CI runs the e2e specs' path for a language that hasn't: where
+German has a catalog and hasn't shipped, so the list is `de`, and CI runs
+the e2e specs' path for a language that hasn't: where
 `translated-organizer.spec.ts` and `organizer-language-story.spec.ts` write
 the language into a new signup's row (`storeSignupLanguage` in
 `tests/e2e/helpers/organizer-language.ts`), and the story writes it into the
 account's, because the app won't store one that hasn't shipped. Swedish took
-that path until its launch; the unit tests still check the rule it relies
-on, and the next language's first pull request runs it again. For that
-language, a reused `pnpm dev` needs the variable too
-(`E2E_UNSHIPPED_LOCALES=<code> pnpm dev`): a spec that finds a seeded signup
-in English says so.
+that path until its launch, and German takes it until its own. A reused
+`pnpm dev` needs the variable too (`E2E_UNSHIPPED_LOCALES=de pnpm dev`): a
+spec that finds a seeded signup in English says so.
 
 ### An organizer's language
 
@@ -573,7 +572,7 @@ row of this table against it.
 3. In the same pull request, run the `translate` skill for each language in
    `SHIPPED` (Swedish today): the catalog check fails each changed message
    in a shipped language as stale until it's translated again and marked.
-   For a language that has a catalog but hasn't shipped (none today), do it
+   For a language that has a catalog but hasn't shipped (German today), do it
    too when you can, so it stays ready to launch. Until someone
    does, the catalog test warns that it's stale, and its test signups show the
    old translation, or English for a new message.
@@ -589,9 +588,14 @@ row of this table against it.
    region (`sv-SE`). Its record, `src/i18n/translated-from/<code>.json`,
    comes with the first messages you mark as translated.
 2. **Write its glossary** below, before translating: the product's own terms,
-   the tone and the date style. Give the language an entry in
-   `LANGUAGE_RULES` (`src/i18n/testing/language-rules.ts`) for the words the
-   glossary rules out that a pattern can catch.
+   the tone and the date style. The `translate` skill's "Adding a language"
+   says how: look up what the language's own sign-up sites say, see what the
+   app puts into its sentences (`language-facts.mjs <code>`: plural
+   categories, dates, durations, language names), compare your draft with a
+   second one made apart, and bring the owner the choices that are theirs.
+   Give the language an entry in `LANGUAGE_RULES`
+   (`src/i18n/testing/language-rules.ts`) for the words the glossary rules
+   out that a pattern can catch.
 3. **Translate** with the `translate` skill, namespace by namespace, for both
    audiences: participant text (`participant`, `email` and `common`) and
    organizer text (`to-translate.mjs <code> --audience organizer`). Do at
@@ -651,6 +655,12 @@ a word with English:
   write it.
   Translate each, or add the word if the language really says it: never to
   quiet a message left in English, which is what the check is there to catch.
+
+The app keeps one such table too: `CAPITALIZES_NOUNS` in
+`src/i18n/config.ts`, whether the language writes every noun with a capital,
+which decides how an organizer's field label reads in "(no {label})" and the
+Build tab's "Set {label}" (see "Field labels in (no …)"). `pnpm typecheck`
+asks for the new language's row, with the catalog.
 
 The test signups and email samples also carry what an organizer would write
 (titles, slots' names). A language without its own gets names that read as

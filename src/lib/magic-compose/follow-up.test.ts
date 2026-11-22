@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
 import { buildFollowUpMessages, buildReplyNowMessages, FollowUpSchema } from './follow-up';
+import { WHAT_ITEMS_MAX, WHAT_OPTIONS_MAX } from './limits';
 import { buildMessages } from './prompt';
 import type { FollowUp } from './questions';
 
@@ -85,6 +86,22 @@ describe('FollowUpSchema', () => {
   it('rejects counts that do not line up with the items', () => {
     expect(issue({ ...answers, howMany: [2, 1] })).toMatch(/one count for each/);
     expect(issue({ what: { picked: [], added: [] }, howMany: [] })).toMatch(/one count for each/);
+  });
+
+  it('says there are too many things, with one count for each of them', () => {
+    const picked = Array.from({ length: WHAT_OPTIONS_MAX }, (_, i) => `Option ${i}`);
+    const added = Array.from({ length: WHAT_ITEMS_MAX }, (_, i) => `Item ${i}`);
+    const howMany = Array(picked.length + added.length).fill(null);
+    expect(issue({ what: { picked, added }, howMany })).toMatch(/At most 12 things/);
+  });
+
+  it('refuses a count list longer than any list of things', () => {
+    const result = FollowUpSchema.safeParse({
+      ...answers,
+      howMany: Array(10_000).fill('x'),
+    });
+    expect(result.error?.issues[0]).toMatchObject({ code: 'too_big', path: ['howMany'] });
+    expect(result.error?.issues.length).toBeLessThan(WHAT_OPTIONS_MAX + WHAT_ITEMS_MAX + 5);
   });
 
   it('rejects the same item twice, in any case, across picked and added', () => {

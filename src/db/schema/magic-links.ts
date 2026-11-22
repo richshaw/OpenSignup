@@ -7,10 +7,10 @@ export const magicLinks = pgTable(
     tokenHash: text('token_hash').notNull().unique(),
     email: text('email').notNull(),
     purpose: text('purpose').notNull(), // 'login_code'
-    // Always null: meant for a signup-claim link that was never built. Drop it
-    // the same way as signups.claim_token_hash: out of this schema (and the
-    // login-code insert) first, out of the database a release later.
-    scopeId: text('scope_id'),
+    // scope_id, always null and meant for a signup-claim link that was never
+    // built, is out of this schema but still in the database: the build serving
+    // during a deploy inserts and selects it, so the migration that drops it
+    // comes a release later.
     /**
      * For `login_code`: the Auth.js callback URL the code redeems, encrypted
      * (AES-256-GCM, key derived from AUTH_SECRET). The URL carries the

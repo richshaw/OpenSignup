@@ -21,7 +21,7 @@ import { commitToSlot } from '@/services/commitments';
 import { createSignup, deleteSignup, publishSignup, updateSignup } from '@/services/signups';
 import { addField } from '@/services/slot-fields';
 import { addSlot, updateSlot } from '@/services/slots';
-import { toldDifferentTimeQuery } from './notify-rules';
+import { slotMovedSinceToldQuery } from './notify-rules';
 import { sendReminderJob } from './reminders';
 import { selectDueSlotChanges, sendSlotChangeJob } from './slot-changes';
 
@@ -254,6 +254,27 @@ describe('slot-change emails (db)', () => {
       ]);
     }
     expect(await dueIds()).not.toContain(s.commitmentIds[0]);
+  });
+
+  it('says how many spots each participant took when it is more than one', async () => {
+    const s = await makeScenario(fx, 'Spots moved', { people: 2 });
+    const [several, one] = s.commitmentIds as [string, string];
+    await fx.db.update(commitments).set({ quantity: 3 }).where(eq(commitments.id, several));
+    await moveSlot(fx, s.slotId, dayFromNow(22));
+    await ageMoves(fx.db, s.signupId, 11);
+
+    const send = vi.spyOn(getEmailTransport(), 'send');
+    try {
+      await sendSlotChangeJob({ commitmentId: several });
+      await sendSlotChangeJob({ commitmentId: one });
+      const [forSeveral, forOne] = send.mock.calls.map(([mail]) => mail);
+      expect(forSeveral?.subject).toMatch(/^Time changed: /);
+      expect(forSeveral?.text).toContain('Spots: 3');
+      expect(forOne?.subject).toMatch(/^Time changed: /);
+      expect(forOne?.text).not.toContain('Spots:');
+    } finally {
+      send.mockRestore();
+    }
   });
 
   it('sends one email for several quick moves, for where the slot ended up', async () => {
@@ -556,7 +577,7 @@ describe('slot-change scan, query shape (db)', () => {
       // cheapest; turned off, the planner shows which index it can use.
       await tx.execute(sql`SET LOCAL enable_seqscan = off`);
       const rows = await tx.execute<{ 'QUERY PLAN': string }>(
-        sql`EXPLAIN ${toldDifferentTimeQuery(tx, 'com_explain')}`,
+        sql`EXPLAIN ${slotMovedSinceToldQuery(tx, 'com_explain')}`,
       );
       return rows.map((r) => r['QUERY PLAN']).join('\n');
     });

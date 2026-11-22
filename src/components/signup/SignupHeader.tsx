@@ -8,7 +8,7 @@ import { getServerTranslator } from '@/i18n/server';
 import { closeSignupQuestion, spotsTakenLine, type SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
 import type { CloseQuestionAction } from './CloseSignupConfirm';
-import { DraftLine, PhonePreviewItem, PhoneStanding } from './HeaderParts';
+import { DraftLine, PhonePreviewItem, PhoneStanding, type DraftLineText } from './HeaderParts';
 import type { SignupHeaderText } from './header-text';
 import { HEADER_BUTTON, OUTLINED } from './header-buttons';
 import { MobileSignupHeader } from './MobileSignupHeader';
@@ -73,6 +73,10 @@ export function SignupHeader({
   // The `lang` of the signup's own words, inside the header's.
   const contentLang = langWhereDifferent(contentLocale, locale);
   const previewHref = signupTabPath(signupId, 'preview');
+  const draftLine: DraftLineText = {
+    onlyYou: t('draftLine'),
+    howPeopleSignUp: t('draftHowPeopleSignUp'),
+  };
   const closeQuestion = spots
     ? closeSignupQuestion(spots, getServerTranslator(locale, 'organizer.signup.close'))
     : '';
@@ -115,7 +119,7 @@ export function SignupHeader({
               publicUrl={publicUrl}
               chip={share.panel.chip}
               spotsTaken={spotsTaken}
-              draftLine={t('draftLine')}
+              draftLine={draftLine}
             />
           }
           previewItem={<PhonePreviewItem href={previewHref} label={t('preview')} />}
@@ -149,7 +153,7 @@ export function SignupHeader({
                 {pill}
               </div>
               {status === 'draft' ? (
-                <DraftLine text={t('draftLine')} />
+                <DraftLine text={draftLine} />
               ) : (
                 <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
                   <PublicLinkChip

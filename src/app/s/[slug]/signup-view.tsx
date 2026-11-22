@@ -291,12 +291,19 @@ export function SignupViewBody(props: SignupViewProps) {
                     } ${isOwn ? 'bg-success/5' : ''}`}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-medium tracking-tight">{title}</p>
+                      {/* Two lines, not `truncate`: the part a long name cut
+                          off was usually what to bring ("a dozen"), and two is
+                          enough on a 390px phone without one pasted paragraph
+                          pushing the rest of the sheet down. */}
+                      <p className="line-clamp-2 break-words text-[15px] font-medium tracking-tight">
+                        {title}
+                      </p>
                       {meta.length ? (
                         // Wrapped, not `truncate`. The fixed right rail left
                         // ~160px for text at 390px, so one clamped line dropped
                         // the last segment — usually the location — from every
-                        // row. The title above stays single-line.
+                        // row. The title above clamps at two lines for the same
+                        // reason.
                         //
                         // Three lines below `sm`, because a row that also shows
                         // a count has a third column competing for a 360px

@@ -65,7 +65,10 @@ function Phone({
               status={status}
               publicUrl={LINK}
               spotsTaken={spotsTaken}
-              draftLine="Only you can see this draft until you publish it."
+              draftLine={{
+                onlyYou: 'Only you can see this draft until you publish it.',
+                howPeopleSignUp: 'Then people open its link, choose a slot and type their name.',
+              }}
             />
           }
           previewItem={<PhonePreviewItem href={PREVIEW} label="Preview" />}
