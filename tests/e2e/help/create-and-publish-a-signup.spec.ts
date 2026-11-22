@@ -55,6 +55,9 @@ test.describe('help: create and publish your first signup', () => {
       page.getByText(UI.draftOnly, { exact: true }).locator('visible=true'),
     ).toBeVisible();
     await expect(
+      page.getByText(UI.draftHowPeopleSignUp, { exact: true }).locator('visible=true'),
+    ).toBeVisible();
+    await expect(
       page.getByText(UI.publicLink, { exact: true }).locator('visible=true'),
     ).toHaveCount(0);
 
@@ -219,6 +222,7 @@ test.describe('help: create and publish your first signup', () => {
     const count = header.getByText('0 of 4 spots taken', { exact: true });
     await expect(count).toBeVisible();
     await expect(header.getByText(UI.draftOnly, { exact: true })).toHaveCount(0);
+    await expect(header.getByText(UI.draftHowPeopleSignUp, { exact: true })).toHaveCount(0);
     if (CAPTURE) {
       // Each site has its own address; show a stand-in, not this test server's.
       // Only the text changes: the copy button still copies the real link.
@@ -281,6 +285,9 @@ test.describe('help: create and publish your first signup', () => {
 
     await page.goto(`/app/signups/${signup.id}/build`);
     await page.getByRole('tab', { name: UI.settings }).click();
+    // "To check whether reminders are on, look under Reminders on your
+    // signup's Settings tab."
+    await expect(page.getByRole('region', { name: UI.reminders })).toBeVisible();
     const ask = page
       .getByRole('region', { name: UI.signupForm })
       .getByRole('group', { name: UI.askForEmail });

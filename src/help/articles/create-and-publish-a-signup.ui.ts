@@ -22,6 +22,8 @@ export const UI = {
   createSignup: 'Create signup',
   // Under a draft's title, where a published signup's link is.
   draftOnly: 'Only you can see this draft until you publish it.',
+  // Beside it: names go in on the signup page, not here.
+  draftHowPeopleSignUp: 'Then people open its link, choose a slot and type their name.',
   emptySlot: 'Set what',
   what: 'What',
   date: 'Date',
@@ -74,6 +76,8 @@ export const UI = {
   askForEmail: 'Ask for an email address',
   emailRequired: 'Required',
   emailOptional: 'Optional',
+  // The Settings tab's card that says whether reminders are on.
+  reminders: 'Reminders',
   saved: 'Saved',
   // The email box on the signup page once it is optional.
   emailBoxOptional: 'Email (optional)',
@@ -109,6 +113,7 @@ export const FROM_CATALOG: {
   description: 'organizer.newSignup.descriptionLabel',
   createSignup: 'organizer.newSignup.create',
   draftOnly: 'organizer.signup.draftLine',
+  draftHowPeopleSignUp: 'organizer.signup.draftHowPeopleSignUp',
   // The empty slot's placeholder names its first field, lowercased.
   emptySlot: { key: 'organizer.build.empty.named', values: { label: 'what' } },
   // A new signup's fields, named in its language.
@@ -147,6 +152,7 @@ export const FROM_CATALOG: {
   askForEmail: 'organizer.signupSettings.signupForm.askForEmail',
   emailRequired: 'organizer.signupSettings.signupForm.required',
   emailOptional: 'organizer.signupSettings.signupForm.optional',
+  reminders: 'organizer.signupSettings.reminders.title',
   saved: 'organizer.saveNotice.saved',
   emailBoxOptional: 'participant.fields.emailOptional',
   signupLanguage: 'organizer.signupSettings.language.legend',
