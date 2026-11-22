@@ -1,7 +1,7 @@
 import { Type, Calendar, Clock, Hash, List } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { MIN_DATE_YEAR } from '@/lib/reminder-fields';
-import type { FieldType } from '@/schemas/slot-fields';
+import type { FieldType, SlotFieldConfig } from '@/schemas/slot-fields';
 
 /** Each field type's icon. Its name is `organizer.build.fieldType.<type>` in the catalog. */
 export interface FieldTypeMeta {
@@ -29,11 +29,46 @@ export type FieldValueInput = {
   type: string;
   min?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  maxLength?: number;
 };
 
-export const FIELD_VALUE_INPUTS: Record<Exclude<FieldType, 'enum' | 'time'>, FieldValueInput> = {
+type InputFieldType = Exclude<FieldType, 'enum' | 'time'>;
+
+const FIELD_VALUE_INPUTS: Record<InputFieldType, FieldValueInput> = {
   text: { type: 'text' },
   // The picker starts where the services do; they refuse an earlier date.
   date: { type: 'date', min: `${MIN_DATE_YEAR}-01-01` },
   number: { type: 'number', inputMode: 'numeric' },
 };
+
+/**
+ * The control a value of `config`'s field is set with, wherever the Build tab
+ * sets one (a slot editor's cell, a group's heading), so each can only offer a
+ * value the server takes: a List field's choices, the time list for a Time
+ * field, else the input for its type, a Text field's held to its length.
+ */
+export type FieldValueControl =
+  | { kind: 'enum'; choices: string[] }
+  | { kind: 'time' }
+  | { kind: 'input'; fieldType: InputFieldType; input: FieldValueInput };
+
+export function fieldValueControl(config: SlotFieldConfig): FieldValueControl {
+  switch (config.fieldType) {
+    case 'enum':
+      return { kind: 'enum', choices: config.choices };
+    case 'time':
+      return { kind: 'time' };
+    case 'text':
+      return {
+        kind: 'input',
+        fieldType: 'text',
+        input: { ...FIELD_VALUE_INPUTS.text, maxLength: config.maxLength },
+      };
+    default:
+      return {
+        kind: 'input',
+        fieldType: config.fieldType,
+        input: FIELD_VALUE_INPUTS[config.fieldType],
+      };
+  }
+}

@@ -17,8 +17,8 @@ export interface SignupHeaderText {
   reopen: ReopenText;
   /** What the header says once Close signup or Reopen signup has done it. */
   announcements: { closed: string; reopened: string };
-  /** The grey Signup closed box: its title, its text and its ✕'s name. */
-  closedNotice: { title: string; body: string; dismiss: string };
+  /** The grey Signup closed box: its title, its text, its help link's and its ✕'s names. */
+  closedNotice: { title: string; body: string; help: string; dismiss: string };
   /** Each tab's name, and the strip's. */
   tabs: { strip: string; build: string; responses: string; settings: string };
 }
@@ -74,6 +74,7 @@ export function signupHeaderText(t: Translator<'organizer.signup'>): SignupHeade
     closedNotice: {
       title: t('closed.title'),
       body: t('closed.body'),
+      help: t('closed.help'),
       dismiss: t('closed.dismiss'),
     },
     tabs: {

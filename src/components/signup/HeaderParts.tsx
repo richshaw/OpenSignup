@@ -9,13 +9,29 @@ import type { PublicLinkChipText } from '@/components/share/share-text';
 import type { SignupStatus } from '@/schemas/signups';
 import { SHEET_ITEM } from './header-buttons';
 
+/** A draft's two sentences under its title. */
+export interface DraftLineText {
+  /** `organizer.signup.draftLine`: who can see it. */
+  onlyYou: string;
+  /**
+   * `organizer.signup.draftHowPeopleSignUp`: where names go, since the Build
+   * tab looks like the page people sign up on but takes no names itself.
+   */
+  howPeopleSignUp: string;
+}
+
 /**
  * Under a draft's title, on a computer and a phone, in place of the public
  * link: the link only says the signup isn't ready yet, so there's nothing
- * to send until it's published. `text` is `organizer.signup.draftLine`.
+ * to send until it's published. Each sentence is its own element.
  */
-export function DraftLine({ text }: { text: string }) {
-  return <p className="text-[13px] text-ink-muted">{text}</p>;
+export function DraftLine({ text }: { text: DraftLineText }) {
+  return (
+    <div className="space-y-0.5 text-[13px] text-ink-muted">
+      <p>{text.onlyYou}</p>
+      <p>{text.howPeopleSignUp}</p>
+    </div>
+  );
 }
 
 /**
@@ -40,7 +56,7 @@ export function PhoneStanding({
   /** From `spotsTakenLine`; null for a draft. */
   spotsTaken: string | null;
   /** `DraftLine`'s text. */
-  draftLine: string;
+  draftLine: DraftLineText;
 }) {
   if (status === 'draft') return <DraftLine text={draftLine} />;
   return (

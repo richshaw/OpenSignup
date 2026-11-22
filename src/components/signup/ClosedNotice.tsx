@@ -14,16 +14,22 @@ import { focusTitle, useLastStatusChange } from './HeaderAnnouncer';
  * header says it's closed every time, with its status, "Closed ·" by the
  * link, and Reopen signup. Closing it again after a reopen shows it again.
  *
+ * After its text, a link to `help`, the help page on closing and reopening,
+ * in the same tab.
+ *
  * Not a live region: the header's says it closed. Its ✕ takes the focus
  * with it, so focus goes to the signup's title rather than to the page.
  */
 export function ClosedNotice({
   status,
   text,
+  help,
 }: {
   status: SignupStatus;
   /** Its words, from the server. */
   text: SignupHeaderText['closedNotice'];
+  /** The help page's address, from the server, which keeps it out of the page's JavaScript. */
+  help: string;
 }) {
   const changed = useLastStatusChange();
   const [dismissed, setDismissed] = useState<number | null>(null);
@@ -35,6 +41,7 @@ export function ClosedNotice({
       live={false}
       title={text.title}
       body={text.body}
+      link={{ href: help, label: text.help }}
       onDismiss={() => {
         setDismissed(changed.n);
         focusTitle();

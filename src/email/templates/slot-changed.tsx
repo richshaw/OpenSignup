@@ -25,6 +25,7 @@ export function SlotChangedEmail({
   slotDetails,
   slotSummary,
   notes,
+  quantity,
   unsubscribeUrl,
 }: SlotChangedEmailProps) {
   const t = getServerTranslator(locale, 'email.slotChanged');
@@ -37,7 +38,7 @@ export function SlotChangedEmail({
       <EmailIntro>
         {t.rich('intro', { name: participantName, title: signupTitle, b: strong })}
       </EmailIntro>
-      <SlotDetailsText locale={locale} details={slotDetails} />
+      <SlotDetailsText locale={locale} details={slotDetails} spots={quantity} />
       <NotesText locale={locale} notes={notes} />
       <ManageButton locale={locale} href={manageUrl} />
       <Text className="mt-6 text-xs text-[#8a93a4]">{t('keep')}</Text>

@@ -212,8 +212,9 @@ anything: reviewers are sometimes wrong. Then:
 
 In the pull request, add a section listing every finding: the key, what the
 reviewer said, and what you did (fixed, with the new text; or not, and why).
-Name the model that reviewed. Matters of taste you didn't take go in the
-glossary's open questions, so the next pass sees them.
+Name the model that reviewed (or say "a different model" where your own
+instructions keep model names out of pull requests). Matters of taste you
+didn't take go in the glossary's open questions, so the next pass sees them.
 
 ## When English changes
 
@@ -222,7 +223,7 @@ and in the same pull request runs this skill for every language in `SHIPPED`
 (`src/i18n/config.ts`), for the audience whose namespaces it changed: until
 each changed message is translated again and
 marked, the catalog check fails it as stale. For a language with a catalog
-that hasn't shipped yet (none today), do it too, so the language stays
+that hasn't shipped yet (German, today), do it too, so the language stays
 ready to launch. A one-line change still gets the review; give the reviewer
 just the changed keys and the screens they show on.
 
@@ -233,18 +234,88 @@ record drops the old one.
 
 ## Adding a language
 
-Follow "Adding a language" in `docs/translating.md`: its catalog and its
-glossary come before step 1, then steps 1 to 4 here. The tests pick the
-language up from its catalog, with nothing written for it: the e2e specs, the
-layout checks, the screenshots and the email samples all run for every
-language with one. A test that keeps words per language fails naming
-itself until you give it the new language's entry: `KEEP_IT_PRIVATE` in
-`pnpm test`, and `inSentence` in `pnpm typecheck` ("Adding a language" in the
-guide). The e2e no-English check fails on a page that shows one of its English
-words, naming the catalog's messages that write it: translate each, and add
-the word to `SHARED_WITH_ENGLISH` only if the language really says it, never
-for a message left in English. Its launch (adding it to `SHIPPED.participant`
-and `SHIPPED.organizer` together: a language launches for participants and
+A whole language is a glossary and some 700 messages. "Adding a language" in
+`docs/translating.md` says which files and tables it touches; this is the
+order of the work, as German's first pass (#1060) taught it.
+
+1. **Find out what the language's own sites say, then ask the owner.**
+   Before any word, search the web, in that language, for its sites for
+   helper lists, bring lists and shift sign-ups, and note what they call the
+   list, a slot, signing up and cancelling, and whether they address people
+   formally. Don't go from memory: German's first plan assumed schools and
+   clubs say _Sie_, and all but two of twenty German sites say _du_. Then
+   bring the owner the choices that are theirs, with that evidence: the form
+   of address, the word for a signup and for a slot, how to word people whose
+   gender the sentence doesn't know (German and French give nouns, and French
+   participles, a gender), and any word that would mean something else on
+   another screen (German's _Anmelden_ is signing in, so participants
+   _eintragen_). Also ask them to settle what earlier languages left open for
+   every language, in the other glossaries' "Open questions" (German's 3, a
+   language's name inside a sentence).
+2. **See what the app puts into its sentences.** Run
+
+   ```bash
+   pnpm exec tsx .claude/skills/translate/scripts/language-facts.mjs <code>
+   ```
+
+   It prints, in the language, what the app's own code formats and drops into
+   a message: its plural categories (French has a third, `many`, so every
+   plural needs a branch for it), a slot's date (if one ends in a full stop,
+   no sentence may end on a slot's name), times, numbers, the durations
+   behind `{duration}` and `{wait}`, the languages' names, and an organizer's
+   field label inside a sentence. Then read the code behind each placeholder
+   the glossary will wrap: German found that an organizer's field label was
+   lowercased in two places, where the guide knew of one. A gap is a code
+   change in the same pull request, with a row in a table every language has
+   (as `CAPITALIZES_NOUNS` in `src/i18n/config.ts`), so the next language
+   can't miss it.
+
+3. **Write the glossary with a second opinion.** Draft it yourself while a
+   subagent on a different model drafts its own, without seeing yours, from
+   the same reading (the Swedish and German glossaries' English columns are
+   the list of terms, and their notes are what review taught). Compare the
+   two: take the better reasoned where the language decides, and bring the
+   owner the rest. Check every row that wraps a value the app formats against
+   step 2's output: German's "läuft in {duration} ab" broke on "7 Tage". Give
+   the language its `LANGUAGE_RULES` entry for what a pattern can catch.
+4. **Translate in batches by area.** The participant text first (it's what
+   `translated-signup.spec.ts` walks), then the organizer text by screen: the
+   Build tab, dashboard and sign-in; Magic Compose; a signup's tabs,
+   Responses, sharing and Settings. Organizer batches can run at once as
+   subagents, each told to read the glossary and the participant text already
+   done, to write its sections to a file of its own, and to list every term it
+   chose that the glossary doesn't cover. Merge them, make those terms agree,
+   and add them to the glossary. Judge each batch by the catalog check
+   (`pnpm test src/i18n`), which parses ICU properly, not by a script of your
+   own.
+5. **Run the layout specs after the first batch**, not at the end:
+   `slot-row-layout.spec.ts` once the participant text is in,
+   `translated-organizer.spec.ts` once the organizer text is. A language
+   longer than English overflows fixed boxes (German's "Geschlossen" in a
+   slot's row, "Wird gespeichert…" beside the Build tab's Fields button). The
+   fix is a shorter word, recorded in the glossary with why, or a layout fix
+   that helps every language (the header's crumbs now shorten with an
+   ellipsis, because "Einstellungen" ran into "Hilfe").
+6. **Review each batch** as step 3 says, with a reviewer per area, and give
+   one of them the consistency read in `references/review.md` over the whole
+   catalog: batches translated apart drift.
+7. **Keep the pull request short-lived.** Every change to `en.json` that
+   reaches `main` while it's open needs translating before it merges (German's
+   met two in an hour). Merge `main` in, run `to-translate.mjs` for both
+   audiences, translate and mark what it lists, and merge soon after the
+   review.
+
+The tests pick the language up from its catalog, with nothing written for
+it: the e2e specs, the layout checks, the screenshots and the email samples
+all run for every language with one. A table that keeps something per
+language fails naming itself until you give it the new language's entry:
+`KEEP_IT_PRIVATE` in `pnpm test`, and `inSentence` and `CAPITALIZES_NOUNS` in
+`pnpm typecheck` ("Adding a language" in the guide). The e2e no-English check
+fails on a page that shows one of its English words, naming the catalog's
+messages that write it: translate each, and add the word to
+`SHARED_WITH_ENGLISH` only if the language really says it, never for a
+message left in English. Its launch (adding it to `SHIPPED.participant` and
+`SHIPPED.organizer` together: a language launches for participants and
 organizers at once) is a pull request of its own, for the owner to approve.
 
 ## Report

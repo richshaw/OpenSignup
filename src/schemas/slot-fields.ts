@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { SortOrderSchema } from './common';
+import { boundedArray, SortOrderSchema } from './common';
+import { MAX_REORDER_IDS } from './slots';
 import {
   CHOICE_MAX_LENGTH,
   FIELD_TYPES,
@@ -54,7 +55,7 @@ const NumberConfigSchema = z.object({
 
 const EnumConfigSchema = z.object({
   fieldType: z.literal('enum'),
-  choices: z.array(ChoiceSchema).min(1).max(MAX_CHOICES),
+  choices: boundedArray(ChoiceSchema, { min: 1, max: MAX_CHOICES }),
 });
 
 export const SlotFieldConfigSchema = z.discriminatedUnion('fieldType', [
@@ -95,11 +96,10 @@ export const SlotFieldUpdateInputSchema = z
   .strict();
 export type SlotFieldUpdateInput = z.infer<typeof SlotFieldUpdateInputSchema>;
 
-// Every field id of the signup, in the order they should be shown. Bounded by
-// the signup's field count, which nothing caps, so no maximum here either, as
-// with `SlotReorderInputSchema`.
+// Every field id of the signup, in the order they should be shown. Bounded as
+// `SlotReorderInputSchema` is: by what fits in the body cap.
 export const SlotFieldReorderInputSchema = z.object({
-  fieldIds: z.array(z.string()).min(1),
+  fieldIds: boundedArray(z.string(), { min: 1, max: MAX_REORDER_IDS }),
 });
 
 export type SlotFieldDefinition = {

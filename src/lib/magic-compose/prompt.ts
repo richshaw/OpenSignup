@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { type CatalogLocale, languageName } from '@/i18n/config';
+import { boundedArray } from '@/schemas/common';
 import {
   DESCRIPTION_MAX_LENGTH,
   TITLE_MAX_LENGTH,
@@ -41,9 +42,7 @@ export const DraftFieldSchema = z.object({
   label: LabelSchema,
   fieldType: z.enum(FIELD_TYPES),
   // Accept null (sent by strict json_schema models for non-enum fields) or an array.
-  choices: z
-    .array(ChoiceSchema)
-    .max(MAX_CHOICES)
+  choices: boundedArray(ChoiceSchema, { max: MAX_CHOICES })
     .nullable()
     .optional()
     .transform((v) => v ?? undefined),
@@ -60,8 +59,8 @@ const DraftSlotSchema = z.object({
 export const FullDraftSchema = z.object({
   title: TitleSchema,
   description: z.string().max(DESCRIPTION_MAX_LENGTH).default(''),
-  fields: z.array(DraftFieldSchema).min(1).max(MAX_FIELDS),
-  slots: z.array(DraftSlotSchema).min(1).max(MAX_SLOTS),
+  fields: boundedArray(DraftFieldSchema, { min: 1, max: MAX_FIELDS }),
+  slots: boundedArray(DraftSlotSchema, { min: 1, max: MAX_SLOTS }),
   /** Field ref to visually group slots by in the participant view. */
   groupBy: z
     .string()

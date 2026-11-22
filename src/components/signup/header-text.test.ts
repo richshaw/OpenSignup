@@ -24,6 +24,7 @@ describe('signupHeaderText', () => {
       closedNotice: {
         title: 'Signup closed',
         body: 'People can’t sign up now. Everyone already signed up keeps their spot.',
+        help: 'How closing and reopening work',
         dismiss: 'Dismiss',
       },
       tabs: {

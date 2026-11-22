@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isRealDate, isRealTime } from '@/lib/reminder-fields';
+import { boundedArray } from '@/schemas/common';
 import {
   HOW_MANY_MAX,
   WHAT_ITEM_MAX_LENGTH,
@@ -56,12 +57,16 @@ export const FollowUpSchema: z.ZodType<FollowUp, z.ZodTypeDef, unknown> = z
   .object({
     what: z
       .object({
-        picked: z.array(Item).max(WHAT_OPTIONS_MAX),
-        added: z.array(Item).max(WHAT_ITEMS_MAX),
+        picked: boundedArray(Item, { max: WHAT_OPTIONS_MAX }),
+        added: boundedArray(Item, { max: WHAT_ITEMS_MAX }),
       })
       .strict(),
     when: WhenSchema.optional(),
-    howMany: z.array(CountSchema).optional(),
+    // One count per thing people sign up for. Capped at the most items `what`
+    // can list, not at `WHAT_ITEMS_MAX`, so that with one count for each of too
+    // many things the first error is the refinement's "At most 12 things", the
+    // one the organizer needs, rather than a too-long count list.
+    howMany: boundedArray(CountSchema, { max: WHAT_OPTIONS_MAX + WHAT_ITEMS_MAX }).optional(),
   })
   .strict()
   .superRefine((f, ctx) => {
