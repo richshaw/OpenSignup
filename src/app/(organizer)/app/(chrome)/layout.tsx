@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getOrganizerSession, requireOrganizerSession } from '@/auth/session';
 import { signOutOrganizer } from '@/auth/sign-out';
+import { EARLIER_CRUMB } from '@/components/chrome/Crumb';
 import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { INSTANCE_NAME } from '@/lib/site-config';
@@ -39,7 +40,9 @@ export default async function OrganizerLayout({
             aria-label={t('breadcrumb')}
             className="flex min-w-0 items-center gap-2 text-sm text-ink-muted"
           >
-            <Link href="/app" className="font-semibold tracking-tight text-ink">
+            {/* The site's name shortens like the crumbs after it, so the trail
+                never runs under the links beside it; see Crumb. */}
+            <Link href="/app" className={`${EARLIER_CRUMB} font-semibold tracking-tight text-ink`}>
               {INSTANCE_NAME}
             </Link>
             {crumbs}
