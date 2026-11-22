@@ -6,7 +6,7 @@ import {
   TITLE_MIN_LENGTH,
   TITLE_TOO_SHORT_MESSAGE,
 } from '@/lib/signup-limits';
-import { NameSchema, TagsSchema } from './common';
+import { boundedArray, NameSchema, TagsSchema } from './common';
 
 export { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH };
 
@@ -29,7 +29,7 @@ export const SignupSettingsSchema = z
     sendReminders: z.boolean().default(true),
     confirmationMessage: z.string().max(500).optional(),
     /** Slot-field refs to group by in the participant view. v1 caps at length 1; nested grouping deferred. */
-    groupByFieldRefs: z.array(z.string()).max(1).default([]),
+    groupByFieldRefs: boundedArray(z.string(), { max: 1 }).default([]),
     /**
      * The date field that gives every slot its instant (`slots.slot_at`): what
      * "Add to calendar" exports, what slots order by, and when a reminder is
