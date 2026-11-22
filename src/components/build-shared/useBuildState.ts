@@ -236,9 +236,10 @@ function toBuildRow(slot: BuildSlot): BuildRow {
 
 /**
  * `values` as the API takes them: a Number field's value as a number, left
- * out when it's empty or not a number; every other value as it is. The grid
- * holds every value as a string, and the server refuses `"12"` for a Number
- * field.
+ * out when it's empty; every other value as it is. The grid holds every value
+ * as a string, and the server refuses `"12"` for a Number field. A Number
+ * value that isn't a number goes as the string it is, so the server refuses
+ * the save: leaving it out would blank the field and still say "Saved".
  */
 function toTypedValues(
   fields: BuildField[],
@@ -249,7 +250,7 @@ function toTypedValues(
     if (fields.find((f) => f.ref === ref)?.config.fieldType === 'number') {
       const str = value === null || value === undefined ? '' : String(value);
       const n = Number(str);
-      if (str !== '' && Number.isFinite(n)) typed[ref] = n;
+      if (str !== '') typed[ref] = Number.isFinite(n) ? n : str;
     } else {
       typed[ref] = value;
     }

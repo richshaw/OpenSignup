@@ -2135,6 +2135,48 @@ describe('useBuildState renameGroup', () => {
     ]);
     expect(result.current.state.saveStatus.kind).toBe('error');
   });
+
+  it('sends a Number heading that is not a number, so the server refuses it rather than blanking the field', async () => {
+    const tableField = makeApiField({
+      id: 'f-table',
+      ref: 'table',
+      label: 'Table',
+      fieldType: 'number',
+      config: { fieldType: 'number' },
+    });
+    const tableSlots: BuildSlot[] = [
+      { id: 'r1', capacity: null, sortOrder: 0, values: { table: 3, item: 'Cups' } },
+      { id: 'r2', capacity: null, sortOrder: 1, values: { table: 3, item: 'Plates' } },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(
+          { error: { code: 'invalid_input', message: '"table" must be a number' } },
+          { ok: false, status: 400 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [tableField], tableSlots, defaultSettings),
+    );
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.renameGroup('table', ['r1', 'r2'], 'abc');
+    });
+
+    const bodies = (fetchMock.mock.calls as [string, RequestInit][]).map(
+      ([, init]) => JSON.parse(String(init.body)) as { values: Record<string, unknown> },
+    );
+    expect(bodies.map((b) => b.values)).toEqual([
+      { table: 'abc', item: 'Cups' },
+      { table: 'abc', item: 'Plates' },
+    ]);
+    expect(saved).toBe(false);
+    expect(result.current.state.rows.map((r) => r.values['table'])).toEqual(['3', '3']);
+    expect(result.current.state.saveStatus.kind).toBe('error');
+  });
 });
 
 // ---------------------------------------------------------------------------
