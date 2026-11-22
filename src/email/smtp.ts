@@ -115,7 +115,13 @@ export class SmtpTransport implements EmailTransport {
   async send(msg: EmailMessage): Promise<EmailResult> {
     try {
       const info = await this.transporter.sendMail({
-        from: this.cfg.from,
+        from: msg.from || this.cfg.from,
+        replyTo: msg.replyTo || undefined,
+        // nodemailer takes the envelope sender, where bounces go, from `from`.
+        // An email from another address keeps EMAIL_FROM's, as Resend does,
+        // so bounces don't land in a person's inbox and the relay's SPF need
+        // only cover EMAIL_FROM.
+        ...(msg.from ? { envelope: { from: this.cfg.from, to: msg.to } } : {}),
         to: msg.to,
         subject: msg.subject,
         html: msg.html,
