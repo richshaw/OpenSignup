@@ -5,7 +5,7 @@ import type PgBoss from 'pg-boss';
 import { log } from '@/lib/log';
 
 /**
- * One queue the worker runs. The worker's own are listed in `worker.ts`; a
+ * One queue the worker runs. The worker's own are listed in `built-in.ts`; a
  * site adds its own in a `*.jobs.ts` file in `src/jobs/extensions/` (see the
  * README there), so a repo that merges this one never edits a file of ours.
  */
@@ -40,7 +40,7 @@ export interface JobDefinition<Data extends object = object> {
 /** The part of pg-boss the registry uses, so tests can pass a fake. */
 export type JobBoss = Pick<
   PgBoss,
-  'createQueue' | 'schedule' | 'work' | 'getSchedules' | 'unschedule'
+  'createQueue' | 'schedule' | 'work' | 'offWork' | 'getSchedules' | 'unschedule'
 >;
 
 /**
@@ -53,23 +53,37 @@ export async function registerJobs(boss: JobBoss, jobs: readonly JobDefinition[]
     await boss.createQueue(job.name);
     if (job.schedule) await boss.schedule(job.name, job.schedule);
   }
-  for (const job of jobs) {
-    await boss.work<object | null>(job.name, async (batch) => {
-      for (const { data } of batch) {
-        // pg-boss gives a job queued by a schedule no data at all.
-        const payload = data ?? {};
-        try {
-          await job.run(payload);
-        } catch (err) {
-          log.error(
-            { ...failureFields(job, payload), err, queue: job.name },
-            job.failureMessage ?? `${job.name} failed`,
-          );
-          throw err;
-        }
-      }
-    });
+  const working: string[] = [];
+  try {
+    for (const job of jobs) {
+      await workQueue(boss, job);
+      working.push(job.name);
+    }
+  } catch (err) {
+    // Stop the queues this call already started, so none of a skipped file's
+    // queues is left worked without being marked taken.
+    for (const name of working) await boss.offWork(name).catch(() => undefined);
+    throw err;
   }
+}
+
+/** Starts working one job's queue, logging each failure before pg-boss retries it. */
+async function workQueue(boss: JobBoss, job: JobDefinition): Promise<void> {
+  await boss.work<object | null>(job.name, async (batch) => {
+    for (const { data } of batch) {
+      // pg-boss gives a job queued by a schedule no data at all.
+      const payload = data ?? {};
+      try {
+        await job.run(payload);
+      } catch (err) {
+        log.error(
+          { ...failureFields(job, payload), err, queue: job.name },
+          job.failureMessage ?? `${job.name} failed`,
+        );
+        throw err;
+      }
+    }
+  });
 }
 
 /** A job's `logFields`, or none if they throw, so the failure being logged is never lost. */
@@ -95,11 +109,15 @@ interface Extension {
 function isJobDefinition(value: unknown): value is JobDefinition {
   if (typeof value !== 'object' || value === null) return false;
   const job = value as Record<string, unknown>;
+  // An empty schedule would quietly mean none, so it's refused, as is a
+  // failure message or log-fields function of the wrong kind.
   return (
     typeof job.name === 'string' &&
     job.name.length > 0 &&
     typeof job.run === 'function' &&
-    (job.schedule === undefined || typeof job.schedule === 'string')
+    (job.schedule === undefined || (typeof job.schedule === 'string' && job.schedule !== '')) &&
+    (job.failureMessage === undefined || typeof job.failureMessage === 'string') &&
+    (job.logFields === undefined || typeof job.logFields === 'function')
   );
 }
 
@@ -108,7 +126,7 @@ function jobsOf(mod: unknown): JobDefinition[] | string {
   const exported = mod as { jobs?: unknown; default?: { jobs?: unknown } };
   const jobs = exported.jobs ?? exported.default?.jobs;
   if (!Array.isArray(jobs)) return 'it exports no `jobs` array';
-  if (!jobs.every(isJobDefinition)) return 'one of its `jobs` has no name or no run function';
+  if (!jobs.every(isJobDefinition)) return 'one of its `jobs` is not a valid job definition';
   return jobs;
 }
 
@@ -214,6 +232,14 @@ export async function startJobs(
     }
   }
 
-  if (extensions) await unscheduleOthers(boss, scheduled);
+  if (extensions) {
+    // Removing stale schedules is housekeeping: if it fails, log it and run
+    // the jobs anyway. The next start tries again.
+    try {
+      await unscheduleOthers(boss, scheduled);
+    } catch (err) {
+      log.error({ err }, 'could not remove schedules no job names');
+    }
+  }
   return { queues: [...queues] };
 }

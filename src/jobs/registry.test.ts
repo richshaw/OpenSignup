@@ -16,8 +16,14 @@ import {
 
 type Handler = (batch: { data: object | null }[]) => Promise<unknown>;
 
-/** A pg-boss stand-in that records what was asked of it. */
-function fakeBoss(existingSchedules: string[] = []) {
+/**
+ * A pg-boss stand-in that records what was asked of it. `failing` makes one
+ * call refuse: working a given queue, or listing the schedules.
+ */
+function fakeBoss(
+  existingSchedules: string[] = [],
+  failing: { work?: string; getSchedules?: boolean } = {},
+) {
   const calls: string[] = [];
   const handlers = new Map<string, Handler>();
   const schedules = new Set(existingSchedules);
@@ -31,11 +37,19 @@ function fakeBoss(existingSchedules: string[] = []) {
       schedules.add(name);
     }),
     work: vi.fn(async (name: string, handler: Handler) => {
+      if (name === failing.work) throw new Error(`could not work ${name}`);
       calls.push(`work ${name}`);
       handlers.set(name, handler);
       return `worker-${name}`;
     }),
-    getSchedules: vi.fn(async () => [...schedules].map((name) => ({ name, cron: '* * * * *' }))),
+    offWork: vi.fn(async (name: string) => {
+      calls.push(`offWork ${name}`);
+      handlers.delete(name);
+    }),
+    getSchedules: vi.fn(async () => {
+      if (failing.getSchedules) throw new Error('connection lost');
+      return [...schedules].map((name) => ({ name, cron: '* * * * *' }));
+    }),
     unschedule: vi.fn(async (name: string) => {
       schedules.delete(name);
     }),
@@ -159,6 +173,18 @@ describe('registerJobs', () => {
     ).rejects.toThrow('not a cron expression');
     expect(boss.work).not.toHaveBeenCalled();
   });
+
+  it('stops the queues it started when a later one fails to start', async () => {
+    const { boss, calls, handlers } = fakeBoss([], { work: 'site.b' });
+    await expect(
+      registerJobs(boss, [
+        { name: 'site.a', run: noop },
+        { name: 'site.b', run: noop },
+      ]),
+    ).rejects.toThrow('could not work site.b');
+    expect(calls).toContain('offWork site.a');
+    expect(handlers.size).toBe(0);
+  });
 });
 
 describe('unscheduleOthers', () => {
@@ -215,12 +241,27 @@ describe('the extensions folder', () => {
       expect(errorMessages()).toEqual([
         'worker extension skipped: it failed to load',
         'worker extension skipped: it exports no `jobs` array',
-        'worker extension skipped: one of its `jobs` has no name or no run function',
+        'worker extension skipped: one of its `jobs` is not a valid job definition',
       ]);
       expect(errors.mock.calls[0]?.[0]).toMatchObject({
         file: 'a.jobs.ts',
         err: expect.objectContaining({ message: 'missing setting' }),
       });
+    });
+
+    it.each([
+      ['an empty schedule', "schedule: ''"],
+      ['a failure message that is not text', 'failureMessage: 5'],
+      ['log fields that are not a function', "logFields: 'thingId'"],
+    ])('skips a job with %s', async (_case, field) => {
+      await put(
+        'a.jobs.ts',
+        `export const jobs = [{ name: 'site.a', run: async () => {}, ${field} }];`,
+      );
+      expect(await loadExtensions(dir)).toEqual([]);
+      expect(errorMessages()).toEqual([
+        'worker extension skipped: one of its `jobs` is not a valid job definition',
+      ]);
     });
 
     it("logs a folder it can't list, and says so rather than finding none", async () => {
@@ -299,6 +340,14 @@ describe('the extensions folder', () => {
       const { boss, schedules } = fakeBoss(['site.retired', 'reminders.dispatch']);
       await startJobs(boss, builtIn, dir);
       expect([...schedules]).toEqual(['reminders.dispatch']);
+    });
+
+    it("runs its jobs anyway when it can't list the schedules to remove", async () => {
+      const { boss, handlers } = fakeBoss([], { getSchedules: true });
+      const { queues } = await startJobs(boss, builtIn, dir);
+      expect(queues).toEqual(['reminders.dispatch', 'reminders.send']);
+      expect([...handlers.keys()]).toEqual(queues);
+      expect(errorMessages()).toEqual(['could not remove schedules no job names']);
     });
 
     it("removes no schedule when it can't list the extensions folder", async () => {
