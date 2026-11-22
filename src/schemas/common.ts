@@ -31,12 +31,15 @@ export const MAX_SORT_ORDER = 2_147_483_647;
 export const SortOrderSchema = z.number().int().nonnegative().max(MAX_SORT_ORDER);
 
 /**
- * An array of at most `max` items, whose length is checked before any item is.
+ * An array of at most `max` items, which never parses more than `max` of them.
  * Zod 3 parses every item even once `.max()` has failed, recording an issue for
  * each bad one, so a 1 MB body of half a million wrong items built half a million
- * issues (some 150 MB) in a single request. This refuses a too-long array with
- * one issue instead, and the items are only parsed once the length is in bounds.
- * The JSON Schema an MCP client sees is the inner array's, `maxItems` included.
+ * issues (some 150 MB) in a single request. This records the same `too_big`
+ * issue `.max()` would, first, as `.max()` does, then parses only the first `max`
+ * items. The issue isn't fatal, so the checks of the objects above still run and
+ * report what they did before; the value is invalid either way, so the cut-down
+ * array never reaches a caller. The JSON Schema an MCP client sees is the inner
+ * array's, `maxItems` included.
  */
 export function boundedArray<T extends z.ZodTypeAny>(
   item: T,
@@ -45,16 +48,15 @@ export function boundedArray<T extends z.ZodTypeAny>(
   const array = z.array(item).max(max);
   return z.preprocess(
     (value, ctx) => {
-      if (Array.isArray(value) && value.length > max) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.too_big,
-          maximum: max,
-          type: 'array',
-          inclusive: true,
-          fatal: true,
-        });
-      }
-      return value;
+      if (!Array.isArray(value) || value.length <= max) return value;
+      ctx.addIssue({
+        code: z.ZodIssueCode.too_big,
+        maximum: max,
+        type: 'array',
+        inclusive: true,
+        exact: false,
+      });
+      return value.slice(0, max);
     },
     min === undefined ? array : array.min(min),
   );

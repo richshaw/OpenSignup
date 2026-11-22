@@ -54,12 +54,40 @@ describe('boundedArray', () => {
     expect(Ids.parse(['a', 'b', 'c'])).toEqual(['a', 'b', 'c']);
   });
 
-  it('refuses a too-long array with one issue, without parsing its items', () => {
+  it('refuses a too-long array as .max() does, parsing only its first max items', () => {
     const result = Ids.safeParse(Array.from({ length: 10_000 }, () => 0));
     expect(result.success).toBe(false);
     expect(result.error?.issues).toEqual([
-      expect.objectContaining({ code: 'too_big', maximum: 3, type: 'array', path: [] }),
+      {
+        code: 'too_big',
+        maximum: 3,
+        type: 'array',
+        inclusive: true,
+        exact: false,
+        path: [],
+        message: expect.any(String),
+      },
+      expect.objectContaining({ code: 'invalid_type', path: [0] }),
+      expect.objectContaining({ code: 'invalid_type', path: [1] }),
+      expect.objectContaining({ code: 'invalid_type', path: [2] }),
     ]);
+  });
+
+  it('gives the same too_big issue as .max()', () => {
+    const tooLong = ['a', 'b', 'c', 'd'];
+    expect(Ids.safeParse(tooLong).error?.issues).toEqual(
+      z.array(z.string()).max(3).safeParse(tooLong).error?.issues,
+    );
+  });
+
+  it('still runs the checks of the object around it', () => {
+    const Outer = z
+      .object({ ids: Ids, n: z.number() })
+      .refine((o) => o.n > 0, { message: 'n must be positive', path: ['n'] });
+    const messages = Outer.safeParse({ ids: ['a', 'b', 'c', 'd'], n: 0 }).error?.issues.map(
+      (i) => i.message,
+    );
+    expect(messages).toContain('n must be positive');
   });
 
   it('still reports each bad item in an array within its bounds', () => {

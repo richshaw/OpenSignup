@@ -95,13 +95,13 @@ describe('FollowUpSchema', () => {
     expect(issue({ what: { picked, added }, howMany })).toMatch(/At most 12 things/);
   });
 
-  it('refuses a count list longer than any list of things, without checking each count', () => {
+  it('refuses a count list longer than any list of things', () => {
     const result = FollowUpSchema.safeParse({
       ...answers,
-      howMany: Array(WHAT_OPTIONS_MAX + WHAT_ITEMS_MAX + 1).fill('x'),
+      howMany: Array(10_000).fill('x'),
     });
-    expect(result.error?.issues).toHaveLength(1);
     expect(result.error?.issues[0]).toMatchObject({ code: 'too_big', path: ['howMany'] });
+    expect(result.error?.issues.length).toBeLessThan(WHAT_OPTIONS_MAX + WHAT_ITEMS_MAX + 5);
   });
 
   it('rejects the same item twice, in any case, across picked and added', () => {

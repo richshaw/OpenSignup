@@ -52,9 +52,9 @@ describe.each([
     expect(schema.safeParse({ [key]: ids.slice(1) }).success).toBe(true);
   });
 
-  it('refuses a body-sized array of wrong items with a single issue', () => {
-    const result = schema.safeParse({ [key]: Array(MAX_REORDER_IDS + 1).fill(0) });
-    expect(result.error?.issues).toHaveLength(1);
+  it('records at most one issue per id it takes for a body-sized array of wrong items', () => {
+    const result = schema.safeParse({ [key]: Array(499_990).fill(0) });
     expect(result.error?.issues[0]).toMatchObject({ code: 'too_big', path: [key] });
+    expect(result.error?.issues.length).toBe(MAX_REORDER_IDS + 1);
   });
 });
