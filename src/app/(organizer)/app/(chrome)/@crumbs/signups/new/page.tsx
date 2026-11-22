@@ -4,5 +4,5 @@ import { crumbTranslator } from '@/components/chrome/crumb-text';
 export default async function NewSignupCrumb() {
   const t = await crumbTranslator();
   if (!t) return null;
-  return <Crumb truncate>{t('newSignup')}</Crumb>;
+  return <Crumb>{t('newSignup')}</Crumb>;
 }

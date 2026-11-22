@@ -7,16 +7,17 @@
 import type { SQL } from 'drizzle-orm';
 import type { Db } from '@/db/client';
 import type { ActivityEvent } from '@/db/schema/activity';
-import { localeOfSignup } from '@/i18n/locale';
 import { recordActivity } from '@/lib/activity';
 import { log } from '@/lib/log';
-import { commitmentEditUrl, reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
+import { reminderUnsubscribePostUrl, reminderUnsubscribeUrl } from '@/lib/links';
 import { editTokenFor } from '@/lib/token';
 import { reminderOptOutTokenFor } from '@/services/reminder-optout';
-import { loadCommitmentRow, slotText } from '@/email/commitment-row';
+import {
+  commitmentEmailProps,
+  loadCommitmentRow,
+  type CommitmentRow,
+} from '@/email/commitment-row';
 import { skipReasons } from './notify-rules';
-
-type CommitmentRow = NonNullable<Awaited<ReturnType<typeof loadCommitmentRow>>>;
 
 /**
  * The commitment as it is now, if it still passes `condition` (every rule in
@@ -55,23 +56,12 @@ export async function loadDueRow(
  */
 export async function workerEmailParts(db: Db, row: CommitmentRow) {
   const optOutToken = reminderOptOutTokenFor(row.participant.id);
-  const locale = localeOfSignup(row.signup.settings.locale);
   return {
     props: {
-      locale,
-      participantName: row.participant.name,
-      signupTitle: row.signup.title,
       // Edit tokens are HMAC(secret, commitment_id), so the job can re-derive
       // the participant's own link without storing anything recoverable.
-      manageUrl: commitmentEditUrl(
-        row.signup.slug,
-        row.commitment.id,
-        editTokenFor(row.commitment.id),
-      ),
+      ...(await commitmentEmailProps(db, row, editTokenFor(row.commitment.id))),
       unsubscribeUrl: reminderUnsubscribeUrl(row.signup.slug, row.participant.id, optOutToken),
-      ...(await slotText(db, row.signup.id, row.slot.values, locale)),
-      notes: row.commitment.notes,
-      quantity: row.commitment.quantity,
     },
     unsubscribePostUrl: reminderUnsubscribePostUrl(row.participant.id, optOutToken),
   };
