@@ -62,7 +62,14 @@ export async function registerJobs(boss: JobBoss, jobs: readonly JobDefinition[]
   } catch (err) {
     // Stop the queues this call already started, so none of a skipped file's
     // queues is left worked without being marked taken.
-    for (const name of working) await boss.offWork(name).catch(() => undefined);
+    for (const name of working) {
+      await boss.offWork(name).catch((offWorkErr: unknown) => {
+        log.error(
+          { err: offWorkErr, queue: name },
+          'could not stop a queue after a failed registration',
+        );
+      });
+    }
     throw err;
   }
 }
@@ -109,13 +116,15 @@ interface Extension {
 function isJobDefinition(value: unknown): value is JobDefinition {
   if (typeof value !== 'object' || value === null) return false;
   const job = value as Record<string, unknown>;
-  // An empty schedule would quietly mean none, so it's refused, as is a
+  // An empty schedule, or one of only spaces, would quietly mean none or fail
+  // later at pg-boss, so it's refused here, as is a
   // failure message or log-fields function of the wrong kind.
   return (
     typeof job.name === 'string' &&
     job.name.length > 0 &&
     typeof job.run === 'function' &&
-    (job.schedule === undefined || (typeof job.schedule === 'string' && job.schedule !== '')) &&
+    (job.schedule === undefined ||
+      (typeof job.schedule === 'string' && job.schedule.trim() !== '')) &&
     (job.failureMessage === undefined || typeof job.failureMessage === 'string') &&
     (job.logFields === undefined || typeof job.logFields === 'function')
   );

@@ -22,7 +22,7 @@ type Handler = (batch: { data: object | null }[]) => Promise<unknown>;
  */
 function fakeBoss(
   existingSchedules: string[] = [],
-  failing: { work?: string; getSchedules?: boolean } = {},
+  failing: { work?: string; offWork?: string; getSchedules?: boolean } = {},
 ) {
   const calls: string[] = [];
   const handlers = new Map<string, Handler>();
@@ -43,6 +43,7 @@ function fakeBoss(
       return `worker-${name}`;
     }),
     offWork: vi.fn(async (name: string) => {
+      if (name === failing.offWork) throw new Error(`could not stop ${name}`);
       calls.push(`offWork ${name}`);
       handlers.delete(name);
     }),
@@ -185,6 +186,20 @@ describe('registerJobs', () => {
     expect(calls).toContain('offWork site.a');
     expect(handlers.size).toBe(0);
   });
+
+  it('logs a queue it could not stop, and still throws the failure that started it', async () => {
+    const { boss } = fakeBoss([], { work: 'site.b', offWork: 'site.a' });
+    await expect(
+      registerJobs(boss, [
+        { name: 'site.a', run: noop },
+        { name: 'site.b', run: noop },
+      ]),
+    ).rejects.toThrow('could not work site.b');
+    expect(errors).toHaveBeenCalledWith(
+      { err: expect.objectContaining({ message: 'could not stop site.a' }), queue: 'site.a' },
+      'could not stop a queue after a failed registration',
+    );
+  });
 });
 
 describe('unscheduleOthers', () => {
@@ -251,6 +266,7 @@ describe('the extensions folder', () => {
 
     it.each([
       ['an empty schedule', "schedule: ''"],
+      ['a schedule of only spaces', "schedule: '   '"],
       ['a failure message that is not text', 'failureMessage: 5'],
       ['log fields that are not a function', "logFields: 'thingId'"],
     ])('skips a job with %s', async (_case, field) => {
