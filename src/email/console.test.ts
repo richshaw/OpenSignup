@@ -74,8 +74,8 @@ describe('ConsoleTransport addresses', () => {
     expect(fields.replyTo).toBe('pat.inbox@example.com');
   });
 
-  it('takes a blank address as none', async () => {
-    const fields = await logged({ ...message, from: '', replyTo: '' });
+  it.each(['', '   '])('takes %j as no address', async (blank) => {
+    const fields = await logged({ ...message, from: blank, replyTo: blank });
     expect(fields.from).toBe('hello@example.com');
     expect(fields.replyTo).toBeUndefined();
   });
