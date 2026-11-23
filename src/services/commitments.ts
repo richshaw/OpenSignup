@@ -1088,7 +1088,10 @@ export async function countActiveCommitmentsForSignup(db: Db, signupId: string):
  * with `includeFilled`, `getPublicSignup`). Never call it with an id taken
  * straight from a request.
  */
-export async function committedBySlot(db: Db, signupId: string): Promise<Record<string, number>> {
+export async function committedBySlot(
+  db: Queryable,
+  signupId: string,
+): Promise<Record<string, number>> {
   const rows = await db
     .select({
       slotId: commitments.slotId,

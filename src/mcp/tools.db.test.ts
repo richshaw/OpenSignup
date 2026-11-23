@@ -950,6 +950,207 @@ describe('field and slot tools on Postgres', () => {
     ]);
   });
 
+  type ShownSlot = { id: string; values: Record<string, unknown>; capacity: number | null };
+
+  async function createRota(
+    client: Awaited<ReturnType<typeof connectTestClient>>,
+    title: string,
+    slotCount: number,
+  ) {
+    const created = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title,
+        fields: [
+          { ref: 'what', label: 'What', fieldType: 'text' },
+          { ref: 'date', label: 'Date', fieldType: 'date' },
+        ],
+        slots: Array.from({ length: slotCount }, (_, i) => ({
+          values: { what: `Shift ${i + 1}`, date: '2030-05-01' },
+        })),
+      },
+    });
+    expect(created.isError, JSON.stringify(created.structuredContent)).toBeFalsy();
+    return created.structuredContent as { signup: { id: string }; slots: ShownSlot[] };
+  }
+
+  it('update_slots fills in a new field on 30 slots in one call, and get_signup shows it', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const c = await createRota(client, 'Fill in a field', 30);
+    const field = await client.callTool({
+      name: 'add_field',
+      arguments: { signupId: c.signup.id, ref: 'where', label: 'Where', fieldType: 'text' },
+    });
+    expect(field.isError, JSON.stringify(field.structuredContent)).toBeFalsy();
+
+    const r = await client.callTool({
+      name: 'update_slots',
+      arguments: {
+        signupId: c.signup.id,
+        slots: c.slots.map((s, i) => ({
+          slotId: s.id,
+          values: { ...s.values, where: `Room ${i + 1}` },
+        })),
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    const updated = (r.structuredContent as { slots: ShownSlot[] }).slots;
+    expect(updated.map((s) => s.id)).toEqual(c.slots.map((s) => s.id));
+
+    const detail = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: c.signup.id },
+    });
+    const d = detail.structuredContent as { slots: ShownSlot[] };
+    expect(d.slots).toHaveLength(30);
+    for (const [i, s] of c.slots.entries()) {
+      expect(d.slots.find((x) => x.id === s.id)?.values).toEqual({
+        what: `Shift ${i + 1}`,
+        date: '2030-05-01',
+        where: `Room ${i + 1}`,
+      });
+    }
+
+    const logged = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, c.signup.id), eq(activity.eventType, 'slot.updated')));
+    expect(logged).toHaveLength(1);
+    expect(logged[0]!.payload).toMatchObject({
+      slotIds: c.slots.map((s) => s.id),
+      changed: ['values'],
+      bulk: true,
+    });
+  });
+
+  it('update_slots changes nothing when one row is refused, and names that row', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const c = await createRota(client, 'All or nothing', 3);
+    const other = await createRota(client, 'Another signup', 1);
+    const read = async () =>
+      (
+        (await client.callTool({ name: 'get_signup', arguments: { signupId: c.signup.id } }))
+          .structuredContent as { slots: ShownSlot[] }
+      ).slots;
+    const before = await read();
+
+    const badValue = await client.callTool({
+      name: 'update_slots',
+      arguments: {
+        signupId: c.signup.id,
+        slots: [
+          { slotId: c.slots[0]!.id, capacity: 4 },
+          { slotId: c.slots[1]!.id, values: { what: 'Late', date: 'next Tuesday' } },
+        ],
+      },
+    });
+    expect(badValue.isError).toBe(true);
+    expect(badValue.structuredContent).toMatchObject({
+      error: { code: 'invalid_input', field: 'slots.1.values.date' },
+    });
+
+    const foreign = await client.callTool({
+      name: 'update_slots',
+      arguments: {
+        signupId: c.signup.id,
+        slots: [
+          { slotId: c.slots[0]!.id, capacity: 4 },
+          { slotId: other.slots[0]!.id, capacity: 4 },
+        ],
+      },
+    });
+    expect(foreign.isError).toBe(true);
+    expect(foreign.structuredContent).toMatchObject({
+      error: { code: 'invalid_input', field: 'slots.1.slotId' },
+    });
+
+    expect(await read()).toEqual(before);
+    const otherAfter = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: other.signup.id },
+    });
+    expect((otherAfter.structuredContent as { slots: ShownSlot[] }).slots[0]!.capacity).toBe(1);
+  });
+
+  it('update_slots refuses a capacity below the places taken', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const c = await createRota(client, 'Capacity floor', 2);
+    await client.callTool({
+      name: 'update_slot',
+      arguments: { slotId: c.slots[1]!.id, capacity: 3 },
+    });
+    await publishSignup(db, ctx.actor, c.signup.id);
+    const commit = await commitToSlot(db, c.slots[1]!.id, {
+      name: 'Pat',
+      email: 'pat@example.com',
+      quantity: 2,
+    });
+    expect(commit.ok, JSON.stringify(commit)).toBe(true);
+
+    const r = await client.callTool({
+      name: 'update_slots',
+      arguments: {
+        signupId: c.signup.id,
+        slots: [
+          { slotId: c.slots[0]!.id, status: 'closed' },
+          { slotId: c.slots[1]!.id, capacity: 1 },
+        ],
+      },
+    });
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toMatchObject({
+      error: {
+        code: 'conflict',
+        field: 'slots.1.capacity',
+        details: { reason: 'capacity_below_taken', taken: 2 },
+      },
+    });
+    const detail = await client.callTool({
+      name: 'get_signup',
+      arguments: { signupId: c.signup.id },
+    });
+    const d = detail.structuredContent as { slots: (ShownSlot & { status: string })[] };
+    expect(d.slots.map((s) => s.status)).toEqual(['open', 'open']);
+  });
+
+  it('update_slots writes one slot.rescheduled for each slot it moves to a new date', async () => {
+    const client = await connectTestClient(ctx, TOOLS);
+    const c = await createRota(client, 'Move two', 3);
+    const r = await client.callTool({
+      name: 'update_slots',
+      arguments: {
+        signupId: c.signup.id,
+        slots: [
+          { slotId: c.slots[0]!.id, values: { what: 'Shift 1', date: '2030-05-08' } },
+          { slotId: c.slots[1]!.id, values: { what: 'Shift 2', date: '2030-05-09' } },
+          // Same date: values change, the slot doesn't move.
+          { slotId: c.slots[2]!.id, values: { what: 'Shift three', date: '2030-05-01' } },
+        ],
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+
+    const moves = await db
+      .select({ payload: activity.payload })
+      .from(activity)
+      .where(and(eq(activity.signupId, c.signup.id), eq(activity.eventType, 'slot.rescheduled')));
+    const bySlot = new Map(
+      moves.map((m) => {
+        const p = m.payload as { slotId: string; from: string | null; to: string | null };
+        return [p.slotId, p];
+      }),
+    );
+    expect(moves).toHaveLength(2);
+    expect(bySlot.get(c.slots[0]!.id)).toMatchObject({
+      from: '2030-05-01T12:00:00.000Z',
+      to: '2030-05-08T12:00:00.000Z',
+    });
+    expect(bySlot.get(c.slots[1]!.id)).toMatchObject({
+      from: '2030-05-01T12:00:00.000Z',
+      to: '2030-05-09T12:00:00.000Z',
+    });
+  });
+
   async function createWithFields(
     client: Awaited<ReturnType<typeof connectTestClient>>,
     title: string,

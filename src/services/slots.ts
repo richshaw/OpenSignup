@@ -1,8 +1,8 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 import type { Db, Queryable } from '@/db/client';
 import { commitments } from '@/db/schema/commitments';
 import { slots, type Slot as SlotRow } from '@/db/schema/slots';
-import { activityActor, recordActivity } from '@/lib/activity';
+import { activityActor, recordActivities, recordActivity } from '@/lib/activity';
 import { serviceError, type ServiceError } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
 import { parseInputSafe } from '@/lib/parse';
@@ -15,6 +15,7 @@ import {
   SlotBulkInputSchema,
   SlotCreateInputSchema,
   SlotReorderInputSchema,
+  SlotUpdateBulkInputSchema,
   SlotUpdateInputSchema,
 } from '@/schemas/slots';
 import { MAX_SORT_ORDER } from '@/schemas/common';
@@ -29,7 +30,7 @@ import {
   withLockedSignup,
   withSignupWriteLock,
 } from './locks';
-import { isActiveCommitment, placesTaken } from './commitments';
+import { committedBySlot, isActiveCommitment, placesTaken } from './commitments';
 import { extractSlotAt, listFieldsForSignup, validateSlotValues } from './slot-fields';
 import { everyIdOnceError, nextSortOrder, writeOrder } from './reorder-ids';
 
@@ -236,6 +237,172 @@ export async function reorderSlots(
     // Read back rather than patched in memory, so the rows carry the
     // `updatedAt` the renumbering gave the ones that moved.
     return ok(await listSlotsForSignup(tx, signupId));
+  });
+}
+
+/**
+ * Change several slots of one signup in one go, by `updateSlot`'s rules: each
+ * row's values are checked against the fields and replace all of that slot's
+ * values, a capacity can't go below the places already taken, and slot_at comes
+ * from the reminder anchor. All or nothing: the first row refused comes back
+ * with its index in `field` (`slots.3.capacity`), and nothing is written.
+ * Returns the slots in the order given.
+ */
+export async function updateSlotsBulk(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  rawInput: unknown,
+): Promise<Result<SlotRow[], ServiceError>> {
+  const input = parseInputSafe(SlotUpdateBulkInputSchema, rawInput);
+  if (!input.ok) return input;
+  const rows = input.value.slots;
+
+  const seen = new Set<string>();
+  for (const [i, row] of rows.entries()) {
+    if (seen.has(row.slotId)) {
+      return err(
+        serviceError('invalid_input', 'each slot can be changed only once per call', {
+          field: `slots.${i}.slotId`,
+          received: row.slotId,
+          suggestion: 'merge the changes to this slot into one row',
+        }),
+      );
+    }
+    seen.add(row.slotId);
+  }
+
+  // Signup first, then every slot row, as the reorder and insert-before paths
+  // do (src/services/locks.ts). The signup lock makes a field change or an
+  // anchor move in flight finish first, so values are checked against the
+  // fields as it left them; the slot locks are the ones `commitToSlot` takes,
+  // so no place can be taken between the capacity check and the write.
+  return withSignupWriteLock(db, actor, signupId, async (tx, locked) => {
+    const current = new Map(
+      (await lockSlotsForSignup(tx, signupId, locked.workspaceId)).map((s) => [s.id, s]),
+    );
+    const fields = rows.some((r) => r.values !== undefined)
+      ? await listFieldsForSignup(tx, signupId)
+      : [];
+    const taken = rows.some((r) => r.capacity !== undefined && r.capacity !== null)
+      ? await committedBySlot(tx, signupId)
+      : {};
+
+    const next: { before: SlotRow; after: SlotRow }[] = [];
+    for (const [i, row] of rows.entries()) {
+      const before = current.get(row.slotId);
+      if (!before) {
+        return err(
+          serviceError('invalid_input', 'slotId is not a slot in this signup', {
+            field: `slots.${i}.slotId`,
+            received: row.slotId,
+            suggestion: 'call get_signup to see the ids of its slots',
+          }),
+        );
+      }
+      if (row.capacity !== undefined && row.capacity !== null) {
+        const usedQty = taken[row.slotId] ?? 0;
+        if (usedQty > row.capacity) {
+          return err(
+            serviceError(
+              'conflict',
+              `capacity (${row.capacity}) is less than active quantity (${usedQty})`,
+              {
+                field: `slots.${i}.capacity`,
+                received: row.capacity,
+                suggestion: 'cancel some commitments before lowering capacity',
+                details: { reason: 'capacity_below_taken', taken: usedQty, slotId: row.slotId },
+              },
+            ),
+          );
+        }
+      }
+      const after = { ...before };
+      if (row.values !== undefined) {
+        const valid = validateSlotValues(fields, row.values);
+        if (!valid.ok) {
+          const e = valid.error;
+          return err({ ...e, field: `slots.${i}.values${e.field ? `.${e.field}` : ''}` });
+        }
+        after.values = valid.value;
+        after.slotAt = extractSlotAt(locked.settings, fields, valid.value);
+      }
+      if (row.capacity !== undefined) after.capacity = row.capacity;
+      if (row.status !== undefined) after.status = row.status;
+      next.push({ before, after });
+    }
+
+    // One statement for every row. Each row is written whole, from the locked
+    // row with this call's changes on top, so the SET needs no per-row cases.
+    // The rows travel as one JSON parameter, as in `writeOrder`.
+    const changes = JSON.stringify(
+      next.map(({ after }) => ({
+        id: after.id,
+        values: after.values,
+        slot_at: after.slotAt?.toISOString() ?? null,
+        capacity: after.capacity,
+        status: after.status,
+      })),
+    );
+    const written = await tx
+      .update(slots)
+      .set({
+        values: sql`u."values"`,
+        slotAt: sql`u.slot_at`,
+        capacity: sql`u.capacity`,
+        status: sql`u.status`,
+        updatedAt: new Date(),
+      })
+      .from(
+        sql`jsonb_to_recordset(${changes}::jsonb)
+          as u(id text, "values" jsonb, slot_at timestamptz, capacity int, status text)`,
+      )
+      .where(and(eq(slots.signupId, signupId), sql`${slots.id} = u.id`))
+      .returning(getTableColumns(slots));
+    const byId = new Map(written.map((r) => [r.id, r]));
+    const out = next.map(({ after }) => {
+      const row = byId.get(after.id);
+      if (!row) throw new Error('slot update returned nothing');
+      return row;
+    });
+
+    const sent = new Set(rows.flatMap((r) => Object.keys(r).filter((k) => k !== 'slotId')));
+    const by = activityActor(actor);
+    // One slot.rescheduled per slot that moved, beside the call's one
+    // slot.updated, as `updateSlot` writes them: the slot-change emails and
+    // the reminders' settle check read them slot by slot.
+    const moved = next.flatMap(({ before }, i) => {
+      const row = out[i]!;
+      if (rows[i]!.values === undefined || sameInstant(before.slotAt, row.slotAt)) return [];
+      return [
+        {
+          signupId,
+          workspaceId: locked.workspaceId,
+          actor: by,
+          eventType: 'slot.rescheduled' as const,
+          payload: {
+            slotId: row.id,
+            from: before.slotAt?.toISOString() ?? null,
+            to: row.slotAt?.toISOString() ?? null,
+          },
+        },
+      ];
+    });
+    await recordActivities(tx, [
+      {
+        signupId,
+        workspaceId: locked.workspaceId,
+        actor: by,
+        eventType: 'slot.updated',
+        payload: {
+          slotIds: out.map((r) => r.id),
+          changed: ['values', 'capacity', 'status'].filter((k) => sent.has(k)),
+          bulk: true,
+        },
+      },
+      ...moved,
+    ]);
+    return ok(out);
   });
 }
 

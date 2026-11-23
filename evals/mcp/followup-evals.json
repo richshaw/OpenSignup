@@ -53,6 +53,23 @@
         "reply.must_include_edit_link": true,
         "rationale": "The server instructions ask for slots as a table and for links.edit. \"Show me\" changes nothing, so no write tools."
       }
+    },
+    {
+      "id": "ev_104_fill_new_field_in_one_call",
+      "tags": ["follow_up", "bulk_update"],
+      "runner": "llm",
+      "prompt": "Please create a volunteer signup for our park clean-up on Saturday 17 April 2027. We need people for litter picking, weeding, path sweeping, bench painting, bulb planting and the refreshments table, two volunteers each.",
+      "followUps": [
+        "Add a Location column: litter picking and path sweeping are at the north gate, weeding and bulb planting at the pond, bench painting and refreshments at the bandstand."
+      ],
+      "expect": {
+        "followups.tools_must_include": ["add_field", "update_slots"],
+        "followups.tools_must_not_include": ["update_slot"],
+        "slots.added_count": 0,
+        "slots.removed_count": 0,
+        "slots.no_duplicates": true,
+        "rationale": "A new field starts empty on every slot. Filling it in is one update_slots call for all six slots, not one update_slot call per slot."
+      }
     }
   ]
 }
