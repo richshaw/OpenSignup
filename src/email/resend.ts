@@ -1,4 +1,4 @@
-import type { EmailMessage, EmailResult, EmailTransport } from './transport';
+import { addressOf, type EmailMessage, type EmailResult, type EmailTransport } from './transport';
 
 export class ResendTransport implements EmailTransport {
   constructor(
@@ -14,9 +14,9 @@ export class ResendTransport implements EmailTransport {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: msg.from || this.from,
+        from: addressOf(msg.from) ?? this.from,
         to: [msg.to],
-        reply_to: msg.replyTo || undefined,
+        reply_to: addressOf(msg.replyTo),
         subject: msg.subject,
         html: msg.html,
         text: msg.text,

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getEnv } from '@/lib/env';
 import { log } from '@/lib/log';
-import type { EmailMessage, EmailResult, EmailTransport } from './transport';
+import { addressOf, type EmailMessage, type EmailResult, type EmailTransport } from './transport';
 
 /**
  * Blanks the query string of every URL in a block of text.
@@ -42,8 +42,8 @@ export class ConsoleTransport implements EmailTransport {
       {
         emailId: id,
         to: msg.to,
-        from: msg.from || this.from,
-        replyTo: msg.replyTo || undefined,
+        from: addressOf(msg.from) ?? this.from,
+        replyTo: addressOf(msg.replyTo),
         subject: msg.subject,
         urls,
         textPreview: text.slice(0, 600),
