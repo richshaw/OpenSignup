@@ -555,7 +555,8 @@ declare const messages: {
         "status": "Status",
         "spots": "Spots",
         "notes": "Notes",
-        "signedUp": "Signed up"
+        "signedUp": "Signed up",
+        "fileName": "{slug}-responses.csv"
       }
     },
     "newSignup": {

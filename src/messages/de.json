@@ -552,7 +552,8 @@
         "status": "Status",
         "spots": "Plätze",
         "notes": "Anmerkung",
-        "signedUp": "Eingetragen"
+        "signedUp": "Eingetragen",
+        "fileName": "{slug}-einträge.csv"
       }
     },
     "newSignup": {

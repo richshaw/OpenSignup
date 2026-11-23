@@ -491,7 +491,8 @@
         "status": "Status",
         "spots": "Antal platser",
         "notes": "Kommentar",
-        "signedUp": "Anmäld"
+        "signedUp": "Anmäld",
+        "fileName": "{slug}-anmälningar.csv"
       }
     },
     "newSignup": {
