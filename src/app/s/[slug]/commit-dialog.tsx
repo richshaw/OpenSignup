@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs, calendarFileName } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -226,7 +226,9 @@ export default function CommitDialog({
     triggerRef.current?.focus();
   }
 
-  const emailHint = useMemo(() => suggestEmail(emailValue), [emailValue]);
+  // The signup's language, which picks the domains a typo is checked against.
+  const locale = useLocale();
+  const emailHint = useMemo(() => suggestEmail(emailValue, locale), [emailValue, locale]);
   const askQuantity = spotsLeft === null || spotsLeft > 1;
   // The row's own count ("2 left") is behind the sheet, and hidden from
   // assistive tech while it is open, so the header says how many are left.
