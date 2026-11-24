@@ -1,6 +1,6 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import type SMTPPool from 'nodemailer/lib/smtp-pool';
-import type { EmailMessage, EmailResult, EmailTransport } from './transport';
+import { addressOf, type EmailMessage, type EmailResult, type EmailTransport } from './transport';
 
 export interface SmtpConfig {
   host: string;
@@ -113,15 +113,16 @@ export class SmtpTransport implements EmailTransport {
   }
 
   async send(msg: EmailMessage): Promise<EmailResult> {
+    const from = addressOf(msg.from);
     try {
       const info = await this.transporter.sendMail({
-        from: msg.from || this.cfg.from,
-        replyTo: msg.replyTo || undefined,
+        from: from ?? this.cfg.from,
+        replyTo: addressOf(msg.replyTo),
         // nodemailer takes the envelope sender, where bounces go, from `from`.
         // An email from another address keeps EMAIL_FROM's, as Resend does,
         // so bounces don't land in a person's inbox and the relay's SPF need
         // only cover EMAIL_FROM.
-        ...(msg.from ? { envelope: { from: this.cfg.from, to: msg.to } } : {}),
+        ...(from ? { envelope: { from: this.cfg.from, to: msg.to } } : {}),
         to: msg.to,
         subject: msg.subject,
         html: msg.html,

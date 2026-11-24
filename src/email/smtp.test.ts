@@ -365,8 +365,8 @@ describe('SmtpTransport addresses', () => {
     expect(headers).toContain('Reply-To: pat.inbox@example.com');
   });
 
-  it('takes a blank address as none', async () => {
-    const { mailFrom, headers } = await received({ ...message, from: '', replyTo: '' });
+  it.each(['', '   '])('takes %j as no address', async (blank) => {
+    const { mailFrom, headers } = await received({ ...message, from: blank, replyTo: blank });
     expect(mailFrom).toBe('hello@example.com');
     expect(headers).toContain('From: hello@example.com');
     expect(headers.some((h) => /^Reply-To:/i.test(h))).toBe(false);

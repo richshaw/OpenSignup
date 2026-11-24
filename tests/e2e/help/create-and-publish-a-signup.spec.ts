@@ -26,8 +26,10 @@ test.describe('help: create and publish your first signup', () => {
     await loginAsSeededOrganizer(context);
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
-    // Create the signup
-    await page.goto('/app');
+    // Create the signup: step 1's Sign in link, which goes straight on to
+    // Your signups for someone already signed in.
+    await page.goto(`/help/${SLUG}`);
+    await page.getByRole('main').getByRole('link', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('heading', { name: UI.yourSignups })).toBeVisible();
     await page.getByRole('link', { name: UI.newSignup, exact: true }).click();
     // Sites with drafting switched on ask first; the article says to skip it.
