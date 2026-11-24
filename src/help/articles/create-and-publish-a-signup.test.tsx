@@ -9,6 +9,7 @@ import { shareText } from '@/components/share/share-text';
 import { englishMessages } from '@/i18n/testing/client-messages';
 import { SharePanel } from '@/components/share/SharePanel';
 import { getTestTranslator } from '@/i18n/testing/translator';
+import { CreateAndPublishASignup } from './create-and-publish-a-signup';
 import { UI } from './create-and-publish-a-signup.ui';
 
 vi.mock('@/components/share/ShareQrCode', () => ({ ShareQrCode: () => null }));
@@ -69,5 +70,13 @@ describe('create-and-publish-a-signup: a phone’s share menu', () => {
     expect(screen.getByRole('button', { name: UI.copyLink })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: UI.copyMessage })).toBeNull();
     expect(screen.queryByRole('link', { name: UI.emailIt })).toBeNull();
+  });
+});
+
+// Step 1 says to sign in; a reader who starts on the help pages needs the way there.
+describe('create-and-publish-a-signup: the first step', () => {
+  it('links "Sign in" to the sign-in page', () => {
+    render(<CreateAndPublishASignup />);
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
   });
 });
