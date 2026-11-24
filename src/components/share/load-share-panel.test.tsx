@@ -60,7 +60,7 @@ describe('when the share panel can’t load', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     const panel = screen.getByRole('dialog', { name: 'Share the link' });
     expect(
-      await within(panel).findByText('Couldn’t load the other ways to share. Reload to try again.'),
+      await within(panel).findByText("Couldn't load the other ways to share. Reload to try again."),
     ).toBeInTheDocument();
     expect(within(panel).getByText(LINK)).toBeInTheDocument();
     fireEvent.click(within(panel).getByRole('button', { name: 'Copy public link' }));
@@ -93,7 +93,7 @@ describe('when the share panel can’t load', () => {
     const panel = screen.getByRole('dialog', { name: 'Share the link' });
     // Not answered at once from the failed load: the fallback shows while it
     // asks again.
-    const failed = 'Couldn’t load the other ways to share. Reload to try again.';
+    const failed = "Couldn't load the other ways to share. Reload to try again.";
     expect(within(panel).queryByText(failed)).toBeNull();
     expect(await within(panel).findByText(failed)).toBeInTheDocument();
   });

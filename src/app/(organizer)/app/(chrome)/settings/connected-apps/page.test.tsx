@@ -166,7 +166,7 @@ describe('Connected apps', () => {
     cleanup();
 
     await renderPage({ error: 'internal' });
-    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn’t disconnect\. Try again\.$/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't disconnect\. Try again\.$/);
   });
 
   it.each(OTHER_LANGUAGES)(

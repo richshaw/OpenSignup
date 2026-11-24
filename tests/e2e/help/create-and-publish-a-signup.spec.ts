@@ -453,7 +453,7 @@ test.describe('help: create and publish your first signup', () => {
       await slotEditor.getByRole('button', { name: UI.done }).click();
       await expect(publish).toBeFocused();
       await expect(
-        page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' }),
+        page.getByRole('status').filter({ hasText: "Publish and share when you're ready." }),
       ).toHaveCount(1);
 
       await publish.click();

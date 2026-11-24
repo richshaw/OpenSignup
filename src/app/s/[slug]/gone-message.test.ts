@@ -42,7 +42,7 @@ describe('gonePage', () => {
         body: 'Contact the organizer to find out what has changed, or to ask them for a new link.',
       },
       editLink: {
-        title: 'Sorry, this link isn’t working',
+        title: "Sorry, this link isn't working",
         body: 'Your spot may no longer be available, or the link may be incomplete. Contact the organizer to find out what has changed. If you got a confirmation email, you can also try its link again.',
       },
     });

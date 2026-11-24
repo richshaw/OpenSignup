@@ -108,7 +108,7 @@ describe('<SharePanel /> on a computer', () => {
     writeText.mockRejectedValue(new Error('denied'));
     render(<Owner />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    const notice = await screen.findByText('Couldn’t copy. Select the link and copy it.');
+    const notice = await screen.findByText("Couldn't copy. Select the link and copy it.");
     // Right under the row of the button that was refused.
     expect(notice.previousElementSibling).toContainElement(
       screen.getByRole('button', { name: 'Copy link' }),
@@ -123,18 +123,18 @@ describe('<SharePanel /> on a computer', () => {
     writeText.mockResolvedValue(undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
     await screen.findByText('Link copied');
-    expect(screen.queryByText('Couldn’t copy. Select the link and copy it.')).toBeNull();
+    expect(screen.queryByText("Couldn't copy. Select the link and copy it.")).toBeNull();
   });
 
   it('says so when the clipboard refuses the message, and selects it', async () => {
     writeText.mockRejectedValue(new Error('denied'));
     render(<Owner />);
     fireEvent.click(screen.getByRole('button', { name: 'Copy message' }));
-    const notice = await screen.findByText('Couldn’t copy. Select the message and copy it.');
+    const notice = await screen.findByText("Couldn't copy. Select the message and copy it.");
     expect(notice.previousElementSibling).toContainElement(
       screen.getByRole('button', { name: 'Copy message' }),
     );
-    expect(screen.queryByText('Couldn’t copy. Select the link and copy it.')).toBeNull();
+    expect(screen.queryByText("Couldn't copy. Select the link and copy it.")).toBeNull();
     expect(emit).not.toHaveBeenCalled();
     const box = screen.getByLabelText<HTMLTextAreaElement>('A message to send with it');
     expect(box).toHaveFocus();
@@ -275,7 +275,7 @@ describe('<SharePanel /> on a phone', () => {
     render(<Owner variant="phone" />);
     expect(screen.queryByLabelText('Public link')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    const notice = await screen.findByText('Couldn’t copy. Select the link and copy it.');
+    const notice = await screen.findByText("Couldn't copy. Select the link and copy it.");
     const field = screen.getByLabelText<HTMLInputElement>('Public link');
     expect(field).toHaveValue(LINK);
     // Beside the link's box, above Copy link, not under the message.
@@ -307,7 +307,7 @@ describe('<SharePanel /> on a phone', () => {
     render(<Owner variant="phone" />);
     expect(screen.getByRole('button', { name: 'Share…' })).toHaveFocus();
     expect(
-      screen.getByText('Opens your phone’s share menu, with the message and link.'),
+      screen.getByText("Opens your phone's share menu, with the message and link."),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Copy message' })).not.toBeInTheDocument();
@@ -322,7 +322,7 @@ describe('<SharePanel /> on a phone', () => {
       target: { value: 'Bake sale on Saturday, can you help?' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Share…' }));
-    await screen.findByText('Sent from your phone’s share menu.');
+    await screen.findByText("Sent from your phone's share menu.");
     expect(emit).toHaveBeenCalledExactlyOnceWith('sig_1', 'shared', 'share_menu');
     expect(share).toHaveBeenCalledExactlyOnceWith({
       title: 'Bake sale helpers',
@@ -340,9 +340,9 @@ describe('<SharePanel /> on a phone', () => {
     await waitFor(() => expect(share).toHaveBeenCalled());
     await Promise.resolve();
     expect(
-      screen.getByText('Opens your phone’s share menu, with the message and link.'),
+      screen.getByText("Opens your phone's share menu, with the message and link."),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Sent from your phone’s share menu.')).not.toBeInTheDocument();
+    expect(screen.queryByText("Sent from your phone's share menu.")).not.toBeInTheDocument();
     expect(emit).not.toHaveBeenCalled();
   });
 });

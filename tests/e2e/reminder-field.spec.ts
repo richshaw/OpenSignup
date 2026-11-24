@@ -149,7 +149,7 @@ test.describe('reminder field', () => {
     const saved = page.waitForResponse(
       (r) => r.request().method() === 'PATCH' && r.url().endsWith(`/api/signups/${signupId}`),
     );
-    await dialog.getByRole('button', { name: 'Don’t group' }).click();
+    await dialog.getByRole('button', { name: "Don't group" }).click();
     await dialog
       .getByRole('listbox', { name: 'Group slots by' })
       .getByRole('option', { name: 'Date' })

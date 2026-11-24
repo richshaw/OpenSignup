@@ -85,7 +85,7 @@ describe('saveErrorMessage', () => {
   it('words a field change its slots’ values don’t fit for organizers', () => {
     expect(
       said({ code: 'conflict', details: { reason: 'invalidates_slot_values', count: 1 } }),
-    ).toBe('Some slots have values that don’t fit this change. Change those first.');
+    ).toBe("Some slots have values that don't fit this change. Change those first.");
   });
 
   it('gives a reason whose words lack their value the line for its code', () => {
@@ -109,7 +109,7 @@ describe('saveErrorMessage', () => {
     ).toBe('Reload to see the latest changes.');
     // A participant's reason, or one the tab doesn't know.
     expect(said({ code: 'invalid_input', details: { reason: 'quantity_too_large' } })).toBe(
-      'Some values weren’t accepted.',
+      "Some values weren't accepted.",
     );
   });
 

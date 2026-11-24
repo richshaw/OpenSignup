@@ -189,8 +189,8 @@ describe('the public signup page, in its signup’s language', () => {
   it.each([
     [
       'draft',
-      'This signup isn’t ready yet',
-      'The organizer hasn’t published it yet. This link will work once they do, so check back later.',
+      "This signup isn't ready yet",
+      "The organizer hasn't published it yet. This link will work once they do, so check back later.",
     ],
     [
       'archived',
@@ -240,7 +240,7 @@ describe('the organizer’s own text on the public signup page', () => {
     );
     expect(
       screen.getByText(
-        'People who open this link see “This signup isn’t ready yet” until you publish it. Renaming the draft gives it a new link, so share it after you publish.',
+        "People who open this link see “This signup isn't ready yet” until you publish it. Renaming the draft gives it a new link, so share it after you publish.",
       ),
     ).toBeInTheDocument();
   });

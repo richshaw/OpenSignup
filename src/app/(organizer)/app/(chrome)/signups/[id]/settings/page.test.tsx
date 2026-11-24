@@ -78,9 +78,9 @@ afterEach(() => {
 describe('Settings tab: a refused save or delete', () => {
   it('reads as before, worded by the code the action sends', async () => {
     const lines = {
-      forbidden: 'You don’t have edit access.',
+      forbidden: "You don't have edit access.",
       not_found: 'No longer available.',
-      invalid_input: 'Some values weren’t accepted.',
+      invalid_input: "Some values weren't accepted.",
       internal: 'Save failed.',
     };
     for (const [error, line] of Object.entries(lines)) {
@@ -225,7 +225,7 @@ describe('Settings tab: Reminders', () => {
     await renderTab();
     expect(
       remindersCard().getByText(
-        'People who give an email get a reminder the day before their slot’s Shift day. To turn reminders off, open Fields on the Build tab and choose Shift day.',
+        "People who give an email get a reminder the day before their slot's Shift day. To turn reminders off, open Fields on the Build tab and choose Shift day.",
       ),
     ).toBeInTheDocument();
     // The email line says a reminder comes too.
@@ -345,7 +345,7 @@ describe('Settings tab: its words', () => {
       'language.title': 'Language',
       'language.legend': 'Signup language',
       'language.help':
-        'This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too.',
+        "This signup's page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too.",
       save: 'Save',
       saving: 'Saving…',
       'delete.title': 'Delete this signup',
