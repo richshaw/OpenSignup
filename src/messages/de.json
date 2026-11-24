@@ -758,6 +758,7 @@
     },
     "signup": {
       "draftLine": "Nur du kannst diesen Entwurf sehen, bis du ihn veröffentlichst.",
+      "draftHowPeopleSignUp": "Danach öffnen die Teilnehmenden den Link, wählen eine Aufgabe und geben ihren Namen ein.",
       "preview": "Vorschau",
       "moreActions": "Weitere Aktionen",
       "closeSheet": "Schließen",

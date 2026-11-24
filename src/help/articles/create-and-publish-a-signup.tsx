@@ -30,7 +30,10 @@ export function CreateAndPublishASignup() {
         <Steps>
           <Step>
             <p>
-              Sign in to {INSTANCE_NAME}. The first time you sign in, this creates your account.
+              <a href="/login" className="text-brand underline">
+                Sign in
+              </a>{' '}
+              to {INSTANCE_NAME}. The first time you sign in, this creates your account.
             </p>
           </Step>
           <Step>
@@ -70,7 +73,8 @@ export function CreateAndPublishASignup() {
           <Step>
             <p>
               Choose <Ui>{UI.createSignup}</Ui>. Your signup is saved as a draft. Under its title,
-              it says <Ui>{UI.draftOnly}</Ui> There&apos;s no link to send yet.
+              it says <Ui>{UI.draftOnly}</Ui> It also says <Ui>{UI.draftHowPeopleSignUp}</Ui>{' '}
+              There&apos;s no link to send yet.
             </p>
           </Step>
         </Steps>

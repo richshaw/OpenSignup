@@ -758,6 +758,7 @@
     },
     "signup": {
       "draftLine": "Bara du kan se det här utkastet tills du publicerar det.",
+      "draftHowPeopleSignUp": "Sedan öppnar deltagarna länken, väljer ett pass och skriver sitt namn.",
       "preview": "Förhandsgranska",
       "moreActions": "Fler åtgärder",
       "closeSheet": "Stäng",

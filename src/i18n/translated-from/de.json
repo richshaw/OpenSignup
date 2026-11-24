@@ -532,6 +532,7 @@
   "organizer.status.closed": "closed",
   "organizer.status.archived": "archived",
   "organizer.signup.draftLine": "Only you can see this draft until you publish it.",
+  "organizer.signup.draftHowPeopleSignUp": "Then people open its link, choose a slot and type their name.",
   "organizer.signup.preview": "Preview",
   "organizer.signup.moreActions": "More actions",
   "organizer.signup.closeSheet": "Close",

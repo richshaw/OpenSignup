@@ -6,10 +6,8 @@ export default async function ConnectedAppsCrumb() {
   if (!t) return null;
   return (
     <>
-      <Crumb href="/app/settings" truncate>
-        {t('settings')}
-      </Crumb>
-      <Crumb truncate>{t('connectedApps')}</Crumb>
+      <Crumb href="/app/settings">{t('settings')}</Crumb>
+      <Crumb>{t('connectedApps')}</Crumb>
     </>
   );
 }

@@ -92,6 +92,9 @@ describe('SignupHeader on a computer', () => {
     expect(
       computer.getByText('Only you can see this draft until you publish it.'),
     ).toBeInTheDocument();
+    expect(
+      computer.getByText('Then people open its link, choose a slot and type their name.'),
+    ).toBeInTheDocument();
     expect(computer.queryByText('Public link')).toBeNull();
     expect(computer.queryByText(/spots? taken/)).toBeNull();
   });
@@ -108,6 +111,16 @@ describe('SignupHeader on a computer', () => {
     expect(computer.getByText('3 of 21 spots taken')).toBeInTheDocument();
     expect(computer.queryByText(/Only you can see this draft/)).toBeNull();
   });
+
+  it.each(['open', 'closed', 'archived'] as const)(
+    'doesn’t say how people sign up once the signup is %s',
+    (status) => {
+      const { computer, phone } = renderHeader(status);
+      for (const header of [computer, phone]) {
+        expect(header.queryByText(/choose a slot and type their name/)).toBeNull();
+      }
+    },
+  );
 
   it('counts only the spots taken when a slot has no limit', () => {
     const { computer } = renderHeader('open', {
@@ -164,6 +177,9 @@ describe('SignupHeader on a phone', () => {
     expect(phone.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
     expect(
       phone.getByText('Only you can see this draft until you publish it.'),
+    ).toBeInTheDocument();
+    expect(
+      phone.getByText('Then people open its link, choose a slot and type their name.'),
     ).toBeInTheDocument();
   });
 
@@ -258,11 +274,13 @@ describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
       const { computer, phone, bar } = renderHeader('draft', null, undefined, locale);
       expect(computer.getByText(words('status.draft'))).toBeInTheDocument();
       expect(computer.getByText(words('signup.draftLine'))).toBeInTheDocument();
+      expect(computer.getByText(words('signup.draftHowPeopleSignUp'))).toBeInTheDocument();
       expect(computer.getByRole('link', { name: words('signup.preview') })).toBeInTheDocument();
       expect(
         computer.getByRole('button', { name: words('signup.publish.label') }),
       ).toBeInTheDocument();
       expect(phone.getByText(words('signup.draftLine'))).toBeInTheDocument();
+      expect(phone.getByText(words('signup.draftHowPeopleSignUp'))).toBeInTheDocument();
       expect(phone.getByRole('button', { name: words('signup.moreActions') })).toBeInTheDocument();
       expect(
         within(bar!).getByRole('button', { name: words('signup.publish.label') }),

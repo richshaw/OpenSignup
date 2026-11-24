@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { SortOrderSchema } from './common';
+import { MAX_JSON_BODY_BYTES } from '@/lib/request-body';
+import { boundedArray, SortOrderSchema } from './common';
 
 const SLOT_STATUSES = ['open', 'closed'] as const;
 export type SlotStatus = (typeof SLOT_STATUSES)[number];
@@ -20,29 +21,33 @@ export type SlotCreateInput = z.infer<typeof SlotCreateInputSchema>;
 /** The most slots one bulk add takes, over REST and through the MCP tool. */
 export const MAX_BULK_SLOT_ROWS = 500;
 
+/** One row of a bulk add. */
+export const SlotBulkRowSchema = z.object({
+  values: SlotValuesSchema.default({}),
+  capacity: SlotCapacitySchema.optional(),
+  sortOrder: SortOrderSchema.optional(),
+});
+
 export const SlotBulkInputSchema = z.object({
-  rows: z
-    .array(
-      z.object({
-        values: SlotValuesSchema.default({}),
-        capacity: SlotCapacitySchema.optional(),
-        sortOrder: SortOrderSchema.optional(),
-      }),
-    )
-    .min(1)
-    .max(MAX_BULK_SLOT_ROWS),
+  rows: boundedArray(SlotBulkRowSchema, { min: 1, max: MAX_BULK_SLOT_ROWS }),
   // Put the rows in front of this slot instead of at the end. Not allowed
   // together with a row `sortOrder`; `addSlotsBulk` checks that, because a
   // refinement here would hide `.shape` from the MCP tool that builds on it.
   beforeSlotId: z.string().optional(),
 });
 
-// Every slot id of the signup, in the order they should be shown. No maximum:
-// nothing caps slots per signup, so any ceiling here would make a signup above
-// it impossible to reorder. The 1 MB body cap (`MAX_JSON_BODY_BYTES`, on REST
-// and MCP) is what bounds a request: some 30,000 ids.
+/**
+ * The most ids a reorder takes: as many of the shortest id (`fld_` and 22
+ * characters, 29 bytes with its quotes and comma) as fit in the 1 MB body cap
+ * (`MAX_JSON_BODY_BYTES`, on REST and MCP). Nothing caps slots or fields per
+ * signup, so this is no new ceiling: a body naming more real ids is already
+ * refused for its size. It only bounds the issues a body of wrong items makes.
+ */
+export const MAX_REORDER_IDS = Math.floor(MAX_JSON_BODY_BYTES / 29);
+
+// Every slot id of the signup, in the order they should be shown.
 export const SlotReorderInputSchema = z.object({
-  slotIds: z.array(z.string()).min(1),
+  slotIds: boundedArray(z.string(), { min: 1, max: MAX_REORDER_IDS }),
 });
 
 export const SlotUpdateInputSchema = z
