@@ -908,6 +908,119 @@ describe('slot-fields service (db)', () => {
       expect(r.error.code).toBe('conflict');
     });
 
+    /** A signup with a Number field `qty` and one slot per value given. */
+    async function numberFieldWithSlots(
+      title: string,
+      values: unknown[],
+    ): Promise<{ fieldId: string; slotIds: string[] }> {
+      const sigId = await createTestSignup(fx, title);
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'qty',
+        label: 'Quantity',
+        fieldType: 'number',
+        config: { fieldType: 'number' },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slotIds: string[] = [];
+      for (const qty of values) {
+        const slot = await addSlot(fx.db, fx.actor, sigId, { values: { qty } });
+        if (!slot.ok) throw new Error(`slot setup failed: ${JSON.stringify(slot)}`);
+        slotIds.push(slot.value.id);
+      }
+      return { fieldId: created.value.id, slotIds };
+    }
+
+    async function storedQty(slotIds: string[]): Promise<unknown[]> {
+      const out: unknown[] = [];
+      for (const id of slotIds) {
+        const [row] = await fx.db
+          .select({ values: slots.values })
+          .from(slots)
+          .where(eq(slots.id, id));
+        out.push(row?.values.qty);
+      }
+      return out;
+    }
+
+    it('turns stored numbers into text when a Number field becomes Text', async () => {
+      const { fieldId, slotIds } = await numberFieldWithSlots('Number to text', [2, 3.5, null]);
+
+      const r = await updateField(fx.db, fx.actor, fieldId, {
+        fieldType: 'text',
+        config: { fieldType: 'text', maxLength: 200 },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      expect(await storedQty(slotIds)).toEqual(['2', '3.5', null]);
+
+      const [logged] = await fx.db
+        .select({ payload: activity.payload })
+        .from(activity)
+        .where(and(eq(activity.eventType, 'field.updated'), sql`payload->>'fieldId' = ${fieldId}`));
+      expect(logged?.payload).toMatchObject({ convertedSlotValues: 2 });
+    });
+
+    it('turns stored numbers into choices when a Number field becomes a List', async () => {
+      const { fieldId, slotIds } = await numberFieldWithSlots('Number to list', [2, 3.5]);
+
+      const r = await updateField(fx.db, fx.actor, fieldId, {
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['2', '3.5'] },
+      });
+      expect(r.ok, JSON.stringify(r)).toBe(true);
+      expect(await storedQty(slotIds)).toEqual(['2', '3.5']);
+    });
+
+    it('refuses a Number field becoming a List without every stored number, and changes nothing', async () => {
+      const { fieldId, slotIds } = await numberFieldWithSlots('Number to short list', [2, 3.5]);
+
+      const r = await updateField(fx.db, fx.actor, fieldId, {
+        fieldType: 'enum',
+        config: { fieldType: 'enum', choices: ['2'] },
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error).toMatchObject({
+          code: 'conflict',
+          details: { reason: 'invalidates_slot_values', slotIds: [slotIds[1]], count: 1 },
+        });
+      }
+      expect(await storedQty(slotIds)).toEqual([2, 3.5]);
+      const [field] = await fx.db.select().from(slotFields).where(eq(slotFields.id, fieldId));
+      expect(field?.fieldType).toBe('number');
+    });
+
+    it('refuses a Number field becoming Text too short for a stored number', async () => {
+      const { fieldId, slotIds } = await numberFieldWithSlots('Number to short text', [12345]);
+
+      const r = await updateField(fx.db, fx.actor, fieldId, {
+        fieldType: 'text',
+        config: { fieldType: 'text', maxLength: 3 },
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('conflict');
+      expect(await storedQty(slotIds)).toEqual([12345]);
+    });
+
+    it('still refuses a Text field with words in it becoming a Number', async () => {
+      const sigId = await createTestSignup(fx, 'Text to number');
+      const created = await addField(fx.db, fx.actor, sigId, {
+        ref: 'qty',
+        label: 'Quantity',
+        fieldType: 'text',
+        config: { fieldType: 'text', maxLength: 200 },
+      });
+      if (!created.ok) throw new Error('setup failed');
+      const slot = await addSlot(fx.db, fx.actor, sigId, { values: { qty: '2 dozen' } });
+      if (!slot.ok) throw new Error('slot setup failed');
+
+      const r = await updateField(fx.db, fx.actor, created.value.id, {
+        fieldType: 'number',
+        config: { fieldType: 'number' },
+      });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('conflict');
+    });
+
     it('checks stored values against a slot add in flight', async () => {
       const sigId = await createTestSignup(fx, 'Tighten enum during add');
       const created = await addField(fx.db, fx.actor, sigId, {
