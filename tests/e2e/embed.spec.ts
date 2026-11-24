@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { expect, test, type Page } from '@playwright/test';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL, loadSeed } from './helpers/fixtures';
-import { createClosedSignup, createPublishedSignup } from './helpers/signups';
+import { createOrganizerIn } from './helpers/organizer-language';
 
 const seed = loadSeed();
 
@@ -72,24 +72,21 @@ test.describe('a signup’s embed, inside another website', () => {
     }
   });
 
+  // The signups these tests make are their own organizer's, put straight into
+  // the database: made through the API they'd count against the seeded
+  // organizer's hourly create limit, which the rest of the suite needs.
   test('signs someone up inside the frame, and every link out opens a new tab', async ({
-    browser,
     page,
   }) => {
-    const organizer = await browser.newContext();
-    await loginAsSeededOrganizer(organizer);
-    const signup = await createPublishedSignup(organizer.request, {
-      title: `Lemonade stand ${Date.now()}`,
-      slot: { values: { what: 'Lemon cake', date: '2030-05-04' }, capacity: 3 },
-    });
-    await organizer.close();
+    const organizer = await createOrganizerIn(null, `embed-frame-${test.info().project.name}`);
+    const signup = organizer.open;
 
     const { frame, frameUrl } = await openHostPage(page, `/s/${signup.slug}/embed`);
-    await expect(frame.getByRole('heading', { name: /^Lemonade stand/ })).toBeVisible();
+    await expect(frame.getByRole('heading', { name: 'Bake Sale' })).toBeVisible();
     // No site footer inside the frame.
     await expect(frame.getByRole('contentinfo')).toHaveCount(0);
 
-    const row = frame.locator('li').filter({ hasText: 'Lemon cake' });
+    const row = frame.locator('li').filter({ hasText: 'Cookies' });
     await row.getByRole('button', { name: 'Sign up' }).click();
     await frame.getByLabel('Your name').fill('Pat Tester');
     await frame.getByLabel('Email').fill(`pat+${Date.now()}@example.test`);
@@ -106,7 +103,7 @@ test.describe('a signup’s embed, inside another website', () => {
 
     // Done leaves the sheet in the frame.
     await frame.getByRole('button', { name: 'Done' }).click();
-    await expect(frame.getByRole('heading', { name: /^Lemonade stand/ })).toBeVisible();
+    await expect(frame.getByRole('heading', { name: 'Bake Sale' })).toBeVisible();
     expect(frameUrl()).toBe(`${BASE_URL}/s/${signup.slug}/embed`);
 
     // So does the site's name above the sheet.
@@ -140,38 +137,36 @@ test.describe('a signup’s embed, inside another website', () => {
   });
 
   test('shows each state’s message, and no organizer extras', async ({ page, context }) => {
-    await loginAsSeededOrganizer(context);
+    const organizer = await createOrganizerIn(null, `embed-states-${test.info().project.name}`);
+    await loginAsSeededOrganizer(context, { sessionToken: organizer.sessionToken });
+    const { open, draft } = organizer;
 
     // Signed in as its organizer, on the same site: the signup's own page
     // shows the strip, the embed never does.
-    await page.goto(`/s/${seed.publicSlug}/embed`);
-    await expect(page.getByRole('heading', { name: seed.publicTitle })).toBeVisible();
+    await page.goto(`/s/${open.slug}`);
+    await expect(page.getByRole('navigation', { name: 'Organizer' })).toBeVisible();
+    await page.goto(`/s/${open.slug}/embed`);
+    await expect(page.getByRole('heading', { name: 'Bake Sale' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Organizer' })).toHaveCount(0);
 
     // A draft gets the visitor's message, even from its own organizer.
-    const draft = await page.request.get(`/api/signups/${seed.draftSignupId}`);
-    expect(draft.ok()).toBe(true);
-    const draftSlug = ((await draft.json()).data as { slug: string }).slug;
-    await page.goto(`/s/${draftSlug}/embed`);
+    await page.goto(`/s/${draft.slug}/embed`);
     await expect(page.getByRole('heading', { name: 'This signup isn’t ready yet' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open your draft' })).toHaveCount(0);
 
-    const stamp = Date.now();
-    const closed = await createClosedSignup(page.request, {
-      title: `Closed embed ${stamp}`,
-      slot: { values: { what: 'Juice', date: '2030-05-04' }, capacity: 2 },
-    });
-    await page.goto(`/s/${closed.slug}/embed`);
-    await expect(page.getByRole('heading', { name: `Closed embed ${stamp}` })).toBeVisible();
+    const close = await page.request.post(`/api/signups/${open.id}/close`);
+    expect(close.ok(), await close.text()).toBe(true);
+    await page.goto(`/s/${open.slug}/embed`);
+    await expect(page.getByRole('heading', { name: 'Bake Sale' })).toBeVisible();
     await expect(page.getByRole('status').first()).toContainText('Closed');
     await expect(page.getByRole('navigation', { name: 'Organizer' })).toHaveCount(0);
 
-    const archive = await page.request.post(`/api/signups/${closed.id}/archive`);
+    const archive = await page.request.post(`/api/signups/${open.id}/archive`);
     expect(archive.ok(), await archive.text()).toBe(true);
-    await page.goto(`/s/${closed.slug}/embed`);
+    await page.goto(`/s/${open.slug}/embed`);
     await expect(page.getByText('This signup is no longer available')).toBeVisible();
 
-    const unknown = await page.goto(`/s/no-such-signup-${stamp}/embed`);
+    const unknown = await page.goto(`/s/no-such-signup-${Date.now()}/embed`);
     expect(unknown?.status()).toBe(404);
     await expect(page.getByText('Sorry, this signup is no longer available')).toBeVisible();
     await expect(page.getByRole('contentinfo')).toHaveCount(0);
