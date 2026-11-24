@@ -14,17 +14,15 @@ const seed = loadSeed();
 const HOST_NAME = new URL(BASE_URL).hostname === '127.0.0.1' ? 'localhost' : '127.0.0.1';
 let host: Server;
 let hostOrigin = '';
+// The pages the host serves, by their path, each built by the test that asks
+// for it. Nothing from a request goes into a page: a path not listed is a 404.
+const hostPages = new Map<string, string>();
 
 test.beforeAll(async () => {
   host = createServer((req, res) => {
-    const url = new URL(req.url ?? '/', 'http://host');
-    const path = url.searchParams.get('path') ?? '/';
-    const height = Number(url.searchParams.get('height') ?? 600);
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(`<!doctype html><html lang="en"><title>A school's website</title>
-      <h1>Our school</h1>
-      <iframe title="Sign-up sheet" src="${BASE_URL}${path}"
-        style="width:100%;height:${height}px;border:0"></iframe></html>`);
+    const body = hostPages.get(req.url ?? '');
+    res.writeHead(body ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(body ?? 'Not found');
   });
   await new Promise<void>((resolve) => host.listen(0, HOST_NAME, resolve));
   hostOrigin = `http://${HOST_NAME}:${(host.address() as AddressInfo).port}`;
@@ -39,7 +37,15 @@ const EMBED_CSP = "object-src 'none'; base-uri 'self'; frame-ancestors *";
 
 /** Opens the other website's page, framing `path` of the app, `height` px tall. */
 async function openHostPage(page: Page, path: string, height = 600) {
-  await page.goto(`${hostOrigin}/?${new URLSearchParams({ path, height: String(height) })}`);
+  const pagePath = `/page-${hostPages.size + 1}`;
+  hostPages.set(
+    pagePath,
+    `<!doctype html><html lang="en"><title>A school's website</title>
+      <h1>Our school</h1>
+      <iframe title="Sign-up sheet" src="${BASE_URL}${path}"
+        style="width:100%;height:${height}px;border:0"></iframe></html>`,
+  );
+  await page.goto(`${hostOrigin}${pagePath}`);
   const frame = page.frameLocator('iframe[title="Sign-up sheet"]');
   return { frame, frameUrl: () => page.frames()[1]?.url() ?? '' };
 }
