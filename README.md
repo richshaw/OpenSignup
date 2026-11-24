@@ -98,7 +98,7 @@ You can run the image from the `Dockerfile` on any container host, or run the ap
 
 - `pnpm db:migrate`, before the first start and after each update. It prepares the database.
 - The web app: `node server.js` in the image, or `pnpm build` and then `pnpm start` from the source code.
-- `pnpm worker`, which sends reminder emails. It runs next to the web app, as a second process. Run exactly one: two workers can send the same reminder twice.
+- `pnpm worker`, which sends reminder emails. It runs next to the web app, as a second process. Run exactly one: two workers can send the same reminder twice. To give it background jobs of your own, see [`src/jobs/extensions/`](src/jobs/extensions/README.md).
 
 All settings are environment variables, listed in `.env.example`. For Fly.io, start from `fly.example.toml`.
 
@@ -131,6 +131,8 @@ Unlike the values above, `DEFAULT_LOCALE` is read when the app starts, so changi
 - **Local development** (`pnpm dev`): put it in `.env.local`.
 
 To link pages of your own from the footer of every page, list them in `src/lib/footer-links.ts`. This one is a code change, not an environment variable. The file holds only that list, so your copy merges cleanly when you update.
+
+If your site does more than the OpenSignup software does, such as sending an email of its own, say so on the privacy page by filling in `src/lib/privacy-additions.ts`: the date your sections last changed, written YYYY-MM-DD, and one or more sections, each with a heading, paragraphs of plain text saying what you collect or send, an item for "Why we use your data" (what it's for, and what allows it), and one for "How long we keep it". The page shows the sections under "Added on this site", lists each section's reason and retention with its own, points to the sections wherever it would otherwise read as the whole story, and shows the later of its own date and yours as "Last updated". A date that isn't a real day stops the build. Like the footer list, the file holds only that value, so your copy merges cleanly. It covers the privacy page only: the cookies page has no place for cookies of your own, and the terms tell organizers that participants' details are used only as the privacy policy describes, so anything you add there is something you, not the organizer, decide to do with their participants' details. Like any change to the code, it also means pointing `NEXT_PUBLIC_SOURCE_URL` at where your copy's code can be read, if your site is open to other people.
 
 ## Contributing
 
