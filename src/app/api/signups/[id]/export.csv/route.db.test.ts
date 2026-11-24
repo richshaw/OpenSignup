@@ -23,7 +23,6 @@ vi.mock('@/auth/session', async () => {
   const { loadOrganizerSessionById } = await import('@/auth/organizer-session');
   const { getDb } = await import('@/db/client');
   return {
-    requireActor: async () => session.actor,
     getOrganizerSession: async () =>
       session.actor.kind === 'organizer'
         ? loadOrganizerSessionById(getDb(), session.actor.id)

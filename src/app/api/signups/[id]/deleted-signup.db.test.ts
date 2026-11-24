@@ -19,10 +19,10 @@ import { GET as getSlots } from './slots/route';
 // directly instead of going through Auth.js. The CSV also reads the session
 // for the organizer's language: none stored here, so it's English.
 const session = vi.hoisted(() => ({ actor: { kind: 'anonymous' } as Actor }));
-vi.mock('@/auth/session', () => ({
-  requireActor: async () => session.actor,
-  getOrganizerSession: async () => ({ locale: null }),
-}));
+vi.mock('@/auth/session', async () => {
+  const { sessionOf } = await import('@/auth/testing/session');
+  return { getOrganizerSession: async () => sessionOf(session.actor) };
+});
 
 type RouteGet = (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => Promise<Response>;
 

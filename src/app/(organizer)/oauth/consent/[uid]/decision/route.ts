@@ -35,8 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ uid
 
   if (!sameOrigin(request)) return new Response('Forbidden', { status: 403 });
 
-  // `requireActor` in two steps, so the session that gives the actor also
-  // gives the organizer's language, with no second read.
+  // One read gives the actor and the organizer's language.
   const session = await getOrganizerSession();
   const actor = toActor(session);
   if (actor.kind !== 'organizer') {

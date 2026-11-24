@@ -28,13 +28,16 @@ const session = vi.hoisted(() => ({
   workspaceId: '',
   locale: null as string | null,
 }));
-vi.mock('@/auth/session', () => ({
-  requireActor: async () => session.actor,
-  getOrganizerSession: async () => ({
-    defaultWorkspaceId: session.workspaceId,
-    locale: session.locale,
-  }),
-}));
+vi.mock('@/auth/session', async () => {
+  const { sessionOf } = await import('@/auth/testing/session');
+  return {
+    getOrganizerSession: async () =>
+      sessionOf(session.actor as Actor | undefined, {
+        defaultWorkspaceId: session.workspaceId,
+        locale: session.locale,
+      }),
+  };
+});
 vi.mock('@/lib/env', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/env')>()),
   magicComposeEnabled: () => true,

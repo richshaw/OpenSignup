@@ -1,4 +1,3 @@
-import { getOrganizerSession } from '@/auth/session';
 import { fail, readJson, respond } from '@/lib/api-response';
 import { link, publicSignupUrl } from '@/lib/links';
 import { organizerRoute } from '@/lib/organizer-route';
@@ -14,16 +13,11 @@ const WORKSPACE_HINTS = {
   noDefault: 'pass the id of a workspace you belong to as workspaceId',
 };
 
-export const POST = organizerRoute(async ({ req, db, actor }) => {
+export const POST = organizerRoute(async ({ req, db, actor, session }) => {
   const body = await readJson(req);
-  const session = await getOrganizerSession();
   const requested =
     body && typeof body === 'object' && 'workspaceId' in body ? body.workspaceId : undefined;
-  const workspace = chooseWorkspaceId(
-    requested,
-    session?.defaultWorkspaceId ?? null,
-    WORKSPACE_HINTS,
-  );
+  const workspace = chooseWorkspaceId(requested, session.defaultWorkspaceId, WORKSPACE_HINTS);
   if (!workspace.ok) return fail(workspace.error);
 
   // Policy first: a viewer's attempt must not cost a create-quota unit.
@@ -33,7 +27,7 @@ export const POST = organizerRoute(async ({ req, db, actor }) => {
   // A language the caller sent is kept (source `api`); without one, the
   // signup starts in the organizer's language for new signups.
   const created = await createSignup(db, actor, workspace.value, body, {
-    organizer: { locale: session?.locale ?? null },
+    organizer: { locale: session.locale },
   });
   return respond(created, (signup) => ({
     self: link(`/api/signups/${signup.id}`),
@@ -42,12 +36,11 @@ export const POST = organizerRoute(async ({ req, db, actor }) => {
   }));
 });
 
-export const GET = organizerRoute(async ({ req, db, actor }) => {
+export const GET = organizerRoute(async ({ req, db, actor, session }) => {
   const url = new URL(req.url);
-  const session = await getOrganizerSession();
   const workspace = chooseWorkspaceId(
     url.searchParams.get('workspaceId'),
-    session?.defaultWorkspaceId ?? null,
+    session.defaultWorkspaceId,
     WORKSPACE_HINTS,
   );
   if (!workspace.ok) return fail(workspace.error);
