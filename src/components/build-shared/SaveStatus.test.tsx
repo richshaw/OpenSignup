@@ -25,7 +25,6 @@ describe('<SaveStatus />', () => {
         status={{
           kind: 'error',
           code: 'invalid_input',
-          field: 'slotIds',
           details: { reason: 'slot_ids_mismatch' },
         }}
       />,

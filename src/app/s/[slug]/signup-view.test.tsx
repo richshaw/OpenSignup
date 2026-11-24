@@ -615,6 +615,26 @@ describe('<SignupViewBody /> slot row', () => {
     expect(meta).not.toHaveClass('truncate');
   });
 
+  it('lets a long slot name wrap to two lines instead of cutting it off', () => {
+    // "Cupcakes or muffins (a d…" hid the amount on a 390px screen.
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={SIGNUP}
+        fields={[{ ref: 'what', label: 'What', fieldType: 'text' }]}
+        groupByRef={null}
+        slots={[{ ...SLOTS[0]!, values: { what: 'Cupcakes or muffins (a dozen)' } }]}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
+        showStateBanner={false}
+      />,
+    );
+    const title = screen.getByText('Cupcakes or muffins (a dozen)', { selector: 'p' });
+    expect(title).toHaveClass('line-clamp-2');
+    expect(title).not.toHaveClass('truncate');
+  });
+
   it('disambiguates rows on a grouped signup, where the title is only the time', () => {
     // pickPrimaryField skips the group field, so every row's title here is its
     // time: without the group label in the name, both buttons are "9:00 AM".
