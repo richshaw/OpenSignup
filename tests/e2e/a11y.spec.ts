@@ -27,6 +27,23 @@ test.describe('accessibility', () => {
     ).toEqual([]);
   });
 
+  test('a signup’s embed has no WCAG A/AA violations', async ({ page }) => {
+    await page.goto(`/s/${seed.publicSlug}/embed`);
+    await expect(page.getByRole('heading', { name: seed.publicTitle })).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(
+      results.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ).toEqual([]);
+  });
+
   // In a test language, the page's language is on <html> and <main>, and
   // longer words go in the same boxes.
   for (const locale of TEST_LOCALES) {

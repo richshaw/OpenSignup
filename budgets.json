@@ -2,11 +2,13 @@
   "queries": {
     "GET /s/[slug]": 5,
     "GET /s/[slug], signed in as its organizer": 6,
+    "GET /s/[slug]/embed": 5,
     "POST /api/slots/[id]/commitments": 14,
     "POST /api/slots/[id]/commitments, without an email": 12
   },
   "firstLoadJsKb": {
     "/s/[slug]": 130.3,
+    "/s/[slug]/embed": 129.6,
     "/s/[slug]/c/[id]": 113.5,
     "/": 131.5,
     "/login": 110,

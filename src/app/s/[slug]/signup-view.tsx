@@ -8,6 +8,7 @@ import { willSendReminder } from '@/lib/reminder-eligibility';
 import { Banner } from '@/components/banner';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
+import { NEW_TAB, NEW_TAB_NOTE_ID } from './new-tab';
 import { toSignupViewSignup, toSignupViewSlots } from './public-signup';
 import {
   ACTION_SIZING,
@@ -61,6 +62,12 @@ interface SignupViewCommonProps {
    */
   locale: CatalogLocale;
   ownCommitments?: OwnCommitment[];
+  /**
+   * Shown inside another website's page (`/s/[slug]/embed`): every link that
+   * leaves the sheet opens a new tab (`NEW_TAB`), and a hidden note says so to
+   * screen readers. Only the live page is embedded.
+   */
+  embed?: boolean;
   /** Show the preview/closed status banner. Default true; set false when the
    *  surrounding context already conveys preview state (e.g. the build rail). */
   showStateBanner?: boolean;
@@ -157,8 +164,10 @@ export function SignupViewBody(props: SignupViewProps) {
     locale,
     mode,
     ownCommitments,
+    embed = false,
     showStateBanner = true,
   } = props;
+  const newTab = embed ? NEW_TAB : {};
   const t = getServerTranslator(locale, 'participant.signupView');
   const tSlot = getServerTranslator(locale, 'participant.slot');
   // The live row's Sign up is the dialog's, which reads these in the browser;
@@ -207,7 +216,11 @@ export function SignupViewBody(props: SignupViewProps) {
           slot: (chunks) => <span className="font-medium text-ink">{chunks}</span>,
         })}
       </span>
-      <Link href={firstOwn.editUrl} className="shrink-0 font-medium text-brand hover:underline">
+      <Link
+        href={firstOwn.editUrl}
+        className="shrink-0 font-medium text-brand hover:underline"
+        {...newTab}
+      >
         {ownCount === 1 ? t('editOrCancel') : t('manage')}
       </Link>
     </div>
@@ -329,6 +342,7 @@ export function SignupViewBody(props: SignupViewProps) {
                             href={own.editUrl}
                             aria-label={t('editFor', { slot: actionName })}
                             className={`${ACTION_SIZING} border border-surface-sunk bg-white font-medium transition hover:bg-surface-raised`}
+                            {...newTab}
                           >
                             {t('edit')}
                           </Link>
@@ -369,6 +383,7 @@ export function SignupViewBody(props: SignupViewProps) {
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}
+                            embed={embed}
                             requireEmail={signup.requireEmail ?? true}
                             sendsReminder={willSendReminder({
                               sendReminders: signup.sendReminders ?? false,
@@ -385,6 +400,12 @@ export function SignupViewBody(props: SignupViewProps) {
           </section>
         ))}
       </div>
+      {embed ? (
+        // What every link out of an embed is described by (NEW_TAB).
+        <p id={NEW_TAB_NOTE_ID} hidden>
+          {t('opensInNewTab')}
+        </p>
+      ) : null}
       {preview ? (
         // The disabled Sign up buttons' tip, as their description: in the
         // organizer's language and marked with it, which their `title`

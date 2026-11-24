@@ -37,7 +37,8 @@
       "edit": "Ändern",
       "editFor": "Deinen Eintrag für {slot} ändern",
       "full": "Voll",
-      "closed": "Gesperrt"
+      "closed": "Gesperrt",
+      "opensInNewTab": "Öffnet sich in einem neuen Tab"
     },
     "slot": {
       "noValue": "(ohne {label})",

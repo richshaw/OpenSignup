@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slugFromSignupPath } from './signup-path';
+import { isEmbedPath, slugFromSignupPath } from './signup-path';
 import { toSlug } from './slug';
 
 describe('slugFromSignupPath', () => {
@@ -39,5 +39,23 @@ describe('slugFromSignupPath', () => {
     "/s/x'or'1'='1",
   ])('finds no slug in %j', (path) => {
     expect(slugFromSignupPath(path)).toBeNull();
+  });
+});
+
+describe('isEmbedPath', () => {
+  it('is true for a signup embed', () => {
+    expect(isEmbedPath('/s/team-snacks-a7vc8/embed')).toBe(true);
+  });
+
+  it.each([
+    null,
+    '/s/team-snacks-a7vc8',
+    '/s/team-snacks-a7vc8/embed/',
+    '/s/team-snacks-a7vc8/embed/more',
+    '/s/team-snacks-a7vc8/c/com_1/embed',
+    '/s/Team%20Snacks/embed',
+    '/app/embed',
+  ])('is false for %j', (path) => {
+    expect(isEmbedPath(path)).toBe(false);
   });
 });

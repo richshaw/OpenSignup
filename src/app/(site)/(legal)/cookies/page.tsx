@@ -27,7 +27,7 @@ export default function CookiesPage() {
     <>
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-sm text-ink-muted">Last updated: 12 November 2026</p>
+        <p className="text-sm text-ink-muted">Last updated: 24 November 2026</p>
       </header>
 
       <section className="space-y-3">
@@ -95,7 +95,8 @@ export default function CookiesPage() {
                   Keeps the private link to change or cancel each slot a participant signed up for,
                   so they can come back from the same browser without finding the link again,
                   whether or not they gave an email. <code>httpOnly</code>; not readable from
-                  JavaScript.
+                  JavaScript. Not kept when the signup is shown inside another website&apos;s page,
+                  since browsers don&apos;t keep a site&apos;s cookies inside another site.
                 </td>
                 <td className="px-4 py-3">
                   {COMMIT_COOKIE_MIN}, or until {COMMIT_COOKIE_AFTER_SLOT} after the latest slot it
@@ -158,7 +159,9 @@ export default function CookiesPage() {
           again. It has no expiry: it stays until you clear this site&apos;s data in your browser,
           and each sign-up updates it. On a shared or public computer, the next person to sign up
           for anything on {INSTANCE_NAME} in the same browser will see your name and email address
-          filled in, so clear this site&apos;s data when you have finished.
+          filled in, so clear this site&apos;s data when you have finished. When a signup is shown
+          inside another website&apos;s page, your browser keeps this copy separately for each
+          website, so it fills in the form only on signups shown on that same website.
         </p>
         <p>
           When Magic Compose drafts a signup for an organizer, any warnings it has about the draft

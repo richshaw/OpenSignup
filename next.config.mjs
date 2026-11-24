@@ -29,6 +29,24 @@ function commitSha() {
  */
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Conservative additions only: object-src/base-uri/frame-ancestors don't
+// touch script or style loading, so this can't break Next.js's own bundling or
+// hydration. frame-ancestors is the modern, iframe-proof successor to
+// X-Frame-Options; object-src/base-uri close off legacy plugin-embed and
+// <base>-tag injection vectors. Not attempting a script-src allowlist here —
+// Next's inline hydration payloads would need per-request nonces threaded
+// through middleware to do that safely.
+const CSP_BASE = "object-src 'none'; base-uri 'self'";
+
+/**
+ * Every path but a signup's embed (`/s/<slug>/embed`), the one page another
+ * website may frame. When two header rules set the same header the later
+ * wins, and no rule can take a header away, so the frame protection goes on
+ * through a rule that leaves the embed out rather than one the embed overrides.
+ * The pattern matches `isEmbedPath` in src/lib/signup-path.ts.
+ */
+const ALL_BUT_EMBEDS = '/:path((?!s/[^/]+/embed$).*)';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -77,7 +95,6 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           // HSTS, and only from a production build.
@@ -102,18 +119,22 @@ const nextConfig = {
                 },
               ]
             : []),
-          // Conservative additions only: object-src/base-uri/frame-ancestors don't
-          // touch script or style loading, so this can't break Next.js's own
-          // bundling or hydration. frame-ancestors is the modern, iframe-proof
-          // successor to X-Frame-Options; object-src/base-uri close off legacy
-          // plugin-embed and <base>-tag injection vectors. Not attempting a
-          // script-src allowlist here — Next's inline hydration payloads would
-          // need per-request nonces threaded through middleware to do that safely.
-          {
-            key: 'Content-Security-Policy',
-            value: "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
-          },
         ],
+      },
+      // No page may be framed, except a signup's embed (below).
+      {
+        source: ALL_BUT_EMBEDS,
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: `${CSP_BASE}; frame-ancestors 'none'` },
+        ],
+      },
+      // A signup's embed may be framed by any site: the signup is public
+      // anyway. Every link out of it opens a new tab (src/app/s/[slug]/new-tab.ts),
+      // so no other page loads inside the frame.
+      {
+        source: '/s/:slug/embed',
+        headers: [{ key: 'Content-Security-Policy', value: `${CSP_BASE}; frame-ancestors *` }],
       },
       // Keep API answers out of every cache. Next gives dynamically rendered
       // pages `no-store` (static and ISR pages get `s-maxage`, so keep

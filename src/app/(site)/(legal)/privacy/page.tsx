@@ -21,7 +21,7 @@ import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import { PRIVACY_ADDITIONS } from '@/lib/privacy-additions';
 
 /** When this page's own text last changed, as YYYY-MM-DD. */
-const PAGE_UPDATED = '2026-11-15';
+const PAGE_UPDATED = '2026-11-24';
 
 /** The heading an instance's own sections go under (src/lib/privacy-additions.ts). */
 const ADDED_HEADING = 'Added on this site';
@@ -225,6 +225,13 @@ export default function PrivacyPage() {
           computer, the next person to sign up in that browser will see your details filled in, so
           clear this site&apos;s data in the browser when you have finished; that removes it.
         </p>
+        <p>
+          An organizer can also show a signup inside a page of their own website. The sign-up sheet
+          there still comes from {INSTANCE_NAME}, and this policy covers what you send through it;
+          the page around it belongs to that website, whose own privacy policy covers it. Inside
+          another website your browser doesn&apos;t keep the cookie with your link, and it keeps the
+          name and email address it fills in separately for each website.
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -248,10 +255,11 @@ export default function PrivacyPage() {
           containing a user-agent class (browser, bot, or unknown), the host of the referring page
           (not the full referer URL), the signup&apos;s status, and whether the viewer is a
           returning participant on that signup. We do not record your IP address on this entry. Bot
-          traffic and requests carrying a Do Not Track or Global Privacy Control signal are skipped.
-          The same applies when you follow an &ldquo;edit your commitment&rdquo; link, when you load
-          the marketing home page, and when you click the &ldquo;Start a signup&rdquo; button on it
-          (where we record only the user-agent class and the referring host).
+          traffic and requests carrying a Do Not Track or Global Privacy Control signal are skipped,
+          and so are views of a signup shown inside another website&apos;s page. The same applies
+          when you follow an &ldquo;edit your commitment&rdquo; link, when you load the marketing
+          home page, and when you click the &ldquo;Start a signup&rdquo; button on it (where we
+          record only the user-agent class and the referring host).
         </p>
       </section>
 

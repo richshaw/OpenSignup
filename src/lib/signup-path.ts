@@ -26,3 +26,12 @@ export function slugFromSignupPath(path: string | null): string | null {
   if (root !== '' || s !== 's' || slug === undefined) return null;
   return SLUG.test(slug) ? slug : null;
 }
+
+/**
+ * Whether a public signup path is a signup's embed (`/s/<slug>/embed`), the
+ * one page another website may frame. The layout above every `/s` page leaves
+ * the site footer off it, since a root layout can't be replaced by a nested one.
+ */
+export function isEmbedPath(path: string | null): boolean {
+  return slugFromSignupPath(path) !== null && /^\/s\/[^/]+\/embed$/.test(path ?? '');
+}

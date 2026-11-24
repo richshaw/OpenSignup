@@ -247,6 +247,46 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
     expect(screen.getByRole('link', { name: view('editFor') })).toHaveTextContent(view('edit'));
   });
 
+  it('opens a returning participant’s links in a new tab in an embed, and says so', () => {
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+        embed
+        ownCommitments={[OWN]}
+      />,
+    );
+    const links = [
+      screen.getByRole('link', { name: view('editOrCancel') }),
+      screen.getByRole('link', { name: view('editFor') }),
+    ];
+    for (const link of links) {
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener');
+      expect(link).toHaveAccessibleDescription(view('opensInNewTab'));
+    }
+    cleanup();
+    render(
+      <SignupViewBody
+        locale={OTHER_LOCALE}
+        signup={SIGNUP}
+        fields={FIELDS}
+        groupByRef={null}
+        slots={SLOTS}
+        slug="example"
+        mode="live"
+        ownCommitments={[OWN]}
+      />,
+    );
+    expect(screen.getByRole('link', { name: view('editOrCancel') })).not.toHaveAttribute('target');
+    expect(screen.queryByText(view('opensInNewTab'))).toBeNull();
+  });
+
   it('asks for the Closed banner’s plain line and Manage in it', () => {
     render(
       <SignupViewBody

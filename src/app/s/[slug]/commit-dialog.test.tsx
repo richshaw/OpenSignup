@@ -13,6 +13,7 @@ import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
 import CommitDialog from './commit-dialog';
 import { ACTION_SIZING } from './slot-format';
 import { QUANTITY_MAX } from '@/lib/participant-limits';
+import { NEW_TAB_NOTE_ID } from './new-tab';
 import { urlBreakSegments } from './url-breaks';
 
 // The row-level tests all run in `mode="preview"`, which renders a *disabled*
@@ -75,6 +76,7 @@ describe('<CommitDialog /> sheet', () => {
     sendsReminder = false,
     wrapper = englishMessages(COMMIT_DIALOG_NAMESPACES),
     trigger = /^Sign up for /,
+    embed = false,
   }: {
     /** The slot's title, which the calendar file is named after. */
     slotTitle?: string;
@@ -87,6 +89,8 @@ describe('<CommitDialog /> sheet', () => {
     wrapper?: (props: { children: ReactNode }) => ReactNode;
     /** The Sign up button's name in those messages. */
     trigger?: string | RegExp;
+    /** Shown inside another website's page, at the signup's embed. */
+    embed?: boolean;
   } = {}) {
     render(
       <CommitDialog
@@ -101,6 +105,7 @@ describe('<CommitDialog /> sheet', () => {
         capacity={capacity}
         signupTitle="Snack duty"
         slug="example"
+        embed={embed}
         requireEmail={requireEmail}
         sendsReminder={sendsReminder}
       />,
@@ -685,7 +690,7 @@ describe('<CommitDialog /> sheet', () => {
 
     async function signUpWithEmail(
       email: string,
-      opts: { slotAt?: string | null; slotTitle?: string } = {},
+      opts: { slotAt?: string | null; slotTitle?: string; embed?: boolean } = {},
     ) {
       const fetchMock = vi.fn(async () => ({
         ok: true,
@@ -710,6 +715,21 @@ describe('<CommitDialog /> sheet', () => {
     afterEach(() => {
       vi.unstubAllGlobals();
       delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    // Only the embed may be framed, so the edit page opens on its own.
+    it('opens the edit link in a new tab inside another website', async () => {
+      await signUpWithEmail('', { embed: true });
+      const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === editUrl);
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener');
+      expect(link).toHaveAttribute('aria-describedby', NEW_TAB_NOTE_ID);
+    });
+
+    it('opens the edit link in the same tab on the signup’s own page', async () => {
+      await signUpWithEmail('');
+      const link = screen.getAllByRole('link').find((a) => a.getAttribute('href') === editUrl);
+      expect(link).not.toHaveAttribute('target');
     });
 
     it('sends no email when the box is blank, and says the link will not be emailed', async () => {
@@ -970,6 +990,48 @@ describe('<CommitDialog /> sheet', () => {
       expect(within(alert).getByRole('link', { name: 'See alternatives' })).toHaveAttribute(
         'href',
         '/s/example',
+      );
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // Only the embed may be framed, so See alternatives stays on it rather than
+  // loading the signup's own page into the other website's frame.
+  it('sends See alternatives back to the embed, inside another website', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: {
+            code: 'capacity_full',
+            message: 'slot is full',
+            details: {
+              remaining: -1,
+              requested: 1,
+              capacity: 2,
+              alternatives: [{ id: 'slot_2', ref: 'slot_2', slotAt: null }],
+            },
+          },
+        }),
+      })),
+    );
+    Element.prototype.scrollIntoView = vi.fn();
+
+    try {
+      openSheet({ embed: true });
+      await screen.findByLabelText('Your name', {}, settle);
+      fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Pat Example' } });
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pat@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+      const alert = await screen.findByRole('alert', {}, settle);
+      expect(within(alert).getByRole('link', { name: 'See alternatives' })).toHaveAttribute(
+        'href',
+        '/s/example/embed',
       );
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;
