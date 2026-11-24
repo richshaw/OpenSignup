@@ -83,7 +83,7 @@ errors
 EOF
 ```
 
-Screenshots → `/tmp/opensignup-shots/`. Server logs → `/tmp/opensignup-web.log`, `/tmp/opensignup-worker.log`.
+Screenshots → `/tmp/opensignup-shots/`. They're taken at twice the pixel density, so they stay sharp on a phone, and with the mouse moved off the page first, so a button or row the last `click` left the mouse on doesn't show its hover state. Use `hover` when the hover state is what you want to show. Server logs → `/tmp/opensignup-web.log`, `/tmp/opensignup-worker.log`.
 
 The driver reads a few env vars: `OPENSIGNUP_URL` (default `http://localhost:3000`), `OPENSIGNUP_LOG` (the web server's log), `SHOT_DIR` and `CHROMIUM_PATH`. Set `DRIVER_LOCALE` (e.g. `DRIVER_LOCALE=sv-SE`) to check a language in the running app: the browser then sends that `Accept-Language` and reports it as `navigator.language`, and formats `Intl` dates and numbers in it, so a new organizer account stores it (if it has shipped and the site sets no `DEFAULT_LOCALE`). The native date and time boxes don't follow it: they keep the browser's own UI language (`mm/dd/yyyy` here), so it can't check how those look in another language. Unset, the browser's own language (English) is used. Saved sessions keep working either way; an account that already exists keeps the language it stored.
 
@@ -99,6 +99,7 @@ The driver reads a few env vars: `OPENSIGNUP_URL` (default `http://localhost:300
 | `as-visitor`                            | Same page, fresh cookies: act as a participant.                                                                |
 | `open desktop` / `open phone`           | New browser at 1280×900 or 390×844, fresh cookies.                                                             |
 | `ss [name]` / `ss-el <selector> [name]` | Full-page screenshot (scrolls first so lazy images load) / one element.                                        |
+| `hover <name>`                          | Rest the mouse on that button, link or text; the next `ss` or `ss-el` shows its hover state.                   |
 | `text [selector]` · `url` · `eval <js>` | Read the page.                                                                                                 |
 | `email [to]`                            | The newest console email (to that address) from the server log: subject and links.                             |
 | `cookie`                                | The organizer session cookie, for `curl -b`.                                                                   |

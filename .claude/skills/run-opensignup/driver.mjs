@@ -34,9 +34,16 @@ const executablePath =
   process.env.CHROMIUM_PATH ??
   (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
 
+// Twice the pixel density, so screenshots stay sharp on a phone or a retina
+// screen. Pages lay out the same: only the images have more pixels.
 const VIEWPORTS = {
-  desktop: { viewport: { width: 1280, height: 900 } },
-  phone: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+  desktop: { viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 },
+  phone: {
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  },
 };
 
 let browser = null;
@@ -46,6 +53,8 @@ const consoleErrors = [];
 let failures = 0;
 
 let viewportKind = 'desktop';
+// Set by `hover`, so the next screenshot keeps the hover state it asked for.
+let keepHover = false;
 
 async function open(kind = 'desktop', storageState = undefined) {
   const opts = VIEWPORTS[kind];
@@ -89,6 +98,16 @@ async function go(p, target) {
   const res = await p.goto(target, { waitUntil: 'domcontentloaded' });
   await settle(p);
   return res;
+}
+
+// A click leaves the mouse where it clicked, and the next screenshot shows
+// that element in its hover state: a darker button, a row's hover toolbar.
+// Move it off the page first, unless `hover` put it there on purpose. The
+// screenshots also pass `animations: 'disabled'`, which finishes a fade at
+// once, or a button caught easing out of its hover colour shows half of it.
+async function readyForShot(p) {
+  if (keepHover) keepHover = false;
+  else await p.mouse.move(-1, -1);
 }
 
 async function findClickable(p, name) {
@@ -184,6 +203,15 @@ const COMMANDS = {
     return `clicked ${sel}`;
   },
 
+  // Rest the mouse on something, for a screenshot of its hover state. The
+  // next ss or ss-el keeps it; every other screenshot moves the mouse away.
+  async hover(name) {
+    const p = await ensurePage();
+    await (await findClickable(p, name)).hover();
+    keepHover = true;
+    return `hovering over "${name}" for the next screenshot`;
+  },
+
   // fill <label> = <value>   (label is the field's accessible name)
   async fill(arg) {
     const m = arg.match(/^(.+?)\s+=\s+(.*)$/);
@@ -240,8 +268,9 @@ const COMMANDS = {
       window.scrollTo(0, 0);
     });
     await p.waitForLoadState('networkidle').catch(() => {});
+    await readyForShot(p);
     const file = path.join(SHOT_DIR, `${name || `shot-${Date.now()}`}.png`);
-    await p.screenshot({ path: file, fullPage: true });
+    await p.screenshot({ path: file, fullPage: true, animations: 'disabled' });
     return file;
   },
 
@@ -249,7 +278,8 @@ const COMMANDS = {
     const [sel, name] = arg.split(/\s+(?=[^\s]+$)/);
     const p = await ensurePage();
     const file = path.join(SHOT_DIR, `${name || `el-${Date.now()}`}.png`);
-    await visible(p.locator(sel)).screenshot({ path: file });
+    await readyForShot(p);
+    await visible(p.locator(sel)).screenshot({ path: file, animations: 'disabled' });
     return file;
   },
 
