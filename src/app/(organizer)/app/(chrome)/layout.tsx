@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getOrganizerSession, requireOrganizerSession } from '@/auth/session';
 import { signOutOrganizer } from '@/auth/sign-out';
-import { EARLIER_CRUMB } from '@/components/chrome/Crumb';
 import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { INSTANCE_NAME } from '@/lib/site-config';
@@ -40,12 +39,18 @@ export default async function OrganizerLayout({
             aria-label={t('breadcrumb')}
             className="flex min-w-0 items-center gap-2 text-sm text-ink-muted"
           >
-            {/* The site's name shortens like the crumbs after it, so the trail
-                never runs under the links beside it; see Crumb. */}
-            <Link href="/app" className={`${EARLIER_CRUMB} font-semibold tracking-tight text-ink`}>
+            {/* On a phone the row has room for the site's name beside Help,
+                Account and Sign out, but not for a trail, so the crumbs show
+                from md up. Below it the page's own heading says where you are,
+                and the site's name, which never shrinks away, is the way back
+                to Your signups. A very long name still ends in "…". */}
+            <Link
+              href="/app"
+              className="min-w-0 truncate font-semibold tracking-tight text-ink md:max-w-[10rem] md:shrink-0"
+            >
               {INSTANCE_NAME}
             </Link>
-            {crumbs}
+            <span className="hidden md:contents">{crumbs}</span>
           </nav>
           <nav className="flex shrink-0 items-center gap-4">
             <Link href="/help" className="text-sm text-ink-muted transition hover:text-ink">
