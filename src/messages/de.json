@@ -404,7 +404,8 @@
         "titleLabel": "Titel der Liste",
         "descriptionPlaceholder": "Kurze Beschreibung für alle, die sich eintragen",
         "descriptionLabel": "Beschreibung der Liste",
-        "addDate": "Datum hinzufügen"
+        "addDate": "Datum hinzufügen",
+        "slotCount": "{count, plural, one {{count, number} Aufgabe} other {{count, number} Aufgaben}}"
       },
       "group": {
         "header": "Gruppenüberschrift – {heading}",
@@ -552,7 +553,8 @@
         "status": "Status",
         "spots": "Plätze",
         "notes": "Anmerkung",
-        "signedUp": "Eingetragen"
+        "signedUp": "Eingetragen",
+        "fileName": "{slug}-einträge.csv"
       }
     },
     "newSignup": {
