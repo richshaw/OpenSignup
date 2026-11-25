@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { OTHER_LOCALE, withRegion } from '@/i18n/testing/locales';
-import { magicComposeEnabled, parseEnv, resetEnvCache } from './env';
+import { embedsEnabled, magicComposeEnabled, parseEnv, resetEnvCache } from './env';
 
 /**
  * Minimal dotenv reader — enough for `.env.example`, which uses only bare
@@ -142,7 +142,7 @@ describe('parseEnv', () => {
   });
 
   // Both go through booleanFlag in ./zod-env.
-  describe.each(['SMTP_SECURE', 'SMTP_REQUIRE_TLS'] as const)('%s', (key) => {
+  describe.each(['SMTP_SECURE', 'SMTP_REQUIRE_TLS', 'EMBEDS_ENABLED'] as const)('%s', (key) => {
     it.each([
       ['true', true],
       ['false', false],
@@ -345,5 +345,31 @@ describe('magicComposeEnabled', () => {
     delete process.env.LLM_MODEL;
     resetEnvCache();
     expect(magicComposeEnabled()).toBe(false);
+  });
+});
+
+describe('embedsEnabled', () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    resetEnvCache();
+  });
+
+  it.each([
+    [undefined, true],
+    ['', true],
+    ['true', true],
+    ['false', false],
+  ])('reads EMBEDS_ENABLED=%j as %s', (value, expected) => {
+    process.env.DATABASE_URL = 'postgres://x';
+    process.env.AUTH_SECRET = 'x'.repeat(32);
+    process.env.AUTH_URL = 'http://localhost:3000';
+    process.env.EMAIL_FROM = 'test@example.com';
+    process.env.EMAIL_TRANSPORT = 'console';
+    if (value === undefined) delete process.env.EMBEDS_ENABLED;
+    else process.env.EMBEDS_ENABLED = value;
+    resetEnvCache();
+    expect(embedsEnabled()).toBe(expected);
   });
 });

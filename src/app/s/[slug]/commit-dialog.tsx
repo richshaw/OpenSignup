@@ -9,6 +9,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { FormError } from '@/components/ui/form-error';
 import { offersAlternatives, type SlotAlternative } from './capacity-message';
 import { participantErrorCopy, type ParticipantErrorCopy } from './participant-error';
+import { NEW_TAB } from './new-tab';
 import { PREFILL_KEY } from './prefill-key';
 import { Field, NotesAndSpots } from './participant-fields';
 import { ACTION_SIZING } from './slot-format';
@@ -51,6 +52,12 @@ interface CommitDialogProps {
   capacity: number | null;
   signupTitle: string;
   slug: string;
+  /**
+   * Shown inside another website's page (`/s/[slug]/embed`). The edit link
+   * opens a new tab, since only the embed may be framed, and See alternatives
+   * goes back to the embed rather than the signup's own page.
+   */
+  embed?: boolean;
   /**
    * The signup's `requireEmail` setting when the page rendered. When false the
    * email box is optional, and someone who leaves it blank gets no email, so
@@ -138,6 +145,7 @@ export default function CommitDialog({
   capacity,
   signupTitle,
   slug,
+  embed = false,
   requireEmail,
   sendsReminder,
 }: CommitDialogProps) {
@@ -487,6 +495,7 @@ export default function CommitDialog({
             </p>
             <a
               href={success.editUrl}
+              {...(embed ? NEW_TAB : {})}
               className="block break-words rounded-lg bg-surface-raised px-3 py-2 font-mono text-xs"
             >
               {/* Breaks only between these pieces, except inside a token too
@@ -620,7 +629,7 @@ export default function CommitDialog({
                 {error.seeAlternatives ? (
                   <div className="mt-2 space-y-1 text-xs">
                     <a
-                      href={`/s/${slug}`}
+                      href={embed ? `/s/${slug}/embed` : `/s/${slug}`}
                       className="inline-block rounded bg-white px-2 py-1 underline"
                     >
                       {t('seeAlternatives')}

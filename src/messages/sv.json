@@ -37,7 +37,8 @@
       "edit": "Ändra",
       "editFor": "Ändra din anmälan till {slot}",
       "full": "Fullt",
-      "closed": "Stängt"
+      "closed": "Stängt",
+      "opensInNewTab": "Öppnas i en ny flik"
     },
     "slot": {
       "noValue": "(utan {label})",

@@ -48,6 +48,11 @@ const baseSchema = z.object({
   // identify themselves with a Client ID Metadata Document (and for local
   // testing). Validated in src/oauth/static-clients.ts; unset means none.
   OAUTH_STATIC_CLIENTS: z.string().optional(),
+  // Whether other websites may show a signup's sheet in an <iframe>, at
+  // /s/[slug]/embed. Unset is on; `false` makes that address not found.
+  // Read per request (embedsEnabled), not in next.config.mjs, whose headers
+  // are fixed when the image is built.
+  EMBEDS_ENABLED: booleanFlag(),
 });
 
 const conditional = baseSchema.superRefine((env, ctx) => {
@@ -193,4 +198,9 @@ export function resetEnvCache(): void {
 export function magicComposeEnabled(): boolean {
   const env = getEnv();
   return Boolean(env.LLM_BASE_URL && env.LLM_MODEL);
+}
+
+/** Whether `/s/[slug]/embed` serves signups: on unless `EMBEDS_ENABLED=false`. */
+export function embedsEnabled(): boolean {
+  return getEnv().EMBEDS_ENABLED ?? true;
 }

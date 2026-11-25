@@ -40,7 +40,8 @@ declare const messages: {
       "edit": "Edit",
       "editFor": "Edit your spot for {slot}",
       "full": "Full",
-      "closed": "Closed"
+      "closed": "Closed",
+      "opensInNewTab": "Opens in a new tab"
     },
     "slot": {
       "noValue": "(no {label})",

@@ -14,7 +14,14 @@ import { rootMetadata } from '../../root-shell';
 const request = vi.hoisted(() => ({
   rows: {} as Record<string, Record<string, unknown>>,
   defaultLocale: undefined as string | undefined,
+  path: '/s/snack-duty' as string,
 }));
+// The path the middleware copies into a header, which says whether this is
+// a signup's embed.
+vi.mock('next/headers', async () => {
+  const { SIGNUP_PATH_HEADER } = await import('@/lib/signup-path');
+  return { headers: async () => new Headers({ [SIGNUP_PATH_HEADER]: request.path }) };
+});
 const loadSignupRowBySlug = vi.hoisted(() =>
   vi.fn(async (slug: string) => request.rows[slug] ?? null),
 );
@@ -184,4 +191,17 @@ describe('the layout of a signup’s pages', () => {
       expect(JSON.stringify(await generateMetadata(params))).not.toMatch(/Snack duty|Bring fruit/);
     },
   );
+
+  it('leaves the footer off a signup’s embed, shown inside another website', async () => {
+    storeSignup();
+    request.path = '/s/snack-duty/embed';
+    try {
+      const { lang, body } = await renderLayout();
+      expect(lang).toBe('en');
+      expect(within(body).queryByRole('navigation', { name: footerIn('en').label })).toBeNull();
+      expect(within(body).getByRole('main')).toHaveTextContent('The page');
+    } finally {
+      request.path = '/s/snack-duty';
+    }
+  });
 });

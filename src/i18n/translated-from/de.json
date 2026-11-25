@@ -24,6 +24,7 @@
   "participant.signupView.editFor": "Edit your spot for {slot}",
   "participant.signupView.full": "Full",
   "participant.signupView.closed": "Closed",
+  "participant.signupView.opensInNewTab": "Opens in a new tab",
   "participant.slot.noValue": "(no {label})",
   "participant.slot.left": "{left, number, ::group-off} left",
   "participant.slot.leftOf": "{left, number, ::group-off} of {capacity, number, ::group-off} spots left",

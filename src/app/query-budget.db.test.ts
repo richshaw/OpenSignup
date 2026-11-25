@@ -22,6 +22,7 @@ import { createSignup, publishSignup } from '@/services/signups';
 import { addSlot } from '@/services/slots';
 import { POST as commitPost } from './api/slots/[id]/commitments/route';
 import PublicSignupPage from './s/[slug]/page';
+import EmbeddedSignupPage from './s/[slug]/embed/page';
 
 // Work handed to after() runs once the response has gone, so the participant
 // never waits on it. It is left out of the count.
@@ -185,6 +186,30 @@ describe('query budgets for the participant hot path (db)', () => {
     // A participant gets no organizer strip.
     expect((page as { props: { children: unknown[] } }).props.children[0]).toBeNull();
     expectWithinBudget('GET /s/[slug]', count);
+  });
+
+  // The same returning participant, in the embed another website frames. It
+  // never reads the session, so an organizer's own visit costs it nothing more.
+  it('GET /s/[slug]/embed, for a returning participant', async () => {
+    const committed = await commitToSlot(getDb(), slotId, {
+      name: 'Pat Example',
+      email: `pat-${makeId('par').slice(-8).toLowerCase()}@example.test`,
+      quantity: 1,
+    });
+    if (!committed.ok) throw new Error(committed.error.message);
+    cookieHeader = `${COMMIT_COOKIE_NAME}=${serializeReturningCommits([
+      {
+        commitmentId: committed.value.commitment.id,
+        token: committed.value.editToken,
+        signupId: committed.value.commitment.signupId,
+      },
+    ])}`;
+
+    const count = await countStatements(async () => {
+      await EmbeddedSignupPage({ params: Promise.resolve({ slug }) });
+    });
+    cookieHeader = '';
+    expectWithinBudget('GET /s/[slug]/embed', count);
   });
 
   // A visitor without a session cookie costs the session read nothing (the
