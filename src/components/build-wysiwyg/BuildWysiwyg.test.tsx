@@ -601,7 +601,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     takesFocus?: boolean;
   }) {
     return (
-      <BuildBridge buildHref="/app/signups/sig_t/build">
+      <BuildBridge buildHref="/app/signups/sig_t/build" slots={{ count: 0, spoken: '0 slots' }}>
         <Header onReady={onReady} takesFocus={takesFocus} />
         {build ? (
           <BuildWysiwyg {...baseProps} initialFields={[what, where]} initialSlots={slots} />
@@ -964,7 +964,7 @@ describe('BuildWysiwyg — opened by Publish’s check', () => {
     );
     let bridge: ReturnType<typeof useBuildBridge> | null = null;
     render(
-      <BuildBridge buildHref="/app/signups/sig_t/build">
+      <BuildBridge buildHref="/app/signups/sig_t/build" slots={{ count: 0, spoken: '0 slots' }}>
         <Header onReady={(b) => (bridge = b)} />
         <BuildWysiwyg
           {...baseProps}
