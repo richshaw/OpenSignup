@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRegisterBuildTab } from '@/components/signup/BuildBridge';
+import { useRegisterBuildTab, useReportSlotCount } from '@/components/signup/BuildBridge';
 import {
   useBuildState,
   type BuildField,
@@ -277,6 +277,9 @@ function BuildSheet({
   // The header's Publish saves what's pending here first, and a check's fix
   // opens the slot it's about, here or once this tab has loaded.
   const handBack = useRegisterBuildTab({ flushPendingSaves, openSlot });
+  // The count beside the Build tab, which follows slots as they come and go.
+  const slotCount = state.rows.length;
+  useReportSlotCount({ count: slotCount, spoken: t('slotCount', { count: slotCount }) });
 
   // What a row asks for: its own editor, or null when Done or Escape closes
   // the one that's open. An editor opened by Enter or Space takes the focus;
