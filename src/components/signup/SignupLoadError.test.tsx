@@ -31,10 +31,10 @@ describe('SignupLoadError', () => {
       />,
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'We can’t find this signup',
+      "We can't find this signup",
     );
     expect(screen.getByText(/It may have been deleted/)).toHaveTextContent(
-      'It may have been deleted, or it may belong to a different account. You’re signed in as pat@example.com.',
+      "It may have been deleted, or it may belong to a different account. You're signed in as pat@example.com.",
     );
     expect(screen.getByText('pat@example.com')).toHaveClass('break-all');
     expect(screen.getByRole('link', { name: 'Go to your signups' })).toHaveAttribute(
@@ -57,7 +57,7 @@ describe('SignupLoadError', () => {
       />,
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'We couldn’t open this signup',
+      "We couldn't open this signup",
     );
     expect(
       screen.getByText('Something went wrong on our side. Reload the page to try again.'),

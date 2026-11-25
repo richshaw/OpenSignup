@@ -128,7 +128,7 @@ const CASES = {
   invalidates_slot_values: {
     error: sent('conflict', 'invalidates_slot_values', { details: { count: 1 } }),
     screens: { 'Build tab': buildTab },
-    english: 'Some slots have values that don’t fit this change. Change those first.',
+    english: "Some slots have values that don't fit this change. Change those first.",
   },
   status_changed: {
     error: sent('conflict', 'status_changed', { field: 'status' }),

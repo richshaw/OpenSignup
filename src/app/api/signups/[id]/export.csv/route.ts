@@ -2,7 +2,7 @@ import { localeOfOrganizer } from '@/i18n/locale';
 import { getServerTranslator } from '@/i18n/server';
 import { fail } from '@/lib/api-response';
 import { organizerRoute } from '@/lib/organizer-route';
-import { responsesCsv } from '@/lib/responses-csv';
+import { attachmentNamed, csvSeparator, responsesCsv } from '@/lib/responses-csv';
 import { howCommitmentsEnded, listCommitmentsForSignup } from '@/services/commitments';
 import { getSignupRowForOrganizer } from '@/services/locks';
 import { listFieldsForSignup } from '@/services/slot-fields';
@@ -24,12 +24,15 @@ export const GET = organizerRoute<{ id: string }>(
       listCommitmentsForSignup(db, id),
       howCommitmentsEnded(db, row),
     ]);
-    const t = getServerTranslator(localeOfOrganizer(session), 'organizer.responses');
-    return new Response(responsesCsv({ fields, slots, commitments, ended }, t), {
+    // The separator follows that language too, as a spreadsheet there expects.
+    const locale = localeOfOrganizer(session);
+    const t = getServerTranslator(locale, 'organizer.responses');
+    const csv = responsesCsv({ fields, slots, commitments, ended }, t, csvSeparator(locale));
+    return new Response(csv, {
       status: 200,
       headers: {
         'content-type': 'text/csv; charset=utf-8',
-        'content-disposition': `attachment; filename="${row.slug}-responses.csv"`,
+        'content-disposition': attachmentNamed(t('csv.fileName', { slug: row.slug })),
       },
     });
   },

@@ -9,7 +9,7 @@ describe('closedMessage', () => {
   it('rephrases a closed for participants on the sign-up dialog', () => {
     expect(closedMessage({ code: 'closed' }, 'join', t)).toStrictEqual({
       message: 'No one new can sign up for this slot now.',
-      suggestion: 'Reload the page to see what’s still open.',
+      suggestion: "Reload the page to see what's still open.",
     });
   });
 

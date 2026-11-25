@@ -622,7 +622,13 @@ for (const stored of STORED) {
       });
       expect(csv.ok()).toBe(true);
       const lines = (await csv.text()).replace(/^\uFEFF/, '').split('\n');
-      expect(lines[0]?.split(',')).toEqual([
+      // Cells split on `;` where the language writes decimals with a comma,
+      // as a spreadsheet there expects.
+      const decimal = new Intl.NumberFormat(locale)
+        .formatToParts(1.5)
+        .find((part) => part.type === 'decimal')?.value;
+      const separator = decimal === ',' ? ';' : ',';
+      expect(lines[0]?.split(separator)).toEqual([
         'What',
         'Date',
         responses('csv.name'),
@@ -633,8 +639,8 @@ for (const stored of STORED) {
         responses('csv.signedUp'),
       ]);
       const robin = lines.find((line) => line.includes(who));
-      expect(robin?.split(',')[0]).toBe('Cookies');
-      expect(robin?.split(',')[4]).toBe(responses('status.removed'));
+      expect(robin?.split(separator)[0]).toBe('Cookies');
+      expect(robin?.split(separator)[4]).toBe(responses('status.removed'));
     });
 
     test(`starts a new signup in ${locale}`, async ({ page }) => {

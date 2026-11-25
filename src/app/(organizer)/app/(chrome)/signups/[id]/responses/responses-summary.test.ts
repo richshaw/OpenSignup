@@ -77,7 +77,7 @@ describe('noResponsesLine', () => {
     // "Closed", in the header, already says people can't sign up now; "archived" doesn't.
     expect(noResponsesLine('closed', english)).toBe('Nobody signed up.');
     expect(noResponsesLine('archived', english)).toBe(
-      'Nobody signed up. People can’t sign up now.',
+      "Nobody signed up. People can't sign up now.",
     );
   });
 

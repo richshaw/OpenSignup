@@ -283,8 +283,9 @@ two formatters. `precompiled.test.ts` catches both.
 
 ICU reads a straight apostrophe as the start of quoted text when a `{`, `}`
 or `#` follows it. "You're" and "don't" are fine. To show a brace, quote it:
-`'{'`. To show an apostrophe right before a placeholder, write two (`''`) or a
-typographic one (’).
+`'{'`. To show an apostrophe right before a placeholder, write two (`''`).
+English writes every apostrophe straight, never typographic (’), so a screen
+doesn't mix the two; the catalog test fails on a typographic one in `en.json`.
 
 ### Field labels in "(no …)"
 

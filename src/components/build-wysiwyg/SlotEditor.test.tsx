@@ -84,14 +84,14 @@ describe('SlotEditor', () => {
   it('warns that the people holding the slot will be emailed about a move', () => {
     renderEditor({ taken: 2, remindersOn: true });
     expect(screen.getByRole('note').textContent).toBe(
-      '2 people are signed up for this slot. If you change its date or time, we\u2019ll email them to let them know.',
+      "2 people are signed up for this slot. If you change its date or time, we'll email them to let them know.",
     );
   });
 
   it('warns that nobody is told when reminders are off', () => {
     renderEditor({ taken: 1, remindersOn: false });
     expect(screen.getByRole('note').textContent).toBe(
-      '1 person is signed up for this slot. Reminders are off, so we won\u2019t email them if you change it.',
+      "1 person is signed up for this slot. Reminders are off, so we won't email them if you change it.",
     );
   });
 

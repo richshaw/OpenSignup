@@ -71,7 +71,7 @@ describe('<LoginForm />', () => {
     fireEvent.change(email, { target: { value: 'pat@example.com' } });
     fireEvent.click(send);
 
-    expect(await screen.findByRole('alert', {}, SETTLED)).toHaveTextContent('Couldn’t send');
+    expect(await screen.findByRole('alert', {}, SETTLED)).toHaveTextContent("Couldn't send");
     expect(email).toHaveValue('pat@example.com');
     expect(send).toHaveAttribute('aria-disabled', 'false');
   });

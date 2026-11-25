@@ -16,7 +16,7 @@ describe('<SaveStatus />', () => {
   // A viewer never had edit access, so nothing says they lost it.
   it('tells a viewer whose save was refused that they have no edit access', () => {
     render(<SaveStatus status={{ kind: 'error', code: 'forbidden' }} />);
-    expect(screen.getByRole('status')).toHaveTextContent('You don’t have edit access.');
+    expect(screen.getByRole('status')).toHaveTextContent("You don't have edit access.");
   });
 
   it('words a refusal by its reason, when it has one the tab words itself', () => {

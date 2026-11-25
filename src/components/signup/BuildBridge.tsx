@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 /** What the Build tab lets the header do while it's showing. */
@@ -37,6 +45,15 @@ interface Bridge extends HeaderBridge {
   handBack: () => boolean;
   /** Forgets a slot a fix asked Build to open: the organizer went elsewhere. */
   dropPending: () => void;
+  /** The Build tab: how many slots it has now, and those words for a screen reader. */
+  reportSlots: (slots: SlotCount) => void;
+}
+
+/** How many slots a signup has, and the words a screen reader hears for it. */
+export interface SlotCount {
+  count: number;
+  /** The count in words, such as "4 slots", in the organizer's language. */
+  spoken: string;
 }
 
 const NO_BUILD_TAB: Bridge = {
@@ -46,9 +63,13 @@ const NO_BUILD_TAB: Bridge = {
   openSlot: () => false,
   onHandBack: () => () => {},
   handBack: () => false,
+  reportSlots: () => {},
 };
 
 const BridgeContext = createContext<Bridge>(NO_BUILD_TAB);
+
+/** The slots the tabs show, apart from the bridge so a change re-renders only them. */
+const SlotsContext = createContext<SlotCount | null>(null);
 
 const SAVED = Promise.resolve(true);
 
@@ -74,7 +95,21 @@ const SAVED = Promise.resolve(true);
  * what matter. And once the organizer has fixed the slot, Done hands focus
  * back to Publish and share, through here.
  */
-export function BuildBridge({ buildHref, children }: { buildHref: string; children: ReactNode }) {
+export function BuildBridge({
+  buildHref,
+  slots,
+  children,
+}: {
+  buildHref: string;
+  /**
+   * The slots when the layout loaded. The Build tab's own count replaces it
+   * once it reports one, and stays after the organizer goes to another tab,
+   * which doesn't load the layout again; a load that does (a Publish, a
+   * Settings save) brings a count of its own, which replaces it again.
+   */
+  slots: SlotCount;
+  children: ReactNode;
+}) {
   const tab = useRef<BuildTab | null>(null);
   // The slot a fix asked Build to open, in a box: null itself means "add one".
   const pending = useRef<{ slotId: string | null } | null>(null);
@@ -82,6 +117,14 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
   const focusPublish = useRef<(() => void) | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+  // What the Build tab last reported, until the layout loads again and
+  // brings the server's count.
+  const [shownSlots, setShownSlots] = useState(slots);
+  const [loaded, setLoaded] = useState(slots);
+  if (loaded !== slots) {
+    setLoaded(slots);
+    setShownSlots(slots);
+  }
   useEffect(() => {
     if (pathname !== buildHref) pending.current = null;
   }, [pathname, buildHref]);
@@ -136,15 +179,25 @@ export function BuildBridge({ buildHref, children }: { buildHref: string; childr
         focus?.();
         return focus !== null;
       },
+      reportSlots: setShownSlots,
     }),
     [buildHref, router],
   );
-  return <BridgeContext.Provider value={bridge}>{children}</BridgeContext.Provider>;
+  return (
+    <BridgeContext.Provider value={bridge}>
+      <SlotsContext.Provider value={shownSlots}>{children}</SlotsContext.Provider>
+    </BridgeContext.Provider>
+  );
 }
 
 /** The header's way to the Build tab; does nothing outside a `BuildBridge`. */
 export function useBuildBridge(): HeaderBridge {
   return useContext(BridgeContext);
+}
+
+/** The signup's slots, for the Build tab's count; null outside a `BuildBridge`. */
+export function useSlotCount(): SlotCount | null {
+  return useContext(SlotsContext);
 }
 
 /** Forgets a pending fix, for a tab the organizer chooses that isn't Build. */
@@ -172,4 +225,16 @@ export function useRegisterBuildTab(tab: BuildTab): () => boolean {
     [register],
   );
   return handBack;
+}
+
+/**
+ * Tells the tabs how many slots the Build tab has, as that changes: adding,
+ * duplicating or deleting one changes the count beside Build at once.
+ */
+export function useReportSlotCount(slots: SlotCount): void {
+  const { reportSlots } = useContext(BridgeContext);
+  const { count, spoken } = slots;
+  useEffect(() => {
+    reportSlots({ count, spoken });
+  }, [reportSlots, count, spoken]);
 }

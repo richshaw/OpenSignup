@@ -231,7 +231,7 @@ async function expectTab(words: Words) {
 
 describe('Responses tab: its words', () => {
   it('reads as before in English, with no language stored', async () => {
-    const after = 'up for someone else. They won’t get an email about it.';
+    const after = "up for someone else. They won't get an email about it.";
     await expectTab({
       headers: ['Name', 'Email', 'Slot', 'Spots', 'Status', 'Actions'],
       summary: '3 sign-ups · 1 cancelled · 1 removed',
@@ -362,7 +362,7 @@ describe('Responses tab: nobody signed up', () => {
     draft: 'Nobody has signed up yet. People can sign up once you publish and share it.',
     open: 'Nobody has signed up yet. Share the public link to start collecting.',
     closed: 'Nobody signed up.',
-    archived: 'Nobody signed up. People can’t sign up now.',
+    archived: "Nobody signed up. People can't sign up now.",
   };
 
   it.each(Object.entries(english))('says so for a %s signup, as before', async (status, line) => {

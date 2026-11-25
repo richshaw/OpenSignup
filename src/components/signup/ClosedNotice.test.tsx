@@ -7,7 +7,7 @@ import { ClosedNotice } from './ClosedNotice';
 import { signupHeaderText } from './header-text';
 import { HeaderAnnouncer, useAnnouncedStatusChange } from './HeaderAnnouncer';
 
-const BODY = 'People can’t sign up now. Everyone already signed up keeps their spot.';
+const BODY = "People can't sign up now. Everyone already signed up keeps their spot.";
 
 /** The header's words in English, as the layout passes them. */
 const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
