@@ -16,11 +16,11 @@ describe('removeRefusal', () => {
   });
 
   it('says a viewer cannot edit', () => {
-    expect(removeRefusal('forbidden', english)).toBe('You don’t have edit access.');
+    expect(removeRefusal('forbidden', english)).toBe("You don't have edit access.");
   });
 
   it.each(['conflict', 'internal', 'unauthorized'] as const)('falls back for %s', (code) => {
-    expect(removeRefusal(code, english)).toBe('Couldn’t remove them. Try again.');
+    expect(removeRefusal(code, english)).toBe("Couldn't remove them. Try again.");
   });
 
   it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(

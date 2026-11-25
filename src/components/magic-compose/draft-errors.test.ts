@@ -167,13 +167,13 @@ describe('explainDraftFailure', () => {
         code: 'forbidden',
         message: 'your role cannot modify this workspace',
       }),
-    ).toEqual({ kind: 'message', text: 'You don’t have edit access.' });
+    ).toEqual({ kind: 'message', text: "You don't have edit access." });
     expect(
       explain(400, {
         code: 'invalid_input',
         message: 'Keep the description to 10,000 characters or fewer.',
       }),
-    ).toEqual({ kind: 'message', text: 'Some values weren’t accepted.' });
+    ).toEqual({ kind: 'message', text: "Some values weren't accepted." });
   });
 
   it('says an unexpected server error failed to draft, with its status', () => {

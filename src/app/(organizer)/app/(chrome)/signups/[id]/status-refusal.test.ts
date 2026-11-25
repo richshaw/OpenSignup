@@ -12,9 +12,9 @@ const en = {
 describe('statusRefusal', () => {
   it('tells a viewer they cannot edit, not the guard’s text', () => {
     const e = serviceError('forbidden', 'your role cannot modify this workspace');
-    expect(statusRefusal(e, 'publish', en)).toBe('You don’t have edit access.');
-    expect(statusRefusal(e, 'close', en)).toBe('You don’t have edit access.');
-    expect(statusRefusal(e, 'reopen', en)).toBe('You don’t have edit access.');
+    expect(statusRefusal(e, 'publish', en)).toBe("You don't have edit access.");
+    expect(statusRefusal(e, 'close', en)).toBe("You don't have edit access.");
+    expect(statusRefusal(e, 'reopen', en)).toBe("You don't have edit access.");
   });
 
   it('says a deleted signup is no longer available', () => {
@@ -66,20 +66,20 @@ describe('statusRefusal', () => {
 
   it('falls back to a plain retry message', () => {
     const e = serviceError('internal', 'boom');
-    expect(statusRefusal(e, 'publish', en)).toBe('Couldn’t publish. Try again.');
-    expect(statusRefusal(e, 'close', en)).toBe('Couldn’t close the signup. Try again.');
-    expect(statusRefusal(e, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
+    expect(statusRefusal(e, 'publish', en)).toBe("Couldn't publish. Try again.");
+    expect(statusRefusal(e, 'close', en)).toBe("Couldn't close the signup. Try again.");
+    expect(statusRefusal(e, 'reopen', en)).toBe("Couldn't reopen the signup. Try again.");
   });
 
   it('falls back to the retry line for a conflict with no reason it knows', () => {
     const e = serviceError('conflict', 'something else', { field: 'title' });
-    expect(statusRefusal(e, 'publish', en)).toBe('Couldn’t publish. Try again.');
-    expect(statusRefusal(e, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
+    expect(statusRefusal(e, 'publish', en)).toBe("Couldn't publish. Try again.");
+    expect(statusRefusal(e, 'reopen', en)).toBe("Couldn't reopen the signup. Try again.");
     // The field alone doesn't decide it: the reason does.
     const noReason = serviceError('conflict', 'cannot open a signup that is open', {
       field: 'status',
     });
-    expect(statusRefusal(noReason, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
+    expect(statusRefusal(noReason, 'reopen', en)).toBe("Couldn't reopen the signup. Try again.");
   });
 
   it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(

@@ -11,19 +11,19 @@ describe('signupHeaderText', () => {
       publish: {
         label: 'Publish and share',
         checking: 'Checking…',
-        ready: 'Publish and share when you’re ready.',
-        unsaved: 'A change didn’t save. Fix it, then publish.',
+        ready: "Publish and share when you're ready.",
+        unsaved: "A change didn't save. Fix it, then publish.",
         closeSheet: 'Close',
       },
       close: { action: 'Close signup', notYet: 'Not yet', closing: 'Closing…' },
       reopen: { action: 'Reopen signup', reopening: 'Reopening…' },
       announcements: {
-        closed: 'Closed. People can’t sign up now.',
+        closed: "Closed. People can't sign up now.",
         reopened: 'Reopened. People can sign up again.',
       },
       closedNotice: {
         title: 'Signup closed',
-        body: 'People can’t sign up now. Everyone already signed up keeps their spot.',
+        body: "People can't sign up now. Everyone already signed up keeps their spot.",
         help: 'How closing and reopening work',
         dismiss: 'Dismiss',
       },

@@ -12,7 +12,7 @@ import {
 import type { StatusAction, StatusChangeAction } from './StatusActionForm';
 import { signupHeaderText } from './header-text';
 
-const CLOSED = 'Closed. People can’t sign up now.';
+const CLOSED = "Closed. People can't sign up now.";
 const REOPENED = 'Reopened. People can sign up again.';
 
 /** The header's words in English, as the layout passes them. */
@@ -101,7 +101,7 @@ describe('HeaderAnnouncer', () => {
 
   it('says nothing after a refused close, when the signup closes later some other way', async () => {
     const { show, press, button } = renderHeader(async () => ({
-      error: 'You don’t have edit access.',
+      error: "You don't have edit access.",
     }));
     await press();
     show('closed');
@@ -130,7 +130,7 @@ describe('HeaderAnnouncer', () => {
 
   it('says nothing after a refused reopen, when the signup reopens later some other way', async () => {
     const { show, press, button } = renderHeader(
-      async () => ({ error: 'You don’t have edit access.' }),
+      async () => ({ error: "You don't have edit access." }),
       'closed',
       'open',
     );
@@ -215,7 +215,7 @@ describe('HeaderAnnouncer, once a message has been read', () => {
     render(
       <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <Say message="Published." />
-        <Say message="Publish and share when you’re ready." />
+        <Say message="Publish and share when you're ready." />
       </HeaderAnnouncer>,
     );
     return (message: string) => act(() => screen.getByRole('button', { name: message }).click());
@@ -253,9 +253,9 @@ describe('HeaderAnnouncer, once a message has been read', () => {
     const region = screen.getByRole('status');
     press('Published.');
     act(() => vi.advanceTimersByTime(SAID_FOR_MS - 1000));
-    press('Publish and share when you’re ready.');
+    press("Publish and share when you're ready.");
     act(() => vi.advanceTimersByTime(SAID_FOR_MS - 1));
-    expect(region).toHaveTextContent('Publish and share when you’re ready.');
+    expect(region).toHaveTextContent("Publish and share when you're ready.");
     act(() => vi.advanceTimersByTime(1));
     expect(region).toHaveTextContent('');
   });

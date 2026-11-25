@@ -159,7 +159,7 @@ describe('Account Settings: Language', () => {
     ship('participant', CATALOG_LOCALES);
     await renderPage();
     expect(screen.getByRole('radio', { name: 'English' })).toHaveAccessibleDescription(
-      'Your screens and new signups use this language. To change one signup’s language, use its Settings tab.',
+      "Your screens and new signups use this language. To change one signup's language, use its Settings tab.",
     );
   });
 
@@ -220,7 +220,7 @@ describe('Account Settings: Language', () => {
   it('shows a refusal in the Settings tab’s words, and only for a code the action sends', async () => {
     ship('participant', ['en', 'sv']);
     await renderPage({ error: 'invalid_input' });
-    expect(screen.getByRole('alert')).toHaveTextContent('Some values weren’t accepted.');
+    expect(screen.getByRole('alert')).toHaveTextContent("Some values weren't accepted.");
     cleanup();
 
     for (const error of ['Your account is locked. Email us at once.', 'toString', '']) {

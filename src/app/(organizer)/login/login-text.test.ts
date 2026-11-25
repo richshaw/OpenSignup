@@ -21,8 +21,8 @@ describe('loginFormText', () => {
       sendAgain: 'Send again',
       tryAgain: 'Try again',
       errors: {
-        invalid_email: 'That doesn’t look like a valid email address.',
-        send_failed: 'Couldn’t send. Please try again.',
+        invalid_email: "That doesn't look like a valid email address.",
+        send_failed: "Couldn't send. Please try again.",
         rate_limited:
           'Too many sign-in requests. Wait up to an hour. If we already emailed you a link, you can use that.',
       },

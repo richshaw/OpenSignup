@@ -154,7 +154,7 @@ describe('createSignupAction (db)', () => {
     // A description over the limit, as only a request the form didn't send can be.
     expect(await submit('Bake sale', 'a'.repeat(DESCRIPTION_MAX_LENGTH + 1))).toEqual({
       refused: {
-        error: 'Some values weren’t accepted.',
+        error: "Some values weren't accepted.",
         title: 'Bake sale',
         description: 'a'.repeat(DESCRIPTION_MAX_LENGTH + 1),
       },
@@ -214,7 +214,7 @@ describe('createSignupAction (db)', () => {
     if (!('refused' in answer)) throw new Error('expected a refusal');
     expect(answer.refused).toMatchObject({ title: 'One too many', description: 'Kept' });
     expect(answer.refused.error).toMatch(
-      /^You’ve created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/,
+      /^You've created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/,
     );
     expect(await created()).toHaveLength(1);
   });

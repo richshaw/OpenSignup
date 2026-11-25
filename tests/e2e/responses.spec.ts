@@ -17,7 +17,7 @@ const REMOVE_REFUSED = removeRefusal('not_found', {
 const REMOVE_SAM = 'Remove Sam Example from Fruit and water';
 const QUESTION =
   'Remove Sam Example from Fruit and water? Their spot opens up for someone else. ' +
-  'They won’t get an email about it.';
+  "They won't get an email about it.";
 
 /**
  * A fresh published signup per test, with one single-spot slot: the test owns

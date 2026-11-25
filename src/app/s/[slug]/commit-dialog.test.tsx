@@ -422,7 +422,7 @@ describe('<CommitDialog /> sheet', () => {
 
       const alert = await screen.findByRole('alert', {}, settle);
       expect(alert).toHaveTextContent('No one new can sign up for this slot now.');
-      expect(alert).toHaveTextContent('Reload the page to see what’s still open.');
+      expect(alert).toHaveTextContent("Reload the page to see what's still open.");
       expect(alert).not.toHaveTextContent('signup has closed');
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;

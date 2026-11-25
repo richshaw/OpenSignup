@@ -407,7 +407,7 @@ describe('a viewer choosing Publish, Close, Reopen or Delete (db)', () => {
 
   it('Publish says the viewer can’t edit and leaves the draft as it was', async () => {
     session.actor = viewer;
-    expect(await publishAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
+    expect(await publishAction(signupId)).toEqual({ error: "You don't have edit access." });
     expect((await row())?.status).toBe('draft');
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -429,7 +429,7 @@ describe('a viewer choosing Publish, Close, Reopen or Delete (db)', () => {
 
   it('Close says the viewer can’t edit and leaves the signup open', async () => {
     session.actor = viewer;
-    expect(await closeAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
+    expect(await closeAction(signupId)).toEqual({ error: "You don't have edit access." });
     expect((await row())?.status).toBe('open');
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -445,7 +445,7 @@ describe('a viewer choosing Publish, Close, Reopen or Delete (db)', () => {
 
   it('Reopen says the viewer can’t edit and leaves the signup closed', async () => {
     session.actor = viewer;
-    expect(await reopenAction(signupId)).toEqual({ error: 'You don’t have edit access.' });
+    expect(await reopenAction(signupId)).toEqual({ error: "You don't have edit access." });
     expect((await row())?.status).toBe('closed');
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -613,7 +613,7 @@ describe('Publish’s check (db)', () => {
   it('refuses a viewer before checking anything', async () => {
     const { id } = await draft();
     session.actor = viewer;
-    expect(await publishAction(id)).toEqual({ error: 'You don’t have edit access.' });
+    expect(await publishAction(id)).toEqual({ error: "You don't have edit access." });
     expect(await statusOf(id)).toBe('draft');
   });
 
@@ -694,7 +694,7 @@ describe('closeQuestionAction (db)', () => {
     workspaceIds: [workspaceId],
     workspaceRoles: { [workspaceId]: 'owner' },
   };
-  const after = ' People can’t sign up until you reopen it.';
+  const after = " People can't sign up until you reopen it.";
   let signupId: string;
   let slotId: string;
 
@@ -757,7 +757,7 @@ describe('closeQuestionAction (db)', () => {
     // What Close signup itself would say next.
     session.actor = { kind: 'anonymous' };
     expect(await closeQuestionAction(signupId)).toEqual({
-      error: 'Couldn’t close the signup. Try again.',
+      error: "Couldn't close the signup. Try again.",
     });
 
     session.actor = owner;
@@ -843,7 +843,7 @@ describe('removeCommitmentAction (db)', () => {
   it('tells a viewer they can’t edit, in English with no language stored, and leaves the person on', async () => {
     session.actor = viewer;
     expect(await removeCommitmentAction(signupId, commitmentId)).toEqual({
-      error: 'You don’t have edit access.',
+      error: "You don't have edit access.",
     });
     expect(await status()).toBe('confirmed');
     expect(revalidatePath).not.toHaveBeenCalled();

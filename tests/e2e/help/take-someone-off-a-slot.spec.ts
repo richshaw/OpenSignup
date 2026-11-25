@@ -69,7 +69,7 @@ test.describe('help: take someone off a slot', () => {
       await remove.click();
       const confirm = page.getByRole('alertdialog');
       await expect(confirm).toContainText('Remove Sam Example from Fruit and water · Sat, Apr 6?');
-      await expect(confirm).toContainText('won’t get an email');
+      await expect(confirm).toContainText("won't get an email");
       // Keep leaves them on the slot.
       await confirm.getByRole('button', { name: UI.keep }).click();
       await expect(confirm).toHaveCount(0);
