@@ -16,6 +16,12 @@ import type { LabelledField } from '@/lib/slot-label';
  * sorts the file by day or item. `slots.ref` and `slots.slot_at` stay out:
  * one is a key nobody typed, the other the reminder job's noon-UTC anchor for
  * a date-only slot, which a spreadsheet reads as a time.
+ *
+ * The one thing besides those words that follows the organizer's language is
+ * the separator between cells (`csvSeparator`), because Excel doesn't read it
+ * from the file: it splits on the list separator of the computer's regional
+ * settings, which is `;` wherever the decimal mark is a comma. The values,
+ * numbers included, stay as stored.
  */
 
 export interface ResponsesCsvInput {
@@ -51,7 +57,24 @@ function responseColumns(t: Translator<'organizer.responses'>): string[] {
 // accented names.
 const UTF8_BOM = '﻿';
 
-function csvEscape(value: unknown): string {
+/**
+ * The separator a spreadsheet in `locale` splits a CSV on: `;` where the
+ * language writes decimals with a comma, as Excel's regional default does,
+ * else `,`. Worked out from `Intl` rather than a table, so a new language
+ * needs nothing here. No `sep=` line goes in the file instead: Excel then
+ * ignores the BOM and garbles accented names, and other spreadsheets show it
+ * as a row.
+ */
+export function csvSeparator(locale: string): CsvSeparator {
+  const decimal = new Intl.NumberFormat(locale)
+    .formatToParts(1.5)
+    .find((part) => part.type === 'decimal')?.value;
+  return decimal === ',' ? ';' : ',';
+}
+
+export type CsvSeparator = ',' | ';';
+
+function csvEscape(value: unknown, separator: CsvSeparator): string {
   if (value === null || value === undefined) return '';
   // A number can't carry a formula, and quoting a negative one would turn it
   // into text.
@@ -59,7 +82,9 @@ function csvEscape(value: unknown): string {
   let s = String(value);
   // Defuse spreadsheet-formula injection: prefix any leading =, +, -, @, tab, or CR with a single quote.
   if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  // A comma is quoted whatever the separator, so a program that guesses it
+  // still reads a cell whole.
+  if (/[",\n\r]/.test(s) || s.includes(separator)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
@@ -81,6 +106,7 @@ function headers(fields: readonly LabelledField[], columns: readonly string[]): 
 export function responsesCsv(
   { fields, slots, commitments, ended }: ResponsesCsvInput,
   t: Translator<'organizer.responses'>,
+  separator: CsvSeparator = ',',
 ): string {
   const valuesBySlot = new Map(
     slots.map((s) => [s.id, (s.values as Record<string, unknown> | null) ?? {}]),
@@ -98,5 +124,30 @@ export function responsesCsv(
       c.createdAt.toISOString(),
     ]);
   }
-  return UTF8_BOM + lines.map((cells) => cells.map(csvEscape).join(',')).join('\n');
+  return (
+    UTF8_BOM +
+    lines.map((cells) => cells.map((cell) => csvEscape(cell, separator)).join(separator)).join('\n')
+  );
+}
+
+/**
+ * A download named `fileName`. A name with letters outside ASCII (å, ä, ö)
+ * goes in `filename*`, which browsers prefer, beside a plain `filename` with
+ * those letters' accents dropped for clients that don't read it.
+ */
+export function attachmentNamed(fileName: string): string {
+  const plain = fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]|["\\]/g, '_');
+  if (plain === fileName) return `attachment; filename="${fileName}"`;
+  return `attachment; filename="${plain}"; filename*=UTF-8''${encodeRfc5987(fileName)}`;
+}
+
+/** `encodeURIComponent`, plus the four characters it leaves that RFC 5987 doesn't allow. */
+function encodeRfc5987(value: string): string {
+  return encodeURIComponent(value).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
 }

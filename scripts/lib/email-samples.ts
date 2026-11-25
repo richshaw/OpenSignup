@@ -24,7 +24,7 @@ import { formatDuration } from '@/lib/format-duration';
 import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 
-export interface EmailSample {
+interface EmailSample {
   name: string;
   element: ReactElement;
   /**
