@@ -379,6 +379,7 @@
   "organizer.responses.csv.spots": "Spots",
   "organizer.responses.csv.notes": "Notes",
   "organizer.responses.csv.signedUp": "Signed up",
+  "organizer.responses.csv.fileName": "{slug}-responses.csv",
   "organizer.newSignup.title": "New signup",
   "organizer.newSignup.intro": "You can add slots after it's created. Nothing is visible until you publish.",
   "organizer.newSignup.titleLabel": "Title",
