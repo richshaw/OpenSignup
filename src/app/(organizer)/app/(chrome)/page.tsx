@@ -70,7 +70,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <h1 className="text-2xl font-semibold tracking-tight">{t('title')}</h1>
         <Link
           href="/app/signups/new"
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
+          className="shrink-0 whitespace-nowrap rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover"
         >
           {t('newSignup')}
         </Link>

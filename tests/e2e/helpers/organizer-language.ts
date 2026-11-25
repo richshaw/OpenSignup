@@ -168,6 +168,15 @@ async function makeSignup(db: Db, actor: Actor, workspaceId: string, title: stri
   );
 }
 
+/**
+ * Renames one of the organizer's signups, written straight into the row, for
+ * a spec that needs a title of a given length on a signup `createOrganizerIn`
+ * made.
+ */
+export async function retitleSignup(signupId: string, title: string): Promise<void> {
+  await getDb().update(signups).set({ title }).where(eq(signups.id, signupId));
+}
+
 /** A signup of the organizer's whose language is another than theirs. */
 export interface SignupIn {
   id: string;

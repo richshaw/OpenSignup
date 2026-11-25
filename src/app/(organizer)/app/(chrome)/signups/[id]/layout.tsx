@@ -68,6 +68,12 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   const publicUrl = publicSignupUrl(sig.slug);
   const status = sig.status as SignupStatus;
   const aiDraft = getServerTranslator(locale, 'organizer.aiDraft');
+  const slots = {
+    count: sig.slots.length,
+    spoken: getServerTranslator(locale, 'organizer.build.sheet')('slotCount', {
+      count: sig.slots.length,
+    }),
+  };
   // The words of the header's client components, the closed box and the
   // tabs, passed to them as props.
   const text = signupHeaderText(getServerTranslator(locale, 'organizer.signup'));
@@ -85,7 +91,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
   return (
     // The header reaches the Build tab through this: Publish saves its edits
     // first, and a check's fix opens a slot there.
-    <BuildBridge buildHref={signupTabPath(id, 'build')}>
+    <BuildBridge buildHref={signupTabPath(id, 'build')} slots={slots}>
       {/* On a phone, a draft's Publish and share or an open signup's Share is in
         a bar fixed to the bottom of the screen; the page leaves room for it. */}
       <div className={`space-y-6 ${hasPhoneBar(status) ? PHONE_BAR_ROOM : ''}`}>
@@ -132,11 +138,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             status === 'draft' ? messagesFor(locale, 'organizer.aiDraft.warnings') : null
           }
         />
-        <TabsNav
-          signupId={id}
-          counts={{ build: sig.fields.length + sig.slots.length, responses: responsesCount }}
-          labels={text.tabs}
-        />
+        <TabsNav signupId={id} counts={{ slots, responses: responsesCount }} labels={text.tabs} />
         <div>{children}</div>
       </div>
     </BuildBridge>

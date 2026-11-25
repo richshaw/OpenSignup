@@ -96,7 +96,7 @@ function Header({
   page?: ReactNode;
 }) {
   return (
-    <BuildBridge buildHref="/app/signups/sig_1/build">
+    <BuildBridge buildHref="/app/signups/sig_1/build" slots={{ count: 0, spoken: '0 slots' }}>
       <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <ShareScope
           text={SHARE_TEXT}

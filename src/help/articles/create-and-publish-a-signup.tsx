@@ -30,7 +30,10 @@ export function CreateAndPublishASignup() {
         <Steps>
           <Step>
             <p>
-              Sign in to {INSTANCE_NAME}. The first time you sign in, this creates your account.
+              <a href="/login" className="text-brand underline">
+                Sign in
+              </a>{' '}
+              to {INSTANCE_NAME}. The first time you sign in, this creates your account.
             </p>
           </Step>
           <Step>
