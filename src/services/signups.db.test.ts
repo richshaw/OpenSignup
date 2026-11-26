@@ -7,7 +7,6 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
@@ -855,7 +854,7 @@ describe('signups service (db)', () => {
         // A language stored on one, as the Settings tab stores it, and none on
         // the other. Written straight into the row, so it's the same whichever
         // languages have shipped.
-        const another = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+        const another = OTHER_LOCALE;
         await listFx.db
           .update(signups)
           .set({ settings: { ...b.value.settings, locale: another } })

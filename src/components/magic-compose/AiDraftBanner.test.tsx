@@ -3,8 +3,8 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
-import { TEST_LOCALES } from '@/i18n/testing/locales';
+import type { CatalogLocale } from '@/i18n/config';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator, messagesFor } from '@/i18n/translator';
 import { warningSentence, type DraftWarning } from '@/lib/magic-compose/draft-warnings';
@@ -139,7 +139,7 @@ describe('<AiDraftBanner />', () => {
   });
 
   it('takes every word of the warnings from the messages the layout passes', async () => {
-    const locale = CATALOG_LOCALES.find((l) => l !== 'en') ?? 'en';
+    const locale = OTHER_LOCALE;
     const english = messagesFor('en', 'organizer.aiDraft.warnings') as {
       organizer: { aiDraft: { warnings: Record<string, unknown> } };
     };
