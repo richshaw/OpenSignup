@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { INSTANCE_NAME } from '@/lib/site-config';
 
@@ -22,9 +22,6 @@ vi.mock('@/i18n/server', async () => ({
 }));
 
 const { default: OrganizerLayout, generateMetadata } = await import('./layout');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 afterEach(() => {
   cleanup();
@@ -51,7 +48,7 @@ describe('the organizer app’s header', () => {
     });
   });
 
-  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s, and marked so', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s, and marked so', async (other) => {
     ship('organizer', ['en', other]);
     organizer.locale = other;
     await renderLayout();

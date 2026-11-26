@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { serviceError } from '@/lib/errors';
 import { statusRefusal } from './status-refusal';
@@ -82,30 +82,25 @@ describe('statusRefusal', () => {
     expect(statusRefusal(noReason, 'reopen', en)).toBe("Couldn't reopen the signup. Try again.");
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'words each refusal from the catalog in %s, a viewer’s too',
-    (locale) => {
-      const t = {
-        signup: getStandInTranslator(locale, 'organizer.signup.refusal'),
-        errors: getStandInTranslator(locale, 'organizer.errors'),
-      };
-      const words = (key: string) => `organizer.signup.refusal.${key} in ${locale}`;
-      expect(statusRefusal(serviceError('not_found', 'gone'), 'close', t)).toBe(words('gone'));
-      const conflict = (reason: 'status_changed' | 'no_slots') =>
-        serviceError('conflict', 'x', { details: { reason } });
-      expect(statusRefusal(conflict('status_changed'), 'reopen', t)).toBe(words('changed'));
-      expect(statusRefusal(conflict('no_slots'), 'publish', t)).toBe(words('addSlotToPublish'));
-      expect(statusRefusal(conflict('no_slots'), 'reopen', t)).toBe(words('addSlotToReopen'));
-      expect(statusRefusal(serviceError('internal', 'x'), 'publish', t)).toBe(
-        words('publishFailed'),
+  it.each(TEST_LOCALES)('words each refusal from the catalog in %s, a viewer’s too', (locale) => {
+    const t = {
+      signup: getStandInTranslator(locale, 'organizer.signup.refusal'),
+      errors: getStandInTranslator(locale, 'organizer.errors'),
+    };
+    const words = (key: string) => `organizer.signup.refusal.${key} in ${locale}`;
+    expect(statusRefusal(serviceError('not_found', 'gone'), 'close', t)).toBe(words('gone'));
+    const conflict = (reason: 'status_changed' | 'no_slots') =>
+      serviceError('conflict', 'x', { details: { reason } });
+    expect(statusRefusal(conflict('status_changed'), 'reopen', t)).toBe(words('changed'));
+    expect(statusRefusal(conflict('no_slots'), 'publish', t)).toBe(words('addSlotToPublish'));
+    expect(statusRefusal(conflict('no_slots'), 'reopen', t)).toBe(words('addSlotToReopen'));
+    expect(statusRefusal(serviceError('internal', 'x'), 'publish', t)).toBe(words('publishFailed'));
+    expect(statusRefusal(serviceError('internal', 'x'), 'close', t)).toBe(words('closeFailed'));
+    expect(statusRefusal(serviceError('internal', 'x'), 'reopen', t)).toBe(words('reopenFailed'));
+    for (const change of ['publish', 'close', 'reopen'] as const) {
+      expect(statusRefusal(serviceError('forbidden', 'x'), change, t)).toBe(
+        `organizer.errors.code.forbidden in ${locale}`,
       );
-      expect(statusRefusal(serviceError('internal', 'x'), 'close', t)).toBe(words('closeFailed'));
-      expect(statusRefusal(serviceError('internal', 'x'), 'reopen', t)).toBe(words('reopenFailed'));
-      for (const change of ['publish', 'close', 'reopen'] as const) {
-        expect(statusRefusal(serviceError('forbidden', 'x'), change, t)).toBe(
-          `organizer.errors.code.forbidden in ${locale}`,
-        );
-      }
-    },
-  );
+    }
+  });
 });

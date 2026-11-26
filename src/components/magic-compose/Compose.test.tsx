@@ -4,7 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ClientMessages } from '@/i18n/ClientMessages';
-import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { type CatalogLocale } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTranslator, messagesFor } from '@/i18n/translator';
 import { PROMPT_MAX_LENGTH } from '@/lib/magic-compose/limits';
 import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
@@ -55,7 +56,7 @@ describe('Compose description limit', () => {
     expect(onDraft).not.toHaveBeenCalled();
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  it.each(TEST_LOCALES)(
     "writes the count in the organizer's language, numbers included (%s)",
     (locale) => {
       renderWith('a'.repeat(4828), locale);

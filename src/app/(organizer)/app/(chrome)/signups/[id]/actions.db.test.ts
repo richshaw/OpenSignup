@@ -8,7 +8,7 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots as slotsTable } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { getTestTranslator } from '@/i18n/testing/translator';
@@ -849,7 +849,7 @@ describe('removeCommitmentAction (db)', () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  it.each(TEST_LOCALES)(
     'words each refusal in the language stored on the organizer’s account, %s',
     async (locale) => {
       ship('organizer', ['en', locale]);

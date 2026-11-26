@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator } from '@/i18n/translator';
 import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
@@ -394,7 +394,7 @@ describe('shareMessage in the signup’s language', () => {
     status: 'open',
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  it.each(TEST_LOCALES)(
     'asks the catalog in %s for every word, and gives the time in it',
     (locale) => {
       const language = { locale, t: getStandInTranslator(locale, 'participant.share') };
@@ -420,7 +420,7 @@ describe('shareMessage in the signup’s language', () => {
     },
   );
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  it.each(TEST_LOCALES)(
     'writes the days and the time in %s, as the signup’s page does',
     (locale) => {
       const t = getTranslator(locale, 'participant.share', {
