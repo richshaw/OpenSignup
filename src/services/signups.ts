@@ -240,7 +240,6 @@ export async function createSignup(
         slug,
         title: data.title,
         description: data.description,
-        visibility: data.visibility,
         tags: data.tags,
         settings,
         closesAt: data.closesAt ? new Date(data.closesAt) : null,

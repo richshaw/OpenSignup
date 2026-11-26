@@ -139,6 +139,36 @@ describe('signups service (db)', () => {
       expect(r.error.code).toBe('invalid_input');
     });
 
+    it('stores every new signup as unlisted, whether or not the input says so', async () => {
+      const sent = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput());
+      const { visibility: _, ...withoutVisibility } = validCreateInput();
+      const left = await createSignup(fx.db, fx.actor, fx.workspaceId, withoutVisibility);
+      expect(sent.ok && sent.value.visibility).toBe('unlisted');
+      expect(left.ok && left.value.visibility).toBe('unlisted');
+    });
+
+    // Nothing reads visibility, so a value that would claim to protect or list
+    // the signup is refused rather than stored.
+    it.each(['public', 'password'])(
+      'refuses visibility %s and stores nothing',
+      async (visibility) => {
+        const title = `Visibility ${visibility}`;
+        const r = await createSignup(fx.db, fx.actor, fx.workspaceId, {
+          ...validCreateInput(title),
+          visibility,
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.code).toBe('invalid_input');
+        expect(r.error.field).toBe('visibility');
+        const rows = await fx.db
+          .select({ id: signups.id })
+          .from(signups)
+          .where(and(eq(signups.workspaceId, fx.workspaceId), eq(signups.title, title)));
+        expect(rows).toHaveLength(0);
+      },
+    );
+
     it('rejects an actor not in the workspace', async () => {
       const stranger: Actor = {
         kind: 'organizer',
