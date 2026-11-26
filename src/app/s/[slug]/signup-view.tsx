@@ -61,9 +61,6 @@ interface SignupViewCommonProps {
    */
   locale: CatalogLocale;
   ownCommitments?: OwnCommitment[];
-  /** Show the preview/closed status banner. Default true; set false when the
-   *  surrounding context already conveys preview state (e.g. the build rail). */
-  showStateBanner?: boolean;
 }
 
 /**
@@ -148,17 +145,7 @@ function titleFor(
 }
 
 export function SignupViewBody(props: SignupViewProps) {
-  const {
-    signup,
-    fields,
-    groupByRef,
-    slots,
-    slug,
-    locale,
-    mode,
-    ownCommitments,
-    showStateBanner = true,
-  } = props;
+  const { signup, fields, groupByRef, slots, slug, locale, mode, ownCommitments } = props;
   const t = getServerTranslator(locale, 'participant.signupView');
   const tSlot = getServerTranslator(locale, 'participant.slot');
   // The live row's Sign up is the dialog's, which reads these in the browser;
@@ -215,7 +202,7 @@ export function SignupViewBody(props: SignupViewProps) {
 
   const view = (
     <>
-      {!showStateBanner ? null : preview ? (
+      {preview ? (
         // A wrapper for its language, rather than a prop on the shared
         // Banner, so the organizer pages' banners stay byte for byte as they
         // were. It lays out as the banner alone would.

@@ -25,6 +25,7 @@ import {
   createSignup,
   deleteSignup,
   getSignupForOrganizer,
+  listActivity,
   publishSignup,
   updateSignup,
 } from '@/services/signups';
@@ -39,6 +40,7 @@ import {
   addSlot,
   addSlotsBulk,
   deleteSlot,
+  listSlots,
   listSlotsForSignup,
   reorderSlots,
   updateSlot,
@@ -254,6 +256,8 @@ const CALLS: Array<[string, Call]> = [
   ['closeSignup', (fx, s) => closeSignup(fx.db, fx.actor, s.signupId)],
   ['archiveSignup', (fx, s) => archiveSignup(fx.db, fx.actor, s.signupId)],
   ['listFields', (fx, s) => listFields(fx.db, fx.actor, s.signupId)],
+  ['listSlots', (fx, s) => listSlots(fx.db, fx.actor, s.signupId)],
+  ['listActivity', (fx, s) => listActivity(fx.db, fx.actor, s.signupId, 100)],
   ['getSignupRowForOrganizer', (fx, s) => getSignupRowForOrganizer(fx.db, fx.actor, s.signupId)],
   ['getSignupForOrganizer', (fx, s) => getSignupForOrganizer(fx.db, fx.actor, s.signupId)],
 ];
