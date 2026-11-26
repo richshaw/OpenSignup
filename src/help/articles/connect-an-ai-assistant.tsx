@@ -1,7 +1,7 @@
 import { ACCESS_TOKEN_LIFETIME, CONNECTION_IDLE_LIMIT, GRANT_LIFETIME } from '@/lib/lifetimes';
 import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { MCP_RESOURCE_PATH } from '@/oauth/config';
-import { CopyText, Screenshot, Step, Steps, Ui } from '../components';
+import { Bullets, CopyText, HelpSection, Screenshot, Step, Steps, Ui } from '../components';
 import { UI } from './connect-an-ai-assistant.ui';
 
 export { UI };
@@ -18,13 +18,12 @@ export function ConnectAnAiAssistant() {
       </p>
       <p>You see what it asks to do before you allow it, and you can disconnect it at any time.</p>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">What an assistant can do</h2>
+      <HelpSection title="What an assistant can do">
         <p>
           A slot is one thing people can sign up for. A spot is one place in a slot. With the
           permissions you allow, an assistant can work on your signups the way you do:
         </p>
-        <ul className="list-disc space-y-2 pl-6">
+        <Bullets>
           <li>See your signups, their slots, and how many spots in each slot are taken.</li>
           <li>
             Make a new signup with all its slots. It starts as a draft, so nobody can sign up until
@@ -42,18 +41,15 @@ export function ConnectAnAiAssistant() {
             Publish, close, reopen, archive or delete a signup. Archiving or deleting can&apos;t be
             undone.
           </li>
-        </ul>
+        </Bullets>
         <p>It can&apos;t see the names or email addresses of people who sign up.</p>
         <p>
           It acts as you, so it can&apos;t do anything you couldn&apos;t do yourself. What it reads
           from your signups goes to whoever runs the assistant, the same as anything you type to it.
         </p>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">
-          Add {INSTANCE_NAME} to your assistant
-        </h2>
+      <HelpSection title={<>Add {INSTANCE_NAME} to your assistant</>}>
         <p>Your assistant needs this address:</p>
         <CopyText>{MCP_ADDRESS}</CopyText>
         <p>
@@ -66,7 +62,7 @@ export function ConnectAnAiAssistant() {
           connectors or plugins. You may need a computer: some assistants don&apos;t let you add a
           connector from their phone app.
         </p>
-        <ul className="list-disc space-y-3 pl-6">
+        <Bullets loose>
           <li className="space-y-3">
             <p>
               In Claude, on a Team or Enterprise plan, an owner adds {INSTANCE_NAME} for everyone
@@ -113,11 +109,10 @@ export function ConnectAnAiAssistant() {
           <li>
             In another assistant, look for a way to add a connector, a plugin or an MCP server.
           </li>
-        </ul>
-      </section>
+        </Bullets>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Approve the connection</h2>
+      <HelpSection title="Approve the connection">
         <Steps>
           <Step>
             <p>
@@ -147,7 +142,7 @@ export function ConnectAnAiAssistant() {
               Under <Ui>{UI.willBeAbleTo}</Ui>, read what your assistant is asking for. It can ask
               for:
             </p>
-            <ul className="list-disc space-y-2 pl-6">
+            <Bullets>
               <li>
                 <Ui>{UI.seeSignups}</Ui>, including how many spots are taken.
               </li>
@@ -160,7 +155,7 @@ export function ConnectAnAiAssistant() {
                 for it. Even if you allow it, no assistant can read these details. If one asks
                 anyway, the page shows it in amber with a warning.
               </li>
-            </ul>
+            </Bullets>
             <p>You allow everything on the list, or nothing.</p>
             <Screenshot
               src="/help/connect-an-ai-assistant/approve.png"
@@ -182,10 +177,9 @@ export function ConnectAnAiAssistant() {
             </p>
           </Step>
         </Steps>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Try it</h2>
+      <HelpSection title="Try it">
         <p>
           In ChatGPT, type @ in your message and choose the plugin. Do it again in each later
           message that needs {INSTANCE_NAME}.
@@ -203,11 +197,10 @@ export function ConnectAnAiAssistant() {
           When it looks right, publish it yourself or ask the assistant to. Then it&apos;s open, and
           anyone with the link can sign up.
         </p>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">How long a connection lasts</h2>
-        <ul className="list-disc space-y-2 pl-6">
+      <HelpSection title="How long a connection lasts">
+        <Bullets>
           <li>
             A connection lasts up to {GRANT_LIFETIME} from the first time you choose{' '}
             <Ui>{UI.allow}</Ui>. After that, you need to approve it again.
@@ -220,11 +213,10 @@ export function ConnectAnAiAssistant() {
             If you approve the same assistant again, it keeps the connection you have. It
             doesn&apos;t add a second one, or restart the {GRANT_LIFETIME}.
           </li>
-        </ul>
-      </section>
+        </Bullets>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Disconnect an assistant</h2>
+      <HelpSection title="Disconnect an assistant">
         <p>
           Disconnecting stops an assistant from working on your signups. You can connect it again
           later.
@@ -250,7 +242,7 @@ export function ConnectAnAiAssistant() {
             </p>
           </Step>
         </Steps>
-      </section>
+      </HelpSection>
     </>
   );
 }
