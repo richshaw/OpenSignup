@@ -3,9 +3,8 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
 import { getTestTranslator } from '@/i18n/testing/translator';
-import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTranslator, messagesFor, type Namespace } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
@@ -66,9 +65,6 @@ const SLOTS: SignupViewSlot[] = [
 ];
 
 const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
@@ -357,7 +353,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
 
   // The organizer's, whatever the signup's: the stand-in translator answers
   // with where each text was asked for.
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'puts the Preview banner and the disabled button’s tip in the organizer’s language, %s',
     (other) => {
       render(
@@ -394,7 +390,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   // can: the button's title and its description both pass the signup's
   // status, which picks the words (#888).
   it.each(
-    OTHER_LANGUAGES.flatMap((other) =>
+    TEST_LOCALES.flatMap((other) =>
       (['draft', 'open'] as const).map((status) => [other, status] as const),
     ),
   )('gives the disabled button’s tip in %s the status of a signup that is %s', (other, status) => {

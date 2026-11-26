@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderEmail } from '@/email/render';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { formatDuration } from '@/lib/format-duration';
 import { MagicLinkEmail, type MagicLinkEmailProps } from './magic-link';
 
@@ -34,9 +34,6 @@ type CodeWithoutExpiry = Omit<MagicLinkEmailProps, 'code' | 'codeExpiresInMinute
 export type CodeExpiryMustBeRequired = Assert<
   CodeWithoutExpiry extends MagicLinkEmailProps ? false : true
 >;
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 /** The email's plain text with its 80-column wrapping undone. */
 const flat = (text: string) => text.replace(/\s+/g, ' ');
@@ -132,7 +129,7 @@ describe('MagicLinkEmail', () => {
     );
   });
 
-  it.each(OTHER_LANGUAGES)('takes every word from the catalog in %s', async (locale) => {
+  it.each(TEST_LOCALES)('takes every word from the catalog in %s', async (locale) => {
     const url = 'https://signup.example/login/confirm?token=abc';
     const { html, text } = await renderEmail(
       createElement(MagicLinkEmail, {

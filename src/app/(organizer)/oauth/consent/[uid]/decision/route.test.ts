@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { waitInMinutes } from '@/lib/format-duration';
 
@@ -50,9 +50,6 @@ afterEach(() => {
   request.locale = null;
   request.realText = false;
 });
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 const decide = vi.fn(async (..._args: unknown[]) => new Response(null, { status: 303 }));
 vi.mock('@/oauth/consent', () => ({
@@ -113,7 +110,7 @@ describe('POST /oauth/consent/[uid]/decision', () => {
     );
   });
 
-  describe.each(OTHER_LANGUAGES)('for an organizer whose language is %s', (other) => {
+  describe.each(TEST_LOCALES)('for an organizer whose language is %s', (other) => {
     beforeEach(shipOnlyEnglish);
 
     it('stays English while that language hasn’t shipped to organizers', async () => {

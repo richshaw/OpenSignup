@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getPrecompiledTranslator } from '@/i18n/testing/precompiled';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator, type Translator } from '@/i18n/translator';
@@ -76,14 +77,11 @@ describe('the sign-in email’s subject', () => {
     expect(signInSubject(getTestTranslator('auth.email'))).toBe('Sign in to OpenSignup');
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'comes from the catalog in %s',
-    (locale) => {
-      expect(signInSubject(getStandInTranslator(locale, 'auth.email'))).toBe(
-        `auth.email.subject in ${locale}`,
-      );
-    },
-  );
+  it.each(TEST_LOCALES)('comes from the catalog in %s', (locale) => {
+    expect(signInSubject(getStandInTranslator(locale, 'auth.email'))).toBe(
+      `auth.email.subject in ${locale}`,
+    );
+  });
 });
 
 /**

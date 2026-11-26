@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import type { ServiceError } from '@/lib/errors';
 import { INSTANCE_NAME } from '@/lib/site-config';
@@ -61,9 +61,6 @@ vi.mock('./login-form', async (importOriginal) => {
 });
 
 const { default: LoginPage, generateMetadata } = await import('./page');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 async function renderPage(params: { error?: string; callbackUrl?: string } = {}) {
   const view = render(await LoginPage({ searchParams: Promise.resolve(params) }));
@@ -127,7 +124,7 @@ describe('the sign-in page', () => {
     expect(screen.getByText('Something went wrong. Try again.')).toBeInTheDocument();
   });
 
-  describe.each(OTHER_LANGUAGES)('with DEFAULT_LOCALE=%s', (other) => {
+  describe.each(TEST_LOCALES)('with DEFAULT_LOCALE=%s', (other) => {
     beforeEach(shipOnlyEnglish);
 
     it('stays English while that language hasn’t shipped to organizers', async () => {

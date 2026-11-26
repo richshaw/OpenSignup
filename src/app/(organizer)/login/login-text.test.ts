@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createTranslator } from 'use-intl/core';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import type { Translator } from '@/i18n/translator';
 import en from '@/messages/en.json';
 import { loginFormText } from './login-text';
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('loginFormText', () => {
   it('is the form’s English, word for word as it read before the catalog', () => {
@@ -42,7 +39,7 @@ describe('loginFormText', () => {
     });
   });
 
-  it.each(OTHER_LANGUAGES)('asks the catalog in %s for every word', (locale) => {
+  it.each(TEST_LOCALES)('asks the catalog in %s for every word', (locale) => {
     const text = loginFormText(getStandInTranslator(locale, 'auth'));
     const words = (value: unknown): string[] =>
       typeof value === 'string' ? [value] : Object.values(value as object).flatMap(words);

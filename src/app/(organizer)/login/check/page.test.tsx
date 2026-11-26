@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { formatDuration } from '@/lib/format-duration';
 
@@ -38,9 +38,6 @@ vi.mock('@/i18n/server', async () => {
 
 const { default: CheckEmailPage, generateMetadata } = await import('./page');
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 async function renderPage() {
   const view = render(await CheckEmailPage({ searchParams: Promise.resolve({}) }));
   return { frame: view.container.querySelector('[lang]') };
@@ -70,7 +67,7 @@ describe('the check-your-email page', () => {
     });
   });
 
-  describe.each(OTHER_LANGUAGES)('with DEFAULT_LOCALE=%s', (other) => {
+  describe.each(TEST_LOCALES)('with DEFAULT_LOCALE=%s', (other) => {
     beforeEach(shipOnlyEnglish);
 
     it('stays English while that language hasn’t shipped to organizers', async () => {
