@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { warningSentence, type DraftWarning } from '@/lib/magic-compose/draft-warnings';
 import { warningText } from './warning-text';
@@ -28,7 +28,7 @@ describe('warningText', () => {
   });
 
   it("words each code from the catalog, in the organizer's language", () => {
-    const locale = CATALOG_LOCALES.find((l) => l !== 'en') ?? 'en';
+    const locale = OTHER_LOCALE;
     const t = getStandInTranslator(locale, 'organizer.aiDraft.warnings');
     const words = (warning: DraftWarning) =>
       warningText(warning, t, locale).replace(/^organizer\.aiDraft\.warnings\.| in \w+$/g, '');

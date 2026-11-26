@@ -7,6 +7,7 @@ import type { DraftPreview } from '@/app/api/signups/magic-compose/preview';
 import { ClientMessages } from '@/i18n/ClientMessages';
 import { CATALOG_LOCALES } from '@/i18n/config';
 import { standInMessages } from '@/i18n/testing/client-messages';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { messagesFor } from '@/i18n/translator';
 import { MAGIC_COMPOSE_NAMESPACES } from './client-namespaces';
 import { Compose } from './Compose';
@@ -30,7 +31,7 @@ afterEach(() => {
  * English. What's left is the organizer's own: their description, and the
  * draft the AI made from it.
  */
-const LOCALE = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+const LOCALE = OTHER_LOCALE;
 const standIns = standInMessages(LOCALE, MAGIC_COMPOSE_NAMESPACES);
 const inStandIns = (ui: ReactElement) => render(ui, { wrapper: standIns });
 const isMessage = (text: string) =>

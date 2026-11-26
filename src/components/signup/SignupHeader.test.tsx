@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, within } from '@testing-library/react';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
-import { TEST_LOCALES } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTestServerTranslator } from '@/i18n/testing/translator';
 import type { SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
@@ -250,7 +250,7 @@ describe('SignupHeader’s title', () => {
   );
 
   it('is marked in the phone’s More actions sheet too', () => {
-    const other = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+    const other = OTHER_LOCALE;
     const { phone } = renderHeader('open', SPOTS, undefined, 'en', other);
     fireEvent.click(phone.getByRole('button', { name: 'More actions' }));
     const sheet = within(document.body).getByRole('dialog', { name: 'Bake sale helpers' });

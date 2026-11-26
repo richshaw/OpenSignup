@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MagicComposeQuestions } from '@/lib/magic-compose/questions';
 import { isRealDate } from '@/lib/reminder-fields';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import {
   addPending,
@@ -402,7 +402,7 @@ describe('formatOneDay', () => {
 describe('the words around the answers', () => {
   // A language besides English, whatever its catalog holds so far: each line
   // is the message asked for, in that language.
-  const LOCALE = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
+  const LOCALE = OTHER_LOCALE;
   const problemsIn = getStandInTranslator(LOCALE, 'organizer.compose.questions.problems');
   const wordsIn = getStandInTranslator(LOCALE, 'organizer.compose.answers');
   const message = (key: string) => `organizer.compose.${key} in ${LOCALE}`;
