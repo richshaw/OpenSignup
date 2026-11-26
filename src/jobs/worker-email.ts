@@ -17,11 +17,11 @@ import {
   loadCommitmentRow,
   type CommitmentRow,
 } from '@/email/commitment-row';
-import { skipReasons } from './notify-rules';
+import { allOf, skipReasons } from './notify-rules';
 
 /**
- * The commitment as it is now, if it still passes `condition` (every rule in
- * `rules`), with the email and slot time the rules guarantee. Otherwise logs
+ * The commitment as it is now, if it still passes every rule in `rules`,
+ * with the email and slot time the rules guarantee. Otherwise logs
  * `messages.notFound` when there is no such commitment, or
  * `messages.notDue` with the names of the rules it fails, and returns nothing.
  */
@@ -29,10 +29,9 @@ export async function loadDueRow(
   db: Db,
   commitmentId: string,
   rules: Record<string, SQL>,
-  condition: SQL,
   messages: { notFound: string; notDue: string },
 ): Promise<{ row: CommitmentRow; to: string; slotAt: Date } | undefined> {
-  const row = await loadCommitmentRow(db, commitmentId, condition);
+  const row = await loadCommitmentRow(db, commitmentId, allOf(rules));
   if (!row) {
     const reasons = await skipReasons(db, commitmentId, rules);
     if (reasons === null) {
