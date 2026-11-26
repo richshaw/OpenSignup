@@ -47,6 +47,7 @@ describe('log: query errors', () => {
     const { logger, output } = capture();
     logger.error({ err: queryError() }, 'oauth: server error');
     const out = output();
+    
     expect(out).not.toContain('FAKE_TOKEN');
     expect(out).not.toContain('pat@example.com');
     expect(out).not.toContain('Pat Example');
@@ -72,6 +73,7 @@ describe('log: query errors', () => {
     const wrapped = new Error('unhandled', { cause: queryError() });
     logger.error({ err: wrapped }, 'unhandled route error');
     const out = output();
+    
     expect(out).not.toContain('FAKE_TOKEN');
     expect(out).not.toContain('pat@example.com');
     const line = JSON.parse(out) as { err: { message: string } };
