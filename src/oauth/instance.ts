@@ -11,7 +11,6 @@ import { DrizzleOidcAdapter } from './adapter';
 import { mcpResourceUrl, oauthIssuer } from './config';
 import { findGrantIdFor, touchGrantUsed } from './grants';
 import {
-  keyErrorSummary,
   loadOrCreateSigningKeys,
   markSigningKeyInUse,
   type SigningKeySet,
@@ -85,7 +84,7 @@ async function build(): Promise<Provider> {
   if (signingKid) {
     void markSigningKeyInUse(db, signingKid).catch((err: unknown) =>
       log.warn(
-        { reason: keyErrorSummary(err), kid: signingKid },
+        { err, kid: signingKid },
         'oauth: could not record the signing key in use',
       ),
     );
