@@ -1,3 +1,4 @@
+import { isBlankSlotValue } from '@/lib/blank-slot-value';
 import type { SignupTemplate, SignupTemplateSlot } from '@/lib/signup-templates';
 import { isRealDate, isRealTime } from '@/lib/reminder-fields';
 import {
@@ -145,11 +146,14 @@ export function magicComposeToTemplate(
         if (!dropped.strayValueKeys.includes(ref)) dropped.strayValueKeys.push(ref);
         continue;
       }
+      // Blank is no value, not one that didn't fit, and never reaches
+      // `Number()`, which reads '' and '  ' as 0.
+      if (isBlankSlotValue(raw)) continue;
       const enumChoices = field.config.fieldType === 'enum' ? field.config.choices : undefined;
       const coerced = coerceValue(field.fieldType, raw, enumChoices);
       if (coerced !== undefined) {
         values[ref] = coerced;
-      } else if (raw !== undefined && raw !== null && raw !== '') {
+      } else {
         dropped.coercionFailures.push({ slot: i, ref, reason: field.fieldType });
       }
     }

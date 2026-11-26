@@ -308,6 +308,34 @@ describe('magicComposeToTemplate', () => {
       ]);
     });
 
+    it('treats an empty or space-only value as blank, not as a value that did not fit', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [
+          { ref: 'what', label: 'What', fieldType: 'text' },
+          { ref: 'day', label: 'Day', fieldType: 'date' },
+          { ref: 'at', label: 'At', fieldType: 'time' },
+          { ref: 'size', label: 'Size', fieldType: 'enum', choices: ['S', 'M'] },
+          { ref: 'n', label: 'N', fieldType: 'number' },
+        ],
+        slots: [
+          { values: { what: '  ', day: '  ', at: '  ', size: '  ', n: '  ' } },
+          { values: { what: '', day: '', at: '', size: '', n: '' } },
+        ],
+      });
+      expect(r.template.slots.map((s) => s.values)).toEqual([{}, {}]);
+      expect(r.dropped.coercionFailures).toEqual([]);
+    });
+
+    it('still counts a real misfit beside a blank value', () => {
+      const r = parseFull({
+        title: 'My signup',
+        fields: [{ ref: 'day', label: 'Day', fieldType: 'date' }],
+        slots: [{ values: { day: '  ' } }, { values: { day: 'tomorrow' } }],
+      });
+      expect(r.dropped.coercionFailures).toEqual([{ slot: 1, ref: 'day', reason: 'date' }]);
+    });
+
     it('returns empty dropped summary for a clean draft', () => {
       const r = parseFull({
         title: 'My signup',
