@@ -32,7 +32,7 @@ describe('wasCancelled', () => {
 describe('cancelledPage', () => {
   // One for each `CancelledSlotState`: the reason the slot would refuse them.
   it.each([
-    ['open', 'There’s still room if you want to sign up again.'],
+    ['open', "There's still room if you want to sign up again."],
     ['full', 'The slot has filled up since.'],
     ['slotClosed', 'The slot has closed.'],
     ['signupClosed', 'The signup has closed.'],
@@ -103,7 +103,7 @@ describe('cancelledPage', () => {
   it('says the sign-up moved, and that it is still theirs', () => {
     expect(CANCELLED_PAGE.moved).toEqual({
       title: 'Your spot moved to another slot',
-      body: 'You’re still signed up. Use the link below to see or change it.',
+      body: "You're still signed up. Use the link below to see or change it.",
     });
   });
 });

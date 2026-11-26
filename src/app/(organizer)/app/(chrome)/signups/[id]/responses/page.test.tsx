@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 
 import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
 
@@ -91,9 +92,6 @@ const { default: ResponsesTab } = await import('./page');
 async function renderTab() {
   return render(await ResponsesTab({ params: Promise.resolve({ id: 'sig_1' }) }));
 }
-
-/** Every language with a catalog but English. */
-const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 /**
  * Pat holds one spot, Sam two on the slot with nothing written in it, Kim one
@@ -231,7 +229,7 @@ async function expectTab(words: Words) {
 
 describe('Responses tab: its words', () => {
   it('reads as before in English, with no language stored', async () => {
-    const after = 'up for someone else. They won’t get an email about it.';
+    const after = "up for someone else. They won't get an email about it.";
     await expectTab({
       headers: ['Name', 'Email', 'Slot', 'Spots', 'Status', 'Actions'],
       summary: '3 sign-ups · 1 cancelled · 1 removed',
@@ -255,7 +253,7 @@ describe('Responses tab: its words', () => {
     });
   });
 
-  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     const say = (key: string) => `organizer.responses.${key} in ${other}`;
@@ -362,7 +360,7 @@ describe('Responses tab: nobody signed up', () => {
     draft: 'Nobody has signed up yet. People can sign up once you publish and share it.',
     open: 'Nobody has signed up yet. Share the public link to start collecting.',
     closed: 'Nobody signed up.',
-    archived: 'Nobody signed up. People can’t sign up now.',
+    archived: "Nobody signed up. People can't sign up now.",
   };
 
   it.each(Object.entries(english))('says so for a %s signup, as before', async (status, line) => {
@@ -373,7 +371,7 @@ describe('Responses tab: nobody signed up', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it.each(OTHER_LOCALES)('says so in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('says so in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     for (const status of Object.keys(english)) {

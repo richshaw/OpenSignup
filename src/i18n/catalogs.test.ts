@@ -8,6 +8,7 @@ import {
   catalogNotes,
   checkCatalogs,
   loadCatalogs,
+  messagesIn,
   type TranslatedFrom,
 } from './testing/catalog-check';
 import { LANGUAGE_RULES } from './testing/language-rules';
@@ -38,6 +39,16 @@ describe('the message catalogs', () => {
 
   it('are the ones CATALOG_LOCALES lists', () => {
     expect(Object.keys(catalogs).sort()).toEqual([...CATALOG_LOCALES].sort());
+  });
+
+  it('write English apostrophes one way, straight', () => {
+    // A curly one beside a straight one on the same screen reads as a slip.
+    // Before a placeholder, write two straight ones ("Quotes and braces" in
+    // docs/translating.md).
+    const curly = [...messagesIn(catalogs.en ?? {})]
+      .filter(([, text]) => /[\u2018\u2019]/.test(text))
+      .map(([key]) => key);
+    expect(curly).toEqual([]);
   });
 
   it('pass the catalog check', () => {

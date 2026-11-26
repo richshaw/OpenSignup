@@ -108,7 +108,7 @@ test.describe('help: close or reopen a signup', () => {
       // until it's reopened. Sam has one of Fruit and water's two spots.
       const message = panel.getByRole('group');
       await expect(message).toContainText('3 of 4 spots are still open.');
-      await expect(message).toContainText('People can’t sign up until you reopen it.');
+      await expect(message).toContainText("People can't sign up until you reopen it.");
       // Not yet leaves it open.
       await panel.getByRole('button', { name: UI.notYet }).click();
       await expect(panel).toBeHidden();
@@ -268,7 +268,7 @@ test.describe('help: close or reopen a signup', () => {
       const sheet = page.getByRole('dialog', { name: TITLE });
       await sheet.getByRole('button', { name: UI.closeSignup }).click();
       await expect(
-        sheet.getByRole('group', { name: /People can’t sign up until you reopen it\.$/ }),
+        sheet.getByRole('group', { name: /People can't sign up until you reopen it\.$/ }),
       ).toBeVisible();
       await expect(sheet.getByRole('button', { name: UI.notYet })).toBeVisible();
       await sheet.getByRole('button', { name: UI.closeSignup }).click();

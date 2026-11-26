@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { CATALOG_LOCALES, languageName } from '@/i18n/config';
-import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
 // Unit tests have no server environment. The instance sets no language
@@ -64,9 +64,6 @@ async function renderTab(searchParams: { error?: string; saved?: string } = {}) 
 
 const languageSection = () => screen.queryByRole('region', { name: 'Language' });
 
-/** Every language with a catalog but English. */
-const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 afterEach(() => {
   cleanup();
   stored.settings = {};
@@ -78,9 +75,9 @@ afterEach(() => {
 describe('Settings tab: a refused save or delete', () => {
   it('reads as before, worded by the code the action sends', async () => {
     const lines = {
-      forbidden: 'You don’t have edit access.',
+      forbidden: "You don't have edit access.",
       not_found: 'No longer available.',
-      invalid_input: 'Some values weren’t accepted.',
+      invalid_input: "Some values weren't accepted.",
       internal: 'Save failed.',
     };
     for (const [error, line] of Object.entries(lines)) {
@@ -98,7 +95,7 @@ describe('Settings tab: a refused save or delete', () => {
     }
   });
 
-  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     await renderTab({ error: 'forbidden' });
@@ -225,7 +222,7 @@ describe('Settings tab: Reminders', () => {
     await renderTab();
     expect(
       remindersCard().getByText(
-        'People who give an email get a reminder the day before their slot’s Shift day. To turn reminders off, open Fields on the Build tab and choose Shift day.',
+        "People who give an email get a reminder the day before their slot's Shift day. To turn reminders off, open Fields on the Build tab and choose Shift day.",
       ),
     ).toBeInTheDocument();
     // The email line says a reminder comes too.
@@ -277,7 +274,7 @@ describe('Settings tab: Reminders', () => {
     expect(remindersCard().queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     stored.fields = [what, shift];
@@ -345,7 +342,7 @@ describe('Settings tab: its words', () => {
       'language.title': 'Language',
       'language.legend': 'Signup language',
       'language.help':
-        'This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too.',
+        "This signup's page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too.",
       save: 'Save',
       saving: 'Saving…',
       'delete.title': 'Delete this signup',
@@ -361,7 +358,7 @@ describe('Settings tab: its words', () => {
     await expectTab((key) => english[key] ?? `no English for ${key}`, 'Saved');
   });
 
-  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     await expectTab(

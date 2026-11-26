@@ -3,8 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
-import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LANGUAGE, OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { serviceError } from '@/lib/errors';
 import { err, ok } from '@/lib/result';
@@ -131,9 +130,6 @@ afterEach(() => {
   vi.mocked(findDraftForOrganizer).mockReset();
 });
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 describe('the public signup page, in its signup’s language', () => {
   it(`reads a ${OTHER_LANGUAGE} signup’s dates in ${OTHER_LANGUAGE}, and marks the page so`, async () => {
     ship('participant', ['en', OTHER_LOCALE]);
@@ -189,8 +185,8 @@ describe('the public signup page, in its signup’s language', () => {
   it.each([
     [
       'draft',
-      'This signup isn’t ready yet',
-      'The organizer hasn’t published it yet. This link will work once they do, so check back later.',
+      "This signup isn't ready yet",
+      "The organizer hasn't published it yet. This link will work once they do, so check back later.",
     ],
     [
       'archived',
@@ -240,14 +236,14 @@ describe('the organizer’s own text on the public signup page', () => {
     );
     expect(
       screen.getByText(
-        'People who open this link see “This signup isn’t ready yet” until you publish it. Renaming the draft gives it a new link, so share it after you publish.',
+        "People who open this link see “This signup isn't ready yet” until you publish it. Renaming the draft gives it a new link, so share it after you publish.",
       ),
     ).toBeInTheDocument();
   });
 
   // The stand-in translator answers in any language but English with where
   // the text was asked for, so these see which text is in the organizer's.
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'tells a draft’s own organizer about it in theirs, %s, marked so',
     async (other) => {
       ship('organizer', ['en', other]);
@@ -267,7 +263,7 @@ describe('the organizer’s own text on the public signup page', () => {
     },
   );
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'puts the strip in its organizer’s language, %s, over an English signup',
     async (other) => {
       ship('organizer', ['en', other]);

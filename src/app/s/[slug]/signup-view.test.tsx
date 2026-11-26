@@ -3,9 +3,8 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
 import { getTestTranslator } from '@/i18n/testing/translator';
-import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTranslator, messagesFor, type Namespace } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
@@ -67,9 +66,6 @@ const SLOTS: SignupViewSlot[] = [
 
 const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
     render(
@@ -121,7 +117,6 @@ describe('<SignupViewBody mode="showcase" />', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
@@ -293,7 +288,6 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(screen.getByText(slot('left'))).toBeInTheDocument();
@@ -357,7 +351,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
 
   // The organizer's, whatever the signup's: the stand-in translator answers
   // with where each text was asked for.
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'puts the Preview banner and the disabled button’s tip in the organizer’s language, %s',
     (other) => {
       render(
@@ -394,7 +388,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   // can: the button's title and its description both pass the signup's
   // status, which picks the words (#888).
   it.each(
-    OTHER_LANGUAGES.flatMap((other) =>
+    TEST_LOCALES.flatMap((other) =>
       (['draft', 'open'] as const).map((status) => [other, status] as const),
     ),
   )('gives the disabled button’s tip in %s the status of a signup that is %s', (other, status) => {
@@ -493,7 +487,6 @@ describe('<SignupViewBody /> heading level', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Snack duty' })).toBeInTheDocument();
@@ -545,7 +538,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
   }
@@ -572,10 +564,12 @@ describe('<SignupViewBody /> slot row', () => {
         slots={MULTI}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
-    expect(screen.getAllByText('Closed')).toHaveLength(3);
+    // The Closed banner says it once more; count the rows' own.
+    const banner = screen.getByRole('status');
+    const rowLabels = screen.getAllByText('Closed').filter((label) => !banner.contains(label));
+    expect(rowLabels).toHaveLength(3);
     expect(screen.queryByText(/\d+ left|spots left|signed up/)).toBeNull();
   });
 
@@ -606,7 +600,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const meta = screen.getByText('Hawks · Sunnyvale Sports Complex');
@@ -627,7 +620,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const title = screen.getByText('Cupcakes or muffins (a dozen)', { selector: 'p' });
@@ -654,7 +646,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(
@@ -696,7 +687,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     // Assert against ACTION_SIZING rather than naming a class: the invariant
@@ -751,7 +741,6 @@ describe('<SignupViewBody mode="live" /> quantity', () => {
         slots={LIVE}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: team }));
@@ -866,7 +855,6 @@ describe('"Add to calendar" on a signup with several time fields', () => {
           slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
           slug="trip"
           mode="live"
-          showStateBanner={false}
         />,
       );
       fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -919,7 +907,6 @@ describe('the optional email box on the live page', () => {
         slots={[{ ...SLOTS[0]!, slotAt }]}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -1166,7 +1153,6 @@ describe('naming the slot once its row is out of sight', () => {
         slots={slots}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
   }
@@ -1293,7 +1279,6 @@ describe('"You\'re in." and the address the link went to', () => {
           slots={[SLOTS[0]!]}
           slug="example"
           mode="live"
-          showStateBanner={false}
         />,
       );
       fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));

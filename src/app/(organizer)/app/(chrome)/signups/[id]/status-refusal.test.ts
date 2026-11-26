@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { serviceError } from '@/lib/errors';
 import { statusRefusal } from './status-refusal';
@@ -12,9 +12,9 @@ const en = {
 describe('statusRefusal', () => {
   it('tells a viewer they cannot edit, not the guard’s text', () => {
     const e = serviceError('forbidden', 'your role cannot modify this workspace');
-    expect(statusRefusal(e, 'publish', en)).toBe('You don’t have edit access.');
-    expect(statusRefusal(e, 'close', en)).toBe('You don’t have edit access.');
-    expect(statusRefusal(e, 'reopen', en)).toBe('You don’t have edit access.');
+    expect(statusRefusal(e, 'publish', en)).toBe("You don't have edit access.");
+    expect(statusRefusal(e, 'close', en)).toBe("You don't have edit access.");
+    expect(statusRefusal(e, 'reopen', en)).toBe("You don't have edit access.");
   });
 
   it('says a deleted signup is no longer available', () => {
@@ -66,46 +66,41 @@ describe('statusRefusal', () => {
 
   it('falls back to a plain retry message', () => {
     const e = serviceError('internal', 'boom');
-    expect(statusRefusal(e, 'publish', en)).toBe('Couldn’t publish. Try again.');
-    expect(statusRefusal(e, 'close', en)).toBe('Couldn’t close the signup. Try again.');
-    expect(statusRefusal(e, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
+    expect(statusRefusal(e, 'publish', en)).toBe("Couldn't publish. Try again.");
+    expect(statusRefusal(e, 'close', en)).toBe("Couldn't close the signup. Try again.");
+    expect(statusRefusal(e, 'reopen', en)).toBe("Couldn't reopen the signup. Try again.");
   });
 
   it('falls back to the retry line for a conflict with no reason it knows', () => {
     const e = serviceError('conflict', 'something else', { field: 'title' });
-    expect(statusRefusal(e, 'publish', en)).toBe('Couldn’t publish. Try again.');
-    expect(statusRefusal(e, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
+    expect(statusRefusal(e, 'publish', en)).toBe("Couldn't publish. Try again.");
+    expect(statusRefusal(e, 'reopen', en)).toBe("Couldn't reopen the signup. Try again.");
     // The field alone doesn't decide it: the reason does.
     const noReason = serviceError('conflict', 'cannot open a signup that is open', {
       field: 'status',
     });
-    expect(statusRefusal(noReason, 'reopen', en)).toBe('Couldn’t reopen the signup. Try again.');
+    expect(statusRefusal(noReason, 'reopen', en)).toBe("Couldn't reopen the signup. Try again.");
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'words each refusal from the catalog in %s, a viewer’s too',
-    (locale) => {
-      const t = {
-        signup: getStandInTranslator(locale, 'organizer.signup.refusal'),
-        errors: getStandInTranslator(locale, 'organizer.errors'),
-      };
-      const words = (key: string) => `organizer.signup.refusal.${key} in ${locale}`;
-      expect(statusRefusal(serviceError('not_found', 'gone'), 'close', t)).toBe(words('gone'));
-      const conflict = (reason: 'status_changed' | 'no_slots') =>
-        serviceError('conflict', 'x', { details: { reason } });
-      expect(statusRefusal(conflict('status_changed'), 'reopen', t)).toBe(words('changed'));
-      expect(statusRefusal(conflict('no_slots'), 'publish', t)).toBe(words('addSlotToPublish'));
-      expect(statusRefusal(conflict('no_slots'), 'reopen', t)).toBe(words('addSlotToReopen'));
-      expect(statusRefusal(serviceError('internal', 'x'), 'publish', t)).toBe(
-        words('publishFailed'),
+  it.each(TEST_LOCALES)('words each refusal from the catalog in %s, a viewer’s too', (locale) => {
+    const t = {
+      signup: getStandInTranslator(locale, 'organizer.signup.refusal'),
+      errors: getStandInTranslator(locale, 'organizer.errors'),
+    };
+    const words = (key: string) => `organizer.signup.refusal.${key} in ${locale}`;
+    expect(statusRefusal(serviceError('not_found', 'gone'), 'close', t)).toBe(words('gone'));
+    const conflict = (reason: 'status_changed' | 'no_slots') =>
+      serviceError('conflict', 'x', { details: { reason } });
+    expect(statusRefusal(conflict('status_changed'), 'reopen', t)).toBe(words('changed'));
+    expect(statusRefusal(conflict('no_slots'), 'publish', t)).toBe(words('addSlotToPublish'));
+    expect(statusRefusal(conflict('no_slots'), 'reopen', t)).toBe(words('addSlotToReopen'));
+    expect(statusRefusal(serviceError('internal', 'x'), 'publish', t)).toBe(words('publishFailed'));
+    expect(statusRefusal(serviceError('internal', 'x'), 'close', t)).toBe(words('closeFailed'));
+    expect(statusRefusal(serviceError('internal', 'x'), 'reopen', t)).toBe(words('reopenFailed'));
+    for (const change of ['publish', 'close', 'reopen'] as const) {
+      expect(statusRefusal(serviceError('forbidden', 'x'), change, t)).toBe(
+        `organizer.errors.code.forbidden in ${locale}`,
       );
-      expect(statusRefusal(serviceError('internal', 'x'), 'close', t)).toBe(words('closeFailed'));
-      expect(statusRefusal(serviceError('internal', 'x'), 'reopen', t)).toBe(words('reopenFailed'));
-      for (const change of ['publish', 'close', 'reopen'] as const) {
-        expect(statusRefusal(serviceError('forbidden', 'x'), change, t)).toBe(
-          `organizer.errors.code.forbidden in ${locale}`,
-        );
-      }
-    },
-  );
+    }
+  });
 });

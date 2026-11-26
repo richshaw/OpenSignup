@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { signupHeaderText } from './header-text';
 
@@ -11,19 +11,19 @@ describe('signupHeaderText', () => {
       publish: {
         label: 'Publish and share',
         checking: 'Checking…',
-        ready: 'Publish and share when you’re ready.',
-        unsaved: 'A change didn’t save. Fix it, then publish.',
+        ready: "Publish and share when you're ready.",
+        unsaved: "A change didn't save. Fix it, then publish.",
         closeSheet: 'Close',
       },
       close: { action: 'Close signup', notYet: 'Not yet', closing: 'Closing…' },
       reopen: { action: 'Reopen signup', reopening: 'Reopening…' },
       announcements: {
-        closed: 'Closed. People can’t sign up now.',
+        closed: "Closed. People can't sign up now.",
         reopened: 'Reopened. People can sign up again.',
       },
       closedNotice: {
         title: 'Signup closed',
-        body: 'People can’t sign up now. Everyone already signed up keeps their spot.',
+        body: "People can't sign up now. Everyone already signed up keeps their spot.",
         help: 'How closing and reopening work',
         dismiss: 'Dismiss',
       },
@@ -36,19 +36,16 @@ describe('signupHeaderText', () => {
     });
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'asks the catalog in %s for every word',
-    (locale) => {
-      const text = signupHeaderText(getStandInTranslator(locale, 'organizer.signup'));
-      const words = (value: unknown): string[] =>
-        typeof value === 'string' ? [value] : Object.values(value as object).flatMap(words);
-      for (const word of words(text)) {
-        expect(word).toMatch(new RegExp(`^organizer\\.signup\\.[\\w.]+ in ${locale}$`));
-      }
-      expect(text.publish.label).toBe(`organizer.signup.publish.label in ${locale}`);
-      expect(text.tabs.strip).toBe(`organizer.signup.tabs.label in ${locale}`);
-    },
-  );
+  it.each(TEST_LOCALES)('asks the catalog in %s for every word', (locale) => {
+    const text = signupHeaderText(getStandInTranslator(locale, 'organizer.signup'));
+    const words = (value: unknown): string[] =>
+      typeof value === 'string' ? [value] : Object.values(value as object).flatMap(words);
+    for (const word of words(text)) {
+      expect(word).toMatch(new RegExp(`^organizer\\.signup\\.[\\w.]+ in ${locale}$`));
+    }
+    expect(text.publish.label).toBe(`organizer.signup.publish.label in ${locale}`);
+    expect(text.tabs.strip).toBe(`organizer.signup.tabs.label in ${locale}`);
+  });
 });
 
 describe('a draft’s line under its title', () => {

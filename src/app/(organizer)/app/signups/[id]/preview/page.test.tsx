@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
-import { OTHER_LANGUAGE, OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LANGUAGE, OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { ServiceException, serviceError } from '@/lib/errors';
 import { ok } from '@/lib/result';
@@ -67,8 +66,6 @@ type ViewProps = {
   organizerLocale: string;
 };
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 type PreviewPage = ReactElement<{ lang?: string; children: ReactElement<ViewProps> }>;
 
 describe('organizer preview page', () => {
@@ -116,7 +113,7 @@ describe('organizer preview page', () => {
   });
 
   // The Preview banner over the view is the organizer's, whatever the signup's.
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'gives the Preview banner the organizer’s language, %s, over an English signup',
     async (other) => {
       ship('organizer', ['en', other]);
@@ -164,7 +161,7 @@ describe('organizer preview page', () => {
     expect(await generateMetadata({ params })).toEqual({ title: 'Preview' });
   });
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'titles the tab, and words the not-found card, in the organizer’s language, %s',
     async (other) => {
       ship('organizer', ['en', other]);

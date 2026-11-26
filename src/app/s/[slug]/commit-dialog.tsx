@@ -7,8 +7,12 @@ import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs, calendarFileName } from '@/lib/ics';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { FormError } from '@/components/ui/form-error';
-import { offersAlternatives, type SlotAlternative } from './capacity-message';
-import { participantErrorCopy, type ParticipantErrorCopy } from './participant-error';
+import { offersAlternatives } from './capacity-message';
+import {
+  participantErrorCopy,
+  type ApiErrorLike,
+  type ParticipantErrorCopy,
+} from './participant-error';
 import { PREFILL_KEY } from './prefill-key';
 import { Field, NotesAndSpots } from './participant-fields';
 import { ACTION_SIZING } from './slot-format';
@@ -63,21 +67,6 @@ interface CommitDialogProps {
    * box's help text mentions one only then.
    */
   sendsReminder: boolean;
-}
-
-/**
- * An error from signing up, as far as the sheet reads it: never its `message`
- * or `suggestion`, which are English for API callers (see `participantErrorCopy`).
- */
-interface ApiError {
-  code?: string;
-  details?: {
-    reason?: string;
-    alternatives?: SlotAlternative[];
-    remaining?: number;
-    capacity?: number;
-    retryAfterSeconds?: number;
-  };
 }
 
 /** What the sheet says went wrong, and whether to offer other slots. */
@@ -280,7 +269,9 @@ export default function CommitDialog({
       // Not the API's JSON (an error page from a proxy, say) reads as null.
       const payload = await res.json().catch(() => null);
       if (!res.ok || !payload?.data) {
-        const failure: ApiError | undefined = payload?.error;
+        // Never its `message` or `suggestion`, which are English for API
+        // callers (see `participantErrorCopy`).
+        const failure: ApiErrorLike | undefined = payload?.error;
         setError(
           // Every error the API sends has a code, and comes after it has undone
           // anything it began, so its copy may say the sign-up didn't happen.

@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { serviceError } from '@/lib/errors';
 
 vi.mock('next/headers', () => ({ headers: vi.fn() }));
@@ -15,9 +15,6 @@ vi.mock('@/i18n/server', async () => ({
 }));
 
 const { SignupLoadError, signupNotFoundTitle } = await import('./SignupLoadError');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 afterEach(cleanup);
 
@@ -31,10 +28,10 @@ describe('SignupLoadError', () => {
       />,
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'We can’t find this signup',
+      "We can't find this signup",
     );
     expect(screen.getByText(/It may have been deleted/)).toHaveTextContent(
-      'It may have been deleted, or it may belong to a different account. You’re signed in as pat@example.com.',
+      "It may have been deleted, or it may belong to a different account. You're signed in as pat@example.com.",
     );
     expect(screen.getByText('pat@example.com')).toHaveClass('break-all');
     expect(screen.getByRole('link', { name: 'Go to your signups' })).toHaveAttribute(
@@ -57,7 +54,7 @@ describe('SignupLoadError', () => {
       />,
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'We couldn’t open this signup',
+      "We couldn't open this signup",
     );
     expect(
       screen.getByText('Something went wrong on our side. Reload the page to try again.'),
@@ -69,7 +66,7 @@ describe('SignupLoadError', () => {
     expect(screen.queryByText('boom')).not.toBeInTheDocument();
   });
 
-  it.each(OTHER_LANGUAGES)('takes its text from the organizer catalog in %s', (locale) => {
+  it.each(TEST_LOCALES)('takes its text from the organizer catalog in %s', (locale) => {
     render(
       <SignupLoadError
         error={serviceError('not_found', 'signup not found')}
@@ -88,7 +85,7 @@ describe('SignupLoadError', () => {
 describe('signupNotFoundTitle', () => {
   it('titles the tab as before in English, and from the catalog in another language', () => {
     expect(signupNotFoundTitle('en')).toBe('Signup not found');
-    for (const locale of OTHER_LANGUAGES) {
+    for (const locale of TEST_LOCALES) {
       expect(signupNotFoundTitle(locale)).toBe(`organizer.loadError.tabTitle in ${locale}`);
     }
   });

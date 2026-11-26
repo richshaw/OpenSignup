@@ -30,7 +30,7 @@ test.describe('a draft’s public link', () => {
     try {
       await visitor.goto(`${BASE_URL}/s/${draft.slug}`);
       await expect(
-        visitor.getByRole('heading', { name: 'This signup isn’t ready yet' }),
+        visitor.getByRole('heading', { name: "This signup isn't ready yet" }),
       ).toBeVisible();
       await expect(visitor.getByText(/This link will work once they do/)).toBeVisible();
       await expect(visitor.getByText(/updated link/)).toHaveCount(0);

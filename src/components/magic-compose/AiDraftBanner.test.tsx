@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTestTranslator } from '@/i18n/testing/translator';
 import { getTranslator, messagesFor } from '@/i18n/translator';
 import { warningSentence, type DraftWarning } from '@/lib/magic-compose/draft-warnings';
@@ -163,7 +164,7 @@ describe('<AiDraftBanner />', () => {
     ]);
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  it.each(TEST_LOCALES)(
     "words the warnings in the organizer's language, its numbers too (%s)",
     async (locale) => {
       const t = warningsIn(locale);

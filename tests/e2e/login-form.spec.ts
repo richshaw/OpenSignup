@@ -13,7 +13,7 @@ test('a refused email address stays in the box so it can be corrected', async ({
   const email = page.getByLabel('Email');
   await email.fill('pat@example');
   await page.getByRole('button', { name: 'Send magic link' }).click();
-  const error = page.getByText('doesn’t look like a valid email address');
+  const error = page.getByText("doesn't look like a valid email address");
   await expect(error).toBeVisible();
   await expect(email).toHaveValue('pat@example');
 

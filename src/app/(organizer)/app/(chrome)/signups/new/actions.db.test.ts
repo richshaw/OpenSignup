@@ -7,7 +7,7 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { signups } from '@/db/schema/signups';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ServiceException } from '@/lib/errors';
 import { makeId } from '@/lib/ids';
@@ -154,7 +154,7 @@ describe('createSignupAction (db)', () => {
     // A description over the limit, as only a request the form didn't send can be.
     expect(await submit('Bake sale', 'a'.repeat(DESCRIPTION_MAX_LENGTH + 1))).toEqual({
       refused: {
-        error: 'Some values weren’t accepted.',
+        error: "Some values weren't accepted.",
         title: 'Bake sale',
         description: 'a'.repeat(DESCRIPTION_MAX_LENGTH + 1),
       },
@@ -162,20 +162,17 @@ describe('createSignupAction (db)', () => {
     expect(await created()).toHaveLength(0);
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'words a refusal in the organizer’s language, %s',
-    async (other) => {
-      ship('organizer', ['en', other]);
-      request.locale = other;
-      expect(await submit('   ')).toEqual({
-        refused: {
-          error: `organizer.errors.titleTooShort in ${other}`,
-          title: '   ',
-          description: '',
-        },
-      });
-    },
-  );
+  it.each(TEST_LOCALES)('words a refusal in the organizer’s language, %s', async (other) => {
+    ship('organizer', ['en', other]);
+    request.locale = other;
+    expect(await submit('   ')).toEqual({
+      refused: {
+        error: `organizer.errors.titleTooShort in ${other}`,
+        title: '   ',
+        description: '',
+      },
+    });
+  });
 
   it('saves the title trimmed', async () => {
     await submit('  Bake sale  ');
@@ -214,7 +211,7 @@ describe('createSignupAction (db)', () => {
     if (!('refused' in answer)) throw new Error('expected a refusal');
     expect(answer.refused).toMatchObject({ title: 'One too many', description: 'Kept' });
     expect(answer.refused.error).toMatch(
-      /^You’ve created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/,
+      /^You've created a lot of signups in the last hour\. Try again in about \d+ minutes?\.$/,
     );
     expect(await created()).toHaveLength(1);
   });
@@ -261,36 +258,33 @@ describe('createSignupAction (db)', () => {
     expect(telemetry).not.toHaveProperty('localeSource');
   });
 
-  describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'once %s has shipped to participants',
-    (other) => {
-      beforeEach(() => {
-        ship('participant', ['en', other]);
-      });
+  describe.each(TEST_LOCALES)('once %s has shipped to participants', (other) => {
+    beforeEach(() => {
+      ship('participant', ['en', other]);
+    });
 
-      it('starts the signup in the language stored on the organizer’s account', async () => {
-        Object.assign(request, { locale: other, instanceDefault: 'en' });
-        await submit('In the stored language');
-        const { settings, telemetry } = await madeOne();
-        expect(settings).toMatchObject({ locale: other });
-        expect(telemetry).toMatchObject({ locale: other, localeSource: 'setting' });
-      });
+    it('starts the signup in the language stored on the organizer’s account', async () => {
+      Object.assign(request, { locale: other, instanceDefault: 'en' });
+      await submit('In the stored language');
+      const { settings, telemetry } = await madeOne();
+      expect(settings).toMatchObject({ locale: other });
+      expect(telemetry).toMatchObject({ locale: other, localeSource: 'setting' });
+    });
 
-      it('starts it in the instance’s DEFAULT_LOCALE when the account stores none', async () => {
-        request.instanceDefault = other;
-        await submit('In the instance’s language');
-        const { settings, telemetry } = await madeOne();
-        expect(settings).toMatchObject({ locale: other });
-        expect(telemetry).toMatchObject({ locale: other, localeSource: 'instance' });
-      });
+    it('starts it in the instance’s DEFAULT_LOCALE when the account stores none', async () => {
+      request.instanceDefault = other;
+      await submit('In the instance’s language');
+      const { settings, telemetry } = await madeOne();
+      expect(settings).toMatchObject({ locale: other });
+      expect(telemetry).toMatchObject({ locale: other, localeSource: 'instance' });
+    });
 
-      it('starts it in English when no step names a shipped language', async () => {
-        request.locale = 'xx';
-        await submit('In English');
-        const { settings, telemetry } = await madeOne();
-        expect(settings).toMatchObject({ locale: 'en' });
-        expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
-      });
-    },
-  );
+    it('starts it in English when no step names a shipped language', async () => {
+      request.locale = 'xx';
+      await submit('In English');
+      const { settings, telemetry } = await madeOne();
+      expect(settings).toMatchObject({ locale: 'en' });
+      expect(telemetry).toMatchObject({ locale: 'en', localeSource: 'default' });
+    });
+  });
 });

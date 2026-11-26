@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ShareButton } from '@/components/signup/ShareButton';
 import { ShareScope } from '@/components/signup/ShareScope';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { loadSharePanel } from './load-share-panel';
 import { ShareUnavailable } from './ShareUnavailable';
@@ -60,7 +60,7 @@ describe('when the share panel can’t load', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
     const panel = screen.getByRole('dialog', { name: 'Share the link' });
     expect(
-      await within(panel).findByText('Couldn’t load the other ways to share. Reload to try again.'),
+      await within(panel).findByText("Couldn't load the other ways to share. Reload to try again."),
     ).toBeInTheDocument();
     expect(within(panel).getByText(LINK)).toBeInTheDocument();
     fireEvent.click(within(panel).getByRole('button', { name: 'Copy public link' }));
@@ -93,23 +93,20 @@ describe('when the share panel can’t load', () => {
     const panel = screen.getByRole('dialog', { name: 'Share the link' });
     // Not answered at once from the failed load: the fallback shows while it
     // asks again.
-    const failed = 'Couldn’t load the other ways to share. Reload to try again.';
+    const failed = "Couldn't load the other ways to share. Reload to try again.";
     expect(within(panel).queryByText(failed)).toBeNull();
     expect(await within(panel).findByText(failed)).toBeInTheDocument();
   });
 });
 
-describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-  'when the share panel can’t load, in %s',
-  (locale) => {
-    it('says so, and names the link’s chip, from the catalog in that language', async () => {
-      const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale');
-      const words = (key: string) => `organizer.share.${key} in ${locale}`;
-      render(<ShareUnavailable text={text.panel} signupId="sig_1" url={LINK} />);
-      expect(screen.getByText(words('unavailable'))).toBeInTheDocument();
-      expect(screen.getByText(words('chip.label'))).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: words('chip.copy') }));
-      expect(await screen.findByText(words('chip.copied'))).toBeInTheDocument();
-    });
-  },
-);
+describe.each(TEST_LOCALES)('when the share panel can’t load, in %s', (locale) => {
+  it('says so, and names the link’s chip, from the catalog in that language', async () => {
+    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale');
+    const words = (key: string) => `organizer.share.${key} in ${locale}`;
+    render(<ShareUnavailable text={text.panel} signupId="sig_1" url={LINK} />);
+    expect(screen.getByText(words('unavailable'))).toBeInTheDocument();
+    expect(screen.getByText(words('chip.label'))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: words('chip.copy') }));
+    expect(await screen.findByText(words('chip.copied'))).toBeInTheDocument();
+  });
+});

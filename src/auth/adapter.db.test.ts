@@ -4,7 +4,8 @@ import { getDb } from '@/db/client';
 import { activity } from '@/db/schema/activity';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { type CatalogLocale } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { accountLanguageTable } from '@/i18n/testing/account-language-table';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
@@ -31,9 +32,6 @@ vi.mock('next/headers', () => ({
     );
   },
 }));
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 const db = getDb();
 const adapter = SignupAdapter();
@@ -132,7 +130,7 @@ describe('SignupAdapter.createUser while only English has shipped (db)', () => {
   it.each<[string, string | null]>([
     ['an English browser', 'en'],
     ['a regional English browser', 'en-GB'],
-    ...OTHER_LANGUAGES.map((other): [string, string] => [
+    ...TEST_LOCALES.map((other): [string, string] => [
       `a browser asking for ${other} first`,
       `${other},en;q=0.8`,
     ]),
@@ -144,7 +142,7 @@ describe('SignupAdapter.createUser while only English has shipped (db)', () => {
   });
 });
 
-describe.each(OTHER_LANGUAGES)(
+describe.each(TEST_LOCALES)(
   'SignupAdapter.createUser once %s has shipped to participants (db)',
   (other) => {
     beforeEach(() => {

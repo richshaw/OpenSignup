@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
 // Who is signed in, with the language stored on their account, and the
@@ -33,9 +33,6 @@ async function htmlLang(layout: RootLayout): Promise<string> {
   return shell.props.lang;
 }
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 afterEach(() => {
   request.session = null;
   request.env.DEFAULT_LOCALE = undefined;
@@ -43,7 +40,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe.each(OTHER_LANGUAGES)('with %s', (other) => {
+describe.each(TEST_LOCALES)('with %s', (other) => {
   beforeEach(shipOnlyEnglish);
 
   describe.each([
