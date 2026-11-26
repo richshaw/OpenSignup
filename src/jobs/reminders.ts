@@ -152,7 +152,7 @@ export async function sendReminderJob(payload: ReminderSendPayload): Promise<voi
   // reminderDueRules): anything that changed while the job waited, from an
   // archived signup to an unsubscribe to a slot moved later, shows up here as
   // no row, logged with the rules it failed.
-  const due = await loadDueRow(db, payload.commitmentId, reminderDueRules, reminderDueCondition, {
+  const due = await loadDueRow(db, payload.commitmentId, reminderDueRules, {
     notFound: 'commitment not found for reminder',
     notDue: 'reminder no longer due; skipping',
   });
