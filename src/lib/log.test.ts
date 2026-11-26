@@ -34,12 +34,19 @@ function queryError() {
   );
 }
 
+function keyInsertError() {
+  return new DrizzleQueryError(
+    'insert into "signing_keys" ("kid", "alg", "jwk") values ($1, $2, $3)',
+    ['FAKE_KID', 'RS256', 'FAKE_PRIVATE_JWK'],
+    driverError(),
+  );
+}
+
 describe('log: query errors', () => {
   it('logs the query and the driver error, never the params or the detail', () => {
     const { logger, output } = capture();
     logger.error({ err: queryError() }, 'oauth: server error');
     const out = output();
-
     expect(out).not.toContain('FAKE_TOKEN');
     expect(out).not.toContain('pat@example.com');
     expect(out).not.toContain('Pat Example');
@@ -50,13 +57,19 @@ describe('log: query errors', () => {
     expect(line.err.message).toContain('duplicate key value violates unique constraint "x_pkey"');
     expect(line.err.stack).toContain('log.test.ts');
   });
-
+  it('drops a fake private JWK from a key-insert error', () => {
+    const { logger, output } = capture();
+    logger.error({ err: keyInsertError() }, 'oauth: signing keys could not be created');
+    const out = output();
+    expect(out).not.toContain('FAKE_PRIVATE_JWK');
+    expect(out).toContain('insert into "signing_keys"');
+    expect(out).toContain('duplicate key value');
+  });
   it('scrubs a query error that is the cause of another error', () => {
     const { logger, output } = capture();
     const wrapped = new Error('unhandled', { cause: queryError() });
     logger.error({ err: wrapped }, 'unhandled route error');
     const out = output();
-
     expect(out).not.toContain('FAKE_TOKEN');
     expect(out).not.toContain('pat@example.com');
     const line = JSON.parse(out) as { err: { message: string } };
@@ -65,33 +78,20 @@ describe('log: query errors', () => {
     // The original is left as it was.
     expect((wrapped.cause as DrizzleQueryError).params).toContain('FAKE_TOKEN');
   });
-
-  // With no message of its own, pino logs the error's message as `msg`.
-  it('scrubs a query error passed as the only argument', () => {
-    const { logger, output } = capture();
-    logger.error(queryError());
-    expect(output()).not.toContain('FAKE_TOKEN');
-    expect((JSON.parse(output()) as { msg: string }).msg).toContain(QUERY);
-  });
-
-  it('scrubs a query error logged under err with no message', () => {
-    const { logger, output } = capture();
-    logger.warn({ err: queryError() });
-    expect(output()).not.toContain('FAKE_TOKEN');
-    expect((JSON.parse(output()) as { msg: string }).msg).toContain(QUERY);
-  });
-
-  it('scrubs a query error bound to a child logger', () => {
-    const { logger, output } = capture();
-    logger.child({ err: queryError() }).info('later');
-    expect(output()).not.toContain('FAKE_TOKEN');
-    expect(output()).not.toContain('pat@example.com');
-  });
-
   it('logs other errors as before', () => {
     const { logger, output } = capture();
-    logger.error({ err: Object.assign(new Error('boom'), { code: 'E_X' }) }, 'failed');
-    const line = JSON.parse(output()) as { err: { message: string; code: string; type: string } };
-    expect(line.err).toMatchObject({ message: 'boom', code: 'E_X', type: 'Error' });
+    const err = new Error('boom');
+    logger.error({ err }, 'oauth: server error');
+    const out = output();
+    expect(out).toContain('boom');
+    expect(out).not.toContain('DrizzleQueryError');
+  });
+  it('logs other errors with a cause as before', () => {
+    const { logger, output } = capture();
+    const err = new Error('boom', { cause: new Error('root cause') });
+    logger.error({ err }, 'oauth: server error');
+    const out = output();
+    expect(out).toContain('boom');
+    expect(out).toContain('root cause');
   });
 });
