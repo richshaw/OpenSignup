@@ -35,19 +35,6 @@ interface ApiErrorLike {
 }
 
 /**
- * Where the server points a participant whose slot filled up mid-sign-up.
- *
- * Mirrors `SlotAlternative` in `services/commitments.ts`, which cannot be
- * imported here: that module pulls in the database layer, and this one runs in
- * the browser.
- */
-export interface SlotAlternative {
-  id: string;
-  ref: string;
-  slotAt: string | null;
-}
-
-/**
  * Whether this error should point the participant at other slots at all.
  *
  * Both the copy ("Pick another slot.") and the dialog's "See alternatives"
