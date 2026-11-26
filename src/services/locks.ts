@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db, Queryable, Tx } from '@/db/client';
 import type { activity } from '@/db/schema/activity';
-import type { commitments } from '@/db/schema/commitments';
+import { commitments } from '@/db/schema/commitments';
 import type { participants } from '@/db/schema/participants';
 import { signups, type Signup as SignupRow } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
@@ -151,9 +151,9 @@ export async function withLockedSignup<T>(
  * anchor as they stand. The services that hold one slot row without it
  * (`commitToSlot`, a participant's quantity change in
  * `updateOwnCommitment`, and `deleteSlot`) never take it afterwards.
- * Commitment rows come after the slot's (see `updateOwnCommitment`); a
- * service that locks only a commitment (`cancelOwnCommitment`,
- * `removeCommitment`) takes neither lock after it.
+ * Commitment rows (`lockCommitment` below) come after the slot's (see
+ * `updateOwnCommitment`); a service that locks only a commitment
+ * (`cancelOwnCommitment`, `removeCommitment`) takes neither lock after it.
  *
  * `tx` is a transaction, not `Queryable`: on the pool handle the lock would be
  * gone as soon as the select's own autocommit ended. `workspaceId` is the one
@@ -270,6 +270,23 @@ export async function lockSlot(tx: Tx, slotId: string, workspaceId: string | nul
     .select()
     .from(slots)
     .where(and(eq(slots.id, slotId), inWorkspace(slots.workspaceId, workspaceId)))
+    .for('update')
+    .limit(1);
+  return row;
+}
+
+/**
+ * One commitment row, locked until the transaction ends and read under the
+ * lock (undefined when there is no such commitment, or its slot was deleted
+ * while this waited, taking it along). Last in the lock order: a caller that
+ * also holds the commitment's slot (`lockSlot`) takes the slot first, and none
+ * takes a signup or slot lock after this. `tx` and `workspaceId` as above.
+ */
+export async function lockCommitment(tx: Tx, commitmentId: string, workspaceId: string | null) {
+  const [row] = await tx
+    .select()
+    .from(commitments)
+    .where(and(eq(commitments.id, commitmentId), inWorkspace(commitments.workspaceId, workspaceId)))
     .for('update')
     .limit(1);
   return row;

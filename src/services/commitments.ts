@@ -29,7 +29,7 @@ import {
   CommitmentUpdateInputSchema,
 } from '@/schemas/commitments';
 import { requiresEmail } from '@/schemas/signups';
-import { inWorkspace, readLiveSignup } from './locks';
+import { inWorkspace, lockCommitment, lockSlot, readLiveSignup } from './locks';
 import { listFieldsForSignup } from './slot-fields';
 
 /** A commitment with who made it. `participantEmail` is null when they gave none. */
@@ -292,6 +292,10 @@ async function commitParticipantToSlot(
 ): Promise<Result<CommitResult, ServiceError>> {
   const keyHash = data.idempotencyKeyHash ?? null;
   return db.transaction(async (tx) => {
+    // Locked by hand rather than with `lockSlot`: an anonymous participant
+    // brings only the slot id, so this row is where the workspace is first
+    // learned, and `lockSlot` would need one more read on the sign-up request,
+    // whose statement count budgets.json caps.
     const slotRows = await tx
       .select()
       .from(slots)
@@ -747,15 +751,10 @@ export async function updateOwnCommitment(
     // commitment first and then queueing for the slot is a deadlock with a
     // slot delete. A commitment never changes slot, so the pre-flight slotId is
     // safe to lock by.
-    const slotRows =
+    const slotRow =
       data.quantity !== undefined
-        ? await tx
-            .select({ capacity: slots.capacity, status: slots.status, slotAt: slots.slotAt })
-            .from(slots)
-            .where(eq(slots.id, current.slotId))
-            .for('update')
-            .limit(1)
-        : [];
+        ? await lockSlot(tx, current.slotId, current.workspaceId)
+        : undefined;
 
     // Then the commitment, re-read whole under a row lock, before any
     // edit-specific work. `getOwnCommitment` read outside this transaction, so
@@ -763,12 +762,7 @@ export async function updateOwnCommitment(
     // since, and a quantity lowered in another tab would let an increase pass
     // for a decrease and skip the capacity guard. Everything below reads
     // `locked`, and the lock holds it still for the rest of the transaction.
-    const [locked] = await tx
-      .select()
-      .from(commitments)
-      .where(eq(commitments.id, commitmentId))
-      .for('update')
-      .limit(1);
+    const locked = await lockCommitment(tx, commitmentId, current.workspaceId);
     if (!locked) return err(serviceError('not_found', 'commitment not found'));
     // `getOwnCommitment` found the signup live, but this may have queued on
     // the locks above while it was deleted, or closed. Read after them, as
@@ -789,7 +783,6 @@ export async function updateOwnCommitment(
     if (data.quantity !== undefined && data.quantity > locked.quantity) {
       // The slot row goes with its commitments (the delete cascades), so with
       // the commitment found above this is only for the type.
-      const slotRow = slotRows[0];
       if (!slotRow) return err(serviceError('not_found', 'commitment not found'));
 
       // Taking more places needs the slot to be taking them, by the same rule
@@ -908,16 +901,7 @@ async function cancelCommitmentLocked(
   );
   return db.transaction(async (tx) => {
     // Undefined when the slot was deleted, taking the commitment with it.
-    const [locked] = await tx
-      .select({
-        participantId: commitments.participantId,
-        slotId: commitments.slotId,
-        status: commitments.status,
-      })
-      .from(commitments)
-      .where(thisCommitment)
-      .for('update')
-      .limit(1);
+    const locked = await lockCommitment(tx, commitmentId, workspaceId);
     if (!locked) return err(serviceError('not_found', 'commitment not found'));
     if (!(await readLiveSignup(tx, signupId))) {
       return err(serviceError('not_found', 'commitment not found'));
