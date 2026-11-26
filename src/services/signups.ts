@@ -8,6 +8,7 @@ import { getServerTranslator } from '@/i18n/server';
 import { localeOfSignup, newSignupLocale } from '@/i18n/locale';
 import {
   activityActor,
+  listActivityForSignup,
   recordActivities,
   recordActivity,
   recordActivityBestEffort,
@@ -313,6 +314,18 @@ export async function getSignupForOrganizer(
       ? { ...row, slots: signupSlots, fields, committedBySlot: filled }
       : { ...row, slots: signupSlots, fields },
   );
+}
+
+/** The signup's activity log, newest first, at most `limit` rows. */
+export async function listActivity(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  limit: number,
+): Promise<Result<Awaited<ReturnType<typeof listActivityForSignup>>, ServiceError>> {
+  const loaded = await getSignupRowForOrganizer(db, actor, signupId);
+  if (!loaded.ok) return loaded;
+  return ok(await listActivityForSignup(db, signupId, limit));
 }
 
 /**
