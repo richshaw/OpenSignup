@@ -117,7 +117,6 @@ describe('<SignupViewBody mode="showcase" />', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
@@ -289,7 +288,6 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(screen.getByText(slot('left'))).toBeInTheDocument();
@@ -489,7 +487,6 @@ describe('<SignupViewBody /> heading level', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Snack duty' })).toBeInTheDocument();
@@ -541,7 +538,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
   }
@@ -568,10 +564,12 @@ describe('<SignupViewBody /> slot row', () => {
         slots={MULTI}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
-    expect(screen.getAllByText('Closed')).toHaveLength(3);
+    // The Closed banner says it once more; count the rows' own.
+    const banner = screen.getByRole('status');
+    const rowLabels = screen.getAllByText('Closed').filter((label) => !banner.contains(label));
+    expect(rowLabels).toHaveLength(3);
     expect(screen.queryByText(/\d+ left|spots left|signed up/)).toBeNull();
   });
 
@@ -602,7 +600,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const meta = screen.getByText('Hawks · Sunnyvale Sports Complex');
@@ -623,7 +620,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const title = screen.getByText('Cupcakes or muffins (a dozen)', { selector: 'p' });
@@ -650,7 +646,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(
@@ -692,7 +687,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     // Assert against ACTION_SIZING rather than naming a class: the invariant
@@ -747,7 +741,6 @@ describe('<SignupViewBody mode="live" /> quantity', () => {
         slots={LIVE}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: team }));
@@ -862,7 +855,6 @@ describe('"Add to calendar" on a signup with several time fields', () => {
           slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
           slug="trip"
           mode="live"
-          showStateBanner={false}
         />,
       );
       fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -915,7 +907,6 @@ describe('the optional email box on the live page', () => {
         slots={[{ ...SLOTS[0]!, slotAt }]}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -1162,7 +1153,6 @@ describe('naming the slot once its row is out of sight', () => {
         slots={slots}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
   }
@@ -1289,7 +1279,6 @@ describe('"You\'re in." and the address the link went to', () => {
           slots={[SLOTS[0]!]}
           slug="example"
           mode="live"
-          showStateBanner={false}
         />,
       );
       fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
