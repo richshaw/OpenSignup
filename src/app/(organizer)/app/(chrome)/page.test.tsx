@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { ok } from '@/lib/result';
 import { INSTANCE_NAME } from '@/lib/site-config';
@@ -39,9 +39,6 @@ vi.mock('@/i18n/server', async () => ({
 }));
 
 const { default: DashboardPage, generateMetadata } = await import('./page');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 afterEach(() => {
   cleanup();
@@ -135,7 +132,7 @@ describe('Your signups', () => {
 
   // A title is in its signup's language: shown only once that language has
   // shipped to participants, as the signup's own pages show it.
-  it.each(OTHER_LANGUAGES)('marks the title of a signup in %s', async (other) => {
+  it.each(TEST_LOCALES)('marks the title of a signup in %s', async (other) => {
     ship('participant', ['en', other]);
     request.rows = [
       { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: other },
@@ -148,19 +145,16 @@ describe('Your signups', () => {
     expect(screen.getByText('/s/bake-sale').closest('[lang]')).toBeNull();
   });
 
-  it.each(OTHER_LANGUAGES)(
-    'leaves a signup stored in %s unmarked until it ships',
-    async (other) => {
-      shipOnlyEnglish();
-      request.rows = [
-        { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: other },
-      ];
-      await renderPage();
-      expect(screen.getByText('Bake Sale')).not.toHaveAttribute('lang');
-    },
-  );
+  it.each(TEST_LOCALES)('leaves a signup stored in %s unmarked until it ships', async (other) => {
+    shipOnlyEnglish();
+    request.rows = [
+      { id: 'sig_1', title: 'Bake Sale', slug: 'bake-sale', status: 'open', locale: other },
+    ];
+    await renderPage();
+    expect(screen.getByText('Bake Sale')).not.toHaveAttribute('lang');
+  });
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'marks English titles for an organizer whose screens are in %s, and not their own language’s',
     async (other) => {
       ship('organizer', ['en', other]);
@@ -176,7 +170,7 @@ describe('Your signups', () => {
     },
   );
 
-  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     request.session.locale = other;
     request.rows = [{ id: 'sig_2', title: 'Picnic', slug: 'picnic', status: 'draft' }];
@@ -189,7 +183,7 @@ describe('Your signups', () => {
     expect(await generateMetadata()).toEqual({ title: ask('title') });
   });
 
-  it.each(OTHER_LANGUAGES)('pages in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('pages in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     request.session.locale = other;
     onAMiddlePage();

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { CATALOG_LOCALES, languageName } from '@/i18n/config';
-import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
 // Unit tests have no server environment. The instance sets no language
@@ -64,9 +64,6 @@ async function renderTab(searchParams: { error?: string; saved?: string } = {}) 
 
 const languageSection = () => screen.queryByRole('region', { name: 'Language' });
 
-/** Every language with a catalog but English. */
-const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 afterEach(() => {
   cleanup();
   stored.settings = {};
@@ -98,7 +95,7 @@ describe('Settings tab: a refused save or delete', () => {
     }
   });
 
-  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     await renderTab({ error: 'forbidden' });
@@ -277,7 +274,7 @@ describe('Settings tab: Reminders', () => {
     expect(remindersCard().queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     stored.fields = [what, shift];
@@ -361,7 +358,7 @@ describe('Settings tab: its words', () => {
     await expectTab((key) => english[key] ?? `no English for ${key}`, 'Saved');
   });
 
-  it.each(OTHER_LOCALES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     stored.organizerLocale = other;
     await expectTab(

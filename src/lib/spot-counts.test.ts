@@ -1,10 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
-import { closeSignupQuestion, KEEPS_THEIR_SPOT, spotCounts, spotsTakenLine } from './spot-counts';
+import {
+  closeSignupQuestion,
+  KEEPS_THEIR_SPOT,
+  spotCounts,
+  spotsLeft,
+  spotsTakenLine,
+} from './spot-counts';
 
 const close = getTestTranslator('organizer.signup.close');
 const spots = getTestTranslator('organizer.signup.spots');
+
+describe('spotsLeft', () => {
+  it('has no number when the slot has no limit', () => {
+    expect(spotsLeft(null, 0)).toBeNull();
+    expect(spotsLeft(null, 7)).toBeNull();
+  });
+
+  it('is the capacity less the places taken while there is room', () => {
+    expect(spotsLeft(5, 0)).toBe(5);
+    expect(spotsLeft(5, 2)).toBe(3);
+  });
+
+  it('is 0 when the slot is exactly full', () => {
+    expect(spotsLeft(5, 5)).toBe(0);
+  });
+
+  it('is 0, never below, when the slot holds more than its capacity', () => {
+    expect(spotsLeft(3, 5)).toBe(0);
+  });
+
+  it('is 0 for a capacity of 0', () => {
+    expect(spotsLeft(0, 0)).toBe(0);
+  });
+});
 
 describe('spotCounts', () => {
   it('adds up every slot’s capacity, the spots taken on them and the spots still open', () => {
@@ -211,15 +241,12 @@ describe('in the organizer’s language', () => {
     expect(closed('body').endsWith(` ${KEEPS_THEIR_SPOT}`)).toBe(true);
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'asks the catalog in %s for the question and the count',
-    (locale) => {
-      expect(
-        closeSignupQuestion(counts, getStandInTranslator(locale, 'organizer.signup.close')),
-      ).toBe(`organizer.signup.close.question in ${locale}`);
-      expect(
-        spotsTakenLine(counts, 'closed', getStandInTranslator(locale, 'organizer.signup.spots')),
-      ).toBe(`organizer.signup.spots.line in ${locale}`);
-    },
-  );
+  it.each(TEST_LOCALES)('asks the catalog in %s for the question and the count', (locale) => {
+    expect(
+      closeSignupQuestion(counts, getStandInTranslator(locale, 'organizer.signup.close')),
+    ).toBe(`organizer.signup.close.question in ${locale}`);
+    expect(
+      spotsTakenLine(counts, 'closed', getStandInTranslator(locale, 'organizer.signup.spots')),
+    ).toBe(`organizer.signup.spots.line in ${locale}`);
+  });
 });

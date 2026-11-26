@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
 import type { ConnectedApp } from '@/oauth/grants';
@@ -58,9 +58,6 @@ vi.mock('@/i18n/server', async () => {
 });
 
 const { default: ConnectedAppsPage, generateMetadata } = await import('./page');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 /** Noon on a day, in the zone the tests run in, which is the zone dates are written in. */
 const noon = (year: number, month: number, day: number) => new Date(year, month - 1, day, 12);
@@ -169,7 +166,7 @@ describe('Connected apps', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/^Couldn't disconnect\. Try again\.$/);
   });
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'says a disconnect was refused in the organizer’s language, %s',
     async (other) => {
       ship('organizer', ['en', other]);
@@ -187,7 +184,7 @@ describe('Connected apps', () => {
     },
   );
 
-  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     request.session.locale = other;
     request.apps = [app()];
@@ -213,7 +210,7 @@ describe('Connected apps', () => {
     expect(screen.getByText(ask('empty.body'))).toBeInTheDocument();
   });
 
-  it.each(OTHER_LANGUAGES)('writes the dates in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('writes the dates in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     request.session.locale = other;
     request.realText = true;

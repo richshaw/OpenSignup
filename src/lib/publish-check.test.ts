@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import type { FieldType } from '@/schemas/slot-fields';
 import {
@@ -159,24 +159,21 @@ describe('publishCheckCopy', () => {
     });
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'takes every word from the catalog in %s',
-    (locale) => {
-      const t = getStandInTranslator(locale, 'organizer.signup.check');
-      const words = (key: string) => `organizer.signup.check.${key} in ${locale}`;
-      expect(publishCheckCopy({ kind: 'no_slots' }, t)).toEqual({
-        title: words('title'),
-        text: words('noSlots'),
-        fix: words('addSlot'),
-        secondary: words('notNow'),
-      });
-      expect(publishCheckCopy({ kind: 'no_fields' }, t)).toMatchObject({ text: words('noFields') });
-      expect(publishCheckCopy({ kind: 'all_blank', slotId: 's1', slotCount: 2 }, t)).toMatchObject({
-        text: words('allBlank'),
-        fix: words('fillIn'),
-      });
-    },
-  );
+  it.each(TEST_LOCALES)('takes every word from the catalog in %s', (locale) => {
+    const t = getStandInTranslator(locale, 'organizer.signup.check');
+    const words = (key: string) => `organizer.signup.check.${key} in ${locale}`;
+    expect(publishCheckCopy({ kind: 'no_slots' }, t)).toEqual({
+      title: words('title'),
+      text: words('noSlots'),
+      fix: words('addSlot'),
+      secondary: words('notNow'),
+    });
+    expect(publishCheckCopy({ kind: 'no_fields' }, t)).toMatchObject({ text: words('noFields') });
+    expect(publishCheckCopy({ kind: 'all_blank', slotId: 's1', slotCount: 2 }, t)).toMatchObject({
+      text: words('allBlank'),
+      fix: words('fillIn'),
+    });
+  });
 });
 
 describe('publishCheckTarget', () => {

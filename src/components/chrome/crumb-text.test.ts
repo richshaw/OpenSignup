@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship } from '@/i18n/testing/ship';
 
 /** Who is signed in: nobody, or an organizer storing a language or none. */
@@ -13,9 +13,6 @@ vi.mock('@/i18n/server', async () => ({
 }));
 
 const { crumbTranslator } = await import('./crumb-text');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 afterEach(() => {
   request.session = null;
@@ -36,7 +33,7 @@ describe('crumbTranslator', () => {
     ]);
   });
 
-  it.each(OTHER_LANGUAGES)('words them in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('words them in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     request.session = { locale: other };
     const t = (await crumbTranslator())!;

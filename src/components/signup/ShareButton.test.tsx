@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { shareText, type ShareText } from '@/components/share/share-text';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { HeaderAnnouncer } from './HeaderAnnouncer';
 import { signupHeaderText } from './header-text';
@@ -263,55 +264,50 @@ describe('ShareButton on a phone', () => {
   });
 });
 
-describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-  'ShareButton and its panel in %s',
-  (locale) => {
-    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale helpers');
-    const words = (key: string) => `organizer.share.${key} in ${locale}`;
+describe.each(TEST_LOCALES)('ShareButton and its panel in %s', (locale) => {
+  const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale helpers');
+  const words = (key: string) => `organizer.share.${key} in ${locale}`;
 
-    it('take every word from the catalog in that language, but the message', async () => {
-      windowWidth(1280);
-      render(
-        <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
-          <Header action={async () => ({ published: true })} text={text} />
-        </HeaderAnnouncer>,
-      );
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'Publish and share' }));
-      });
-      const panel = await screen.findByRole('dialog', { name: words('heading.firstTime') });
-      expect(within(panel).getByText(words('published'))).toBeInTheDocument();
-      expect(screen.getByRole('status', { hidden: true })).toHaveTextContent(words('announce'));
-      expect(within(panel).getByText(words('lead.firstTime'))).toBeInTheDocument();
-      expect(within(panel).getByLabelText(words('linkField'))).toHaveValue(LINK);
-      expect(
-        await within(panel).findByRole('button', { name: words('copyLink') }),
-      ).toBeInTheDocument();
-      // The message is the signup's, whatever language the panel is in.
-      expect(within(panel).getByLabelText(words('messageLabel'))).toHaveValue(MESSAGE);
-      expect(within(panel).getByRole('button', { name: words('copyMessage') })).toBeInTheDocument();
-      expect(within(panel).getByRole('link', { name: words('emailIt') })).toBeInTheDocument();
-
-      fireEvent.click(within(panel).getByRole('button', { name: words('close') }));
-      const share = within(screen.getByTestId('desktop')).getByRole('button', {
-        name: words('button'),
-      });
-      fireEvent.click(share);
-      expect(
-        await screen.findByRole('dialog', { name: words('heading.later') }),
-      ).toBeInTheDocument();
-      expect(screen.getByText(words('lead.desktop'))).toBeInTheDocument();
+  it('take every word from the catalog in that language, but the message', async () => {
+    windowWidth(1280);
+    render(
+      <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
+        <Header action={async () => ({ published: true })} text={text} />
+      </HeaderAnnouncer>,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Publish and share' }));
     });
+    const panel = await screen.findByRole('dialog', { name: words('heading.firstTime') });
+    expect(within(panel).getByText(words('published'))).toBeInTheDocument();
+    expect(screen.getByRole('status', { hidden: true })).toHaveTextContent(words('announce'));
+    expect(within(panel).getByText(words('lead.firstTime'))).toBeInTheDocument();
+    expect(within(panel).getByLabelText(words('linkField'))).toHaveValue(LINK);
+    expect(
+      await within(panel).findByRole('button', { name: words('copyLink') }),
+    ).toBeInTheDocument();
+    // The message is the signup's, whatever language the panel is in.
+    expect(within(panel).getByLabelText(words('messageLabel'))).toHaveValue(MESSAGE);
+    expect(within(panel).getByRole('button', { name: words('copyMessage') })).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: words('emailIt') })).toBeInTheDocument();
 
-    it('name a phone’s sheet and its ✕ from the catalog in that language', async () => {
-      windowWidth(390);
-      render(<Header text={text} />);
-      fireEvent.click(
-        within(screen.getByTestId('phone')).getByRole('button', { name: words('button') }),
-      );
-      const sheet = await screen.findByRole('dialog', { name: words('heading.later') });
-      expect(within(sheet).getByRole('button', { name: words('close') })).toBeInTheDocument();
-      expect(await within(sheet).findByText(words('lead.phone'))).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: words('close') }));
+    const share = within(screen.getByTestId('desktop')).getByRole('button', {
+      name: words('button'),
     });
-  },
-);
+    fireEvent.click(share);
+    expect(await screen.findByRole('dialog', { name: words('heading.later') })).toBeInTheDocument();
+    expect(screen.getByText(words('lead.desktop'))).toBeInTheDocument();
+  });
+
+  it('name a phone’s sheet and its ✕ from the catalog in that language', async () => {
+    windowWidth(390);
+    render(<Header text={text} />);
+    fireEvent.click(
+      within(screen.getByTestId('phone')).getByRole('button', { name: words('button') }),
+    );
+    const sheet = await screen.findByRole('dialog', { name: words('heading.later') });
+    expect(within(sheet).getByRole('button', { name: words('close') })).toBeInTheDocument();
+    expect(await within(sheet).findByText(words('lead.phone'))).toBeInTheDocument();
+  });
+});

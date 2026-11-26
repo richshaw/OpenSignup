@@ -12,10 +12,8 @@ import {
   openGraphLocale,
   resolveLocale,
 } from './config';
+import { TEST_LOCALES } from './testing/locales';
 import { ship, shipOnlyEnglish } from './testing/ship';
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 describe('SHIPPED', () => {
   it('ships English to every audience, since English fills every gap', () => {
@@ -78,7 +76,7 @@ describe('resolveLocale while only English has shipped', () => {
   // An operator who sets a language before it ships to an audience gets
   // English there, not half-translated pages.
   it.each(AUDIENCES)('is English for %s whatever is stored or the instance sets', (audience) => {
-    for (const other of OTHER_LANGUAGES) {
+    for (const other of TEST_LOCALES) {
       expect(resolveLocale(audience, other, other)).toEqual({ locale: 'en', source: 'default' });
       expect(resolveLocale(audience, undefined, other)).toEqual({
         locale: 'en',
@@ -116,13 +114,13 @@ describe('resolveLocale while only English has shipped', () => {
   // The Settings tab's rule: a language with a catalog that hasn't shipped
   // (yet, or any more) isn't the signup's language, so the page doesn't use
   // one the organizer can't see chosen.
-  it.each(OTHER_LANGUAGES)('passes over %s, which has a catalog but has not shipped', (other) => {
+  it.each(TEST_LOCALES)('passes over %s, which has a catalog but has not shipped', (other) => {
     expect(isShipped('participant', other)).toBe(false);
     expect(resolveLocale('participant', other, undefined).locale).toBe('en');
   });
 });
 
-describe.each(OTHER_LANGUAGES)('resolveLocale once %s has shipped', (other) => {
+describe.each(TEST_LOCALES)('resolveLocale once %s has shipped', (other) => {
   beforeEach(shipOnlyEnglish);
 
   it('takes the stored language before anything else', () => {
@@ -217,7 +215,7 @@ describe('langWhereDifferent', () => {
       expect(langWhereDifferent(locale, locale)).toBeUndefined();
   });
 
-  it.each(OTHER_LANGUAGES)('marks a part in %s inside English, and English inside it', (other) => {
+  it.each(TEST_LOCALES)('marks a part in %s inside English, and English inside it', (other) => {
     expect(langWhereDifferent(other, 'en')).toBe(other);
     expect(langWhereDifferent('en', other)).toBe('en');
   });

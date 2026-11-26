@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { waitInMinutes } from '@/lib/format-duration';
 
@@ -47,9 +47,6 @@ afterEach(() => {
   instance.defaultLocale = undefined;
   instance.realText = false;
 });
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 /** A browser's authorization request, over its rate limit for `retryAfter` seconds. */
 async function rateLimitedPage(retryAfter: number): Promise<Response> {
@@ -145,7 +142,7 @@ describe('handleOAuthRequest', () => {
     );
   });
 
-  describe.each(OTHER_LANGUAGES)('with DEFAULT_LOCALE=%s', (other) => {
+  describe.each(TEST_LOCALES)('with DEFAULT_LOCALE=%s', (other) => {
     beforeEach(shipOnlyEnglish);
 
     it('stays English while that language hasn’t shipped to organizers', async () => {

@@ -10,6 +10,7 @@ import {
   languageName,
   languageNameInSentence,
 } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import type { Namespace } from '@/i18n/translator';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 
@@ -72,9 +73,6 @@ vi.mock('@/services/signups', () => ({ openSignupsToSwitch }));
 
 const { default: SettingsPage, generateMetadata } = await import('./page');
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 async function renderPage(searchParams: Record<string, string> = {}) {
   return render(await SettingsPage({ searchParams: Promise.resolve(searchParams) }));
 }
@@ -105,7 +103,7 @@ describe('Account Settings', () => {
     expect(await generateMetadata()).toEqual({ title: 'Settings' });
   });
 
-  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('organizer', ['en', other]);
     request.saved = other;
     await renderPage();
@@ -199,7 +197,7 @@ describe('Account Settings: Language', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('participant', ['en', other]);
     ship('organizer', ['en', other]);
     request.saved = other;
@@ -300,28 +298,25 @@ describe('Account Settings: switching the open signups', () => {
     expect(switchButton()).not.toHaveClass('border-surface-sunk');
   });
 
-  it.each(OTHER_LANGUAGES)(
-    'writes a large count as before, without grouping (%s)',
-    async (other) => {
-      ship('participant', ['en', other]);
-      request.saved = other;
-      const name = languageName(other);
-      toSwitch(1234);
-      await renderPage();
-      expect(screen.getByText(/of your signups/)).toHaveTextContent(
-        `1234 of your signups are open and aren't in ${name} yet.`,
-      );
-      cleanup();
+  it.each(TEST_LOCALES)('writes a large count as before, without grouping (%s)', async (other) => {
+    ship('participant', ['en', other]);
+    request.saved = other;
+    const name = languageName(other);
+    toSwitch(1234);
+    await renderPage();
+    expect(screen.getByText(/of your signups/)).toHaveTextContent(
+      `1234 of your signups are open and aren't in ${name} yet.`,
+    );
+    cleanup();
 
-      toSwitch(0, 1234);
-      await renderPage({ switched: '1' });
-      expect(screen.getByRole('status')).toHaveTextContent(
-        `Saved. 1234 of your signups are open, and they're all in ${name} now.`,
-      );
-    },
-  );
+    toSwitch(0, 1234);
+    await renderPage({ switched: '1' });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      `Saved. 1234 of your signups are open, and they're all in ${name} now.`,
+    );
+  });
 
-  it.each(OTHER_LANGUAGES)('is in the organizer’s language, %s', async (other) => {
+  it.each(TEST_LOCALES)('is in the organizer’s language, %s', async (other) => {
     ship('participant', ['en', other]);
     ship('organizer', ['en', other]);
     request.saved = other;

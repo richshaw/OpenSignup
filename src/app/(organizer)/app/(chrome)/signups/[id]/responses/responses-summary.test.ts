@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { noResponsesLine, summarizeResponses } from './responses-summary';
 
@@ -88,10 +88,7 @@ describe('noResponsesLine', () => {
   });
 });
 
-/** Every language with a catalog but English. */
-const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
-describe.each(OTHER_LOCALES)('in %s', (locale) => {
+describe.each(TEST_LOCALES)('in %s', (locale) => {
   const t = getStandInTranslator(locale, 'organizer.responses');
   const say = (key: string) => `organizer.responses.${key} in ${locale}`;
 

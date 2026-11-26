@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MAGIC_COMPOSE_NAMESPACES } from '@/components/magic-compose/client-namespaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { messagesFor } from '@/i18n/translator';
 
@@ -68,8 +68,6 @@ afterEach(() => {
   compose.messages = undefined;
 });
 
-const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 describe('New signup: the form', () => {
   it('says what it always said, in English with nothing stored', async () => {
     await open();
@@ -90,7 +88,7 @@ describe('New signup: the form', () => {
     expect(screen.getByRole('button', { name: 'Create signup' })).toBeInTheDocument();
   });
 
-  it.each(OTHER_LOCALES)(
+  it.each(TEST_LOCALES)(
     'is in the organizer’s language when they store it (%s)',
     async (locale) => {
       ship('organizer', ['en', locale]);
@@ -137,7 +135,7 @@ describe('New signup: Magic Compose', () => {
     expect(compose.props).toEqual({ llmTimeoutMs: 1000 });
   });
 
-  it.each(OTHER_LOCALES)('gives them in the organizer’s language (%s)', async (locale) => {
+  it.each(TEST_LOCALES)('gives them in the organizer’s language (%s)', async (locale) => {
     ship('organizer', ['en', locale]);
     stored.locale = locale;
     stored.magic = true;
@@ -150,7 +148,7 @@ describe('New signup: Magic Compose', () => {
 
   it('stays English for a stored language that hasn’t shipped to organizers', async () => {
     shipOnlyEnglish();
-    stored.locale = OTHER_LOCALES[0] ?? 'en';
+    stored.locale = TEST_LOCALES[0] ?? 'en';
     stored.magic = true;
     await open();
     expect(compose.messages?.locale).toBe('en');

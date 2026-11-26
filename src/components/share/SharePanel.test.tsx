@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { SharePanel, type SharePanelProps } from './SharePanel';
 import { shareText } from './share-text';
@@ -347,28 +347,25 @@ describe('<SharePanel /> on a phone', () => {
   });
 });
 
-describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-  '<SharePanel /> in %s',
-  (locale) => {
-    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale').panel;
-    const words = (key: string) => `organizer.share.${key} in ${locale}`;
+describe.each(TEST_LOCALES)('<SharePanel /> in %s', (locale) => {
+  const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale').panel;
+  const words = (key: string) => `organizer.share.${key} in ${locale}`;
 
-    it('offers a phone’s share menu in words from the catalog in that language', async () => {
-      giveShareMenu(async () => {});
-      render(<Owner variant="phone" text={text} />);
-      fireEvent.click(await screen.findByRole('button', { name: words('shareMenu') }));
-      expect(await screen.findByText(words('shareMenuSent'))).toBeInTheDocument();
-      expect(screen.getByLabelText(words('messageLabel'))).toHaveValue(MESSAGE);
-    });
+  it('offers a phone’s share menu in words from the catalog in that language', async () => {
+    giveShareMenu(async () => {});
+    render(<Owner variant="phone" text={text} />);
+    fireEvent.click(await screen.findByRole('button', { name: words('shareMenu') }));
+    expect(await screen.findByText(words('shareMenuSent'))).toBeInTheDocument();
+    expect(screen.getByLabelText(words('messageLabel'))).toHaveValue(MESSAGE);
+  });
 
-    it('says the clipboard refused, and what was copied, in that language', async () => {
-      render(<Owner text={text} />);
-      writeText.mockRejectedValueOnce(new Error('denied'));
-      fireEvent.click(screen.getByRole('button', { name: words('copyLink') }));
-      expect(await screen.findByText(words('linkRefused'))).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: words('copyLink') }));
-      expect(await screen.findByText(words('linkCopied'))).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: words('copied') })).toBeInTheDocument();
-    });
-  },
-);
+  it('says the clipboard refused, and what was copied, in that language', async () => {
+    render(<Owner text={text} />);
+    writeText.mockRejectedValueOnce(new Error('denied'));
+    fireEvent.click(screen.getByRole('button', { name: words('copyLink') }));
+    expect(await screen.findByText(words('linkRefused'))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: words('copyLink') }));
+    expect(await screen.findByText(words('linkCopied'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: words('copied') })).toBeInTheDocument();
+  });
+});

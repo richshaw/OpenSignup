@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { connectedAppsLines } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/refusal-lines';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { serviceError, type ErrorCode, type ErrorReason } from './errors';
 import { waitInMinutes } from './format-duration';
@@ -9,8 +9,6 @@ import { TITLE_TOO_SHORT_MESSAGE } from './signup-limits';
 import { ERROR_CODES } from './testing/error-codes';
 
 const t = getTestTranslator('organizer.errors');
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 describe('the organizer catalog’s refusals', () => {
   it('say a title is too short as the Build tab and the API do', () => {
     expect(
@@ -45,7 +43,7 @@ describe('refusalText', () => {
     expect(refusalText(t, error)).toBe("Some values weren't accepted.");
   });
 
-  it.each(OTHER_LANGUAGES)('asks the catalog in the language it is given, %s', (other) => {
+  it.each(TEST_LOCALES)('asks the catalog in the language it is given, %s', (other) => {
     const inOther = getStandInTranslator(other, 'organizer.errors');
     expect(refusalText(inOther, serviceError('forbidden', 'x'))).toBe(
       `organizer.errors.code.forbidden in ${other}`,
