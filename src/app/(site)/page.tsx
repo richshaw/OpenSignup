@@ -1,7 +1,6 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteFooter } from '@/components/site-footer';
-import { SHARE_IMAGES, buildLandingJsonLd, serializeJsonLd } from '@/lib/seo';
+import { buildLandingJsonLd, pageMetadata, serializeJsonLd } from '@/lib/seo';
 import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { recordLandingView, trackAfterResponse } from '@/lib/view-tracker';
 import { DemoVideoCta } from './_components/DemoVideoCta';
@@ -13,30 +12,13 @@ const PAGE_TITLE = `${INSTANCE_NAME} — free, ad-free sign-up sheets`;
 const PAGE_DESCRIPTION =
   'Coordinate snack rotations, potlucks, volunteer shifts, and carpools. Ad-free, open-source, and no accounts for participants — just share a link.';
 
-export const metadata: Metadata = {
-  // Absolute title so the homepage isn't suffixed with the instance name twice.
-  title: { absolute: PAGE_TITLE },
+export const metadata = pageMetadata({
+  path: '/',
+  title: PAGE_TITLE,
   description: PAGE_DESCRIPTION,
-  alternates: { canonical: '/' },
-  // Next merges metadata shallowly: defining `openGraph`/`twitter` here replaces
-  // the root layout's objects wholesale, so re-state type/siteName/locale/card
-  // and the share image.
-  openGraph: {
-    type: 'website',
-    siteName: INSTANCE_NAME,
-    locale: 'en_US',
-    url: '/',
-    title: PAGE_TITLE,
-    description: PAGE_DESCRIPTION,
-    images: SHARE_IMAGES.openGraph,
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: PAGE_TITLE,
-    description: PAGE_DESCRIPTION,
-    images: SHARE_IMAGES.twitter,
-  },
-};
+  siteName: INSTANCE_NAME,
+  absoluteTitle: true,
+});
 
 export default async function LandingPage() {
   const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL;
