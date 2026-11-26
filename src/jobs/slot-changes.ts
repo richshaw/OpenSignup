@@ -115,7 +115,6 @@ export async function sendSlotChangeJob(payload: SlotChangeSendPayload): Promise
     db,
     payload.commitmentId,
     slotChangeDueRules,
-    slotChangeDueCondition,
     {
       notFound: 'commitment not found for slot change',
       notDue: 'slot-change email no longer due; skipping',
