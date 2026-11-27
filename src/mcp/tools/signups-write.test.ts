@@ -145,7 +145,6 @@ describe('create_signup', () => {
     expect(input).toEqual({
       title: 'Snack rota',
       description: '',
-      visibility: 'unlisted',
       settings: {},
     });
     expect(opts.template.id).toBe('mcp');
@@ -211,6 +210,29 @@ describe('create_signup', () => {
     expect(body.error.suggestion).toMatch(/date/i);
     expect(body.error.details.dropped).toBeTruthy();
     expect(svc.createSignup).not.toHaveBeenCalled();
+  });
+
+  it('stores a slot whose value is only spaces without that value, rather than refusing', async () => {
+    svc.createSignup.mockResolvedValueOnce(ok(row));
+    svc.getSignupForOrganizer.mockResolvedValueOnce(ok(created));
+    const client = await connectTestClient(ctx, WRITE_TOOLS);
+    const r = await client.callTool({
+      name: 'create_signup',
+      arguments: {
+        title: 'Snack rota',
+        fields: [{ ref: 'date', label: 'Date', fieldType: 'date' }],
+        slots: [{ values: { date: '2026-10-03' } }, { values: { date: '  ' } }],
+      },
+    });
+    expect(r.isError, JSON.stringify(r.structuredContent)).toBeFalsy();
+    const [, , , , opts] = svc.createSignup.mock.calls[0] as [
+      unknown,
+      unknown,
+      unknown,
+      unknown,
+      { template: { slots: Array<{ values: Record<string, unknown> }> } },
+    ];
+    expect(opts.template.slots.map((s) => s.values)).toEqual([{ date: '2026-10-03' }, {}]);
   });
 
   // Magic Compose cuts an over-long description down; the tool refuses it, so

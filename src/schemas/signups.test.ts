@@ -135,12 +135,30 @@ describe('description', () => {
 });
 
 describe('visibility', () => {
-  it('defaults to unlisted on create', () => {
+  it('leaves visibility out of a create that leaves it out', () => {
     const r = SignupCreateInputSchema.parse({ title: 'Snack rota', settings: {} });
-    expect(r.visibility).toBe('unlisted');
+    expect(r).not.toHaveProperty('visibility');
+  });
+
+  it('accepts unlisted on create, the only value a signup has', () => {
+    const r = SignupCreateInputSchema.safeParse({
+      title: 'Snack rota',
+      settings: {},
+      visibility: 'unlisted',
+    });
+    expect(r.success).toBe(true);
   });
 
   // Nothing reads visibility: every signup opens for anyone with its link.
+  it.each(['public', 'password'])('refuses %s on create', (visibility) => {
+    const r = SignupCreateInputSchema.safeParse({ title: 'Snack rota', settings: {}, visibility });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(['visibility']);
+    expect(r.error?.issues[0]?.message).toBe(
+      "visibility can't be changed: anyone with a signup's link can open it",
+    );
+  });
+
   it.each(['public', 'unlisted', 'password'])('refuses %s on update', (visibility) => {
     const r = SignupUpdateInputSchema.safeParse({ visibility });
     expect(r.success).toBe(false);

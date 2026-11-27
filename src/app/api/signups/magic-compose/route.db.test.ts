@@ -38,13 +38,16 @@ const route = vi.hoisted(() => ({
   /** The system prompt of the model's last call. */
   system: '',
 }));
-vi.mock('@/auth/session', () => ({
-  requireActor: async () => route.actor,
-  getOrganizerSession: async () => ({
-    defaultWorkspaceId: route.workspaceId,
-    locale: route.locale,
-  }),
-}));
+vi.mock('@/auth/session', async () => {
+  const { sessionOf } = await import('@/auth/testing/session');
+  return {
+    getOrganizerSession: async () =>
+      sessionOf(route.actor as Actor | undefined, {
+        defaultWorkspaceId: route.workspaceId,
+        locale: route.locale,
+      }),
+  };
+});
 // The instance's DEFAULT_LOCALE as each test sets it: getEnv() parses the
 // environment once.
 vi.mock('@/i18n/server', async (importOriginal) => ({

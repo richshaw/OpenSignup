@@ -13,7 +13,8 @@ export { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH };
 export const SIGNUP_STATUSES = ['draft', 'open', 'closed', 'archived'] as const;
 export type SignupStatus = (typeof SIGNUP_STATUSES)[number];
 
-const SIGNUP_VISIBILITIES = ['public', 'unlisted', 'password'] as const;
+const VISIBILITY_UNCHANGEABLE =
+  "visibility can't be changed: anyone with a signup's link can open it";
 
 /** The most signups a workspace list returns, newest first. */
 export const WORKSPACE_LIST_LIMIT = 200;
@@ -117,21 +118,19 @@ export const SignupCreateInputSchema = z.object({
   organizerDisplayName: NameSchema.optional(),
   tags: TagsSchema,
   closesAt: z.string().datetime().optional(),
-  visibility: z.enum(SIGNUP_VISIBILITIES).default('unlisted'),
+  // Nothing reads visibility: every signup opens for anyone with its link, and
+  // none is listed or indexed. 'unlisted', the only value a signup has, is still
+  // accepted so existing callers that send it keep working; any other value is
+  // refused rather than stored, so a caller is not told it took effect.
+  visibility: z
+    .literal('unlisted', { errorMap: () => ({ message: VISIBILITY_UNCHANGEABLE }) })
+    .optional(),
   settings: SignupSettingsSchema,
 });
 
 export const SignupUpdateInputSchema = SignupCreateInputSchema.partial().extend({
   /** `null` clears the closing time; omitted leaves it alone. */
   closesAt: z.string().datetime().nullable().optional(),
-  // Nothing reads visibility: every signup opens for anyone with its link, and
-  // none is listed or indexed. Refused rather than stripped, so a caller is not
-  // told a change worked when nothing changed.
-  visibility: z
-    .undefined({
-      errorMap: () => ({
-        message: "visibility can't be changed: anyone with a signup's link can open it",
-      }),
-    })
-    .optional(),
+  // Refused outright on update, 'unlisted' included: there is nothing to change.
+  visibility: z.undefined({ errorMap: () => ({ message: VISIBILITY_UNCHANGEABLE }) }).optional(),
 });

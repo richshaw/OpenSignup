@@ -2,7 +2,6 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { getDb } from '@/db/client';
-import type { Actor } from '@/lib/policy';
 import { ORGANIZER_CALLBACK_HEADER, loginUrl, safeCallbackUrl } from './callback-url';
 import { auth } from './config';
 import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
@@ -14,11 +13,6 @@ export const getOrganizerSession = cache(async (): Promise<OrganizerSession | nu
   if (!session?.user?.id) return null;
   return loadOrganizerSessionById(getDb(), session.user.id);
 });
-
-export async function requireActor(): Promise<Actor> {
-  const session = await getOrganizerSession();
-  return toActor(session);
-}
 
 /**
  * The organizer session, or a redirect to sign-in that comes back to the page

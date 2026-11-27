@@ -54,7 +54,7 @@ export async function createSignupAction(
     db,
     actor,
     s.defaultWorkspaceId,
-    { title, description, visibility: 'unlisted' },
+    { title, description },
     { organizer: s },
   );
   if (!result.ok) return { error: refusalText(t, result.error), title, description };
