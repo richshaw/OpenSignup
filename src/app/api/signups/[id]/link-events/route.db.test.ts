@@ -15,7 +15,10 @@ import { POST } from './route';
 // The route reads the organizer from the session cookie. Tests hand it one
 // directly instead of going through Auth.js.
 const session = vi.hoisted(() => ({ actor: { kind: 'anonymous' } as Actor }));
-vi.mock('@/auth/session', () => ({ requireActor: async () => session.actor }));
+vi.mock('@/auth/session', async () => {
+  const { sessionOf } = await import('@/auth/testing/session');
+  return { getOrganizerSession: async () => sessionOf(session.actor) };
+});
 
 function beacon(signupId: string, query: string) {
   const req = new NextRequest(`http://localhost/api/signups/${signupId}/link-events?${query}`, {

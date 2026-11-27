@@ -145,7 +145,6 @@ describe('create_signup', () => {
     expect(input).toEqual({
       title: 'Snack rota',
       description: '',
-      visibility: 'unlisted',
       settings: {},
     });
     expect(opts.template.id).toBe('mcp');

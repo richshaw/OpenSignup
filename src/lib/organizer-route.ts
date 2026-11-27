@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { requireActor } from '@/auth/session';
+import { toActor, type OrganizerSession } from '@/auth/organizer-session';
+import { getOrganizerSession } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
 import { handle, respond } from './api-response';
 import type { ServiceError } from './errors';
@@ -10,6 +11,12 @@ export interface OrganizerRouteContext<P> {
   req: NextRequest;
   db: Db;
   actor: Extract<Actor, { kind: 'organizer' }>;
+  /**
+   * The session the actor came from, for a handler that also needs the
+   * organizer's default workspace or language. React's `cache` doesn't last
+   * through a route handler, so reading it again would load it again.
+   */
+  session: OrganizerSession;
   params: P;
 }
 
@@ -25,9 +32,12 @@ export function organizerRoute<P = Record<string, never>>(
   return (req: NextRequest, ctx: { params: Promise<P> }): Promise<Response> =>
     handle(async () => {
       const params = await ctx.params;
-      const actor = await requireActor();
+      const session = await getOrganizerSession();
+      const actor = toActor(session);
+      // Without a session the actor is anonymous, so this throws the 401.
       requireOrganizer(actor);
-      const out = await run({ req, db: getDb(), actor, params });
+      if (!session) throw new Error('an organizer actor without a session');
+      const out = await run({ req, db: getDb(), actor, session, params });
       return out instanceof Response ? out : respond(out);
     });
 }
