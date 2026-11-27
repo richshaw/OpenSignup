@@ -1,6 +1,18 @@
 import type { Translator } from '@/i18n/translator';
 import type { SignupStatus } from '@/schemas/signups';
 
+/**
+ * Spots left on one slot: its capacity less the places taken, never fewer
+ * than none, and null when it has no limit. A slot is full when this is 0,
+ * including one the organizer lowered below its sign-ups. Who counts as
+ * having taken a place is the caller's to say.
+ */
+export function spotsLeft(capacity: number, taken: number): number;
+export function spotsLeft(capacity: number | null, taken: number): number | null;
+export function spotsLeft(capacity: number | null, taken: number): number | null {
+  return capacity === null ? null : Math.max(0, capacity - taken);
+}
+
 /** A signup's spots, all slots together. */
 export interface SpotCounts {
   /** Spots confirmed and tentative sign-ups hold, as the public page counts them. */
@@ -41,8 +53,8 @@ export function spotCounts(
       allSlotsOpen = false;
       continue;
     }
-    open =
-      open === null || slot.capacity === null ? null : open + Math.max(0, slot.capacity - onSlot);
+    const left = spotsLeft(slot.capacity, onSlot);
+    open = open === null || left === null ? null : open + left;
   }
   return { taken, total, open, allSlotsOpen };
 }

@@ -64,7 +64,13 @@ const SLOTS: SignupViewSlot[] = [
   },
 ];
 
-const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
+const SIGNUP = {
+  title: 'Snack duty',
+  description: '',
+  status: 'open' as const,
+  requireEmail: true,
+  sendReminders: true,
+};
 
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
@@ -849,7 +855,7 @@ describe('"Add to calendar" on a signup with several time fields', () => {
       render(
         <SignupViewBody
           locale="en"
-          signup={{ title: 'Trip', description: '', status: 'open' }}
+          signup={{ ...SIGNUP, title: 'Trip' }}
           fields={TRIP.fields}
           groupByRef={null}
           slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
@@ -893,15 +899,11 @@ describe('the optional email box on the live page', () => {
   const inHours = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
 
   /** Opens the one slot's form and returns the email box's description. */
-  async function emailHelp(sendReminders: boolean | undefined, slotAt: string | null) {
+  async function emailHelp(sendReminders: boolean, slotAt: string | null) {
     render(
       <SignupViewBody
         locale="en"
-        signup={{
-          ...SIGNUP,
-          requireEmail: false,
-          ...(sendReminders === undefined ? {} : { sendReminders }),
-        }}
+        signup={{ ...SIGNUP, requireEmail: false, sendReminders }}
         fields={FIELDS}
         groupByRef={null}
         slots={[{ ...SLOTS[0]!, slotAt }]}
@@ -921,7 +923,6 @@ describe('the optional email box on the live page', () => {
   // The rule the confirmation email follows: src/lib/reminder-eligibility.ts.
   for (const [why, sendReminders, slotAt] of [
     ['reminders are off', false, inHours(72)],
-    ['nothing says whether reminders are on', undefined, inHours(72)],
     ['the slot has no date', true, null],
     ['the slot is less than an hour away', true, inHours(0.5)],
   ] as const) {

@@ -125,6 +125,19 @@ describe('pageMetadata', () => {
     });
   });
 
+  it('uses the title as-is when absoluteTitle is set', () => {
+    const absolute = pageMetadata({
+      path: '/',
+      title: 'Acme Signups',
+      description: 'Short guides.',
+      siteName: 'Acme Signups',
+      absoluteTitle: true,
+    });
+    expect(absolute.title).toEqual({ absolute: 'Acme Signups' });
+    expect(absolute.openGraph?.title).toBe('Acme Signups');
+    expect(absolute.twitter?.title).toBe('Acme Signups');
+  });
+
   it('keeps the share image, which a page-level openGraph would drop', () => {
     expect(meta.openGraph?.images).toEqual([{ url: '/opengraph-image.png', ...SHARE_IMAGE }]);
     expect(meta.twitter?.images).toEqual([{ url: '/twitter-image.png', ...SHARE_IMAGE }]);

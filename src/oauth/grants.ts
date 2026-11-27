@@ -2,7 +2,7 @@ import { and, desc, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import type Provider from 'oidc-provider';
 import { oauthRecords } from '@/db/schema/oauth';
 import type { Db, Queryable } from '@/db/client';
-import { recordActivityBestEffort } from '@/lib/activity';
+import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
 import { requireOrganizerId, type Actor } from '@/lib/policy';
@@ -182,7 +182,7 @@ export async function revokeConnectedApp(
   // Telemetry only, and the revocation above is already done: a failed
   // insert here must not report the disconnect as failed.
   await recordActivityBestEffort(db, {
-    actor: { actorId: organizerId, actorType: 'organizer' },
+    actor: activityActor(actor),
     eventType: 'oauth.grant_revoked',
     payload: { clientDomain: describeClient(row.clientId ?? '', row.clientName).domain },
   });

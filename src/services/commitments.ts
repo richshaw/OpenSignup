@@ -15,6 +15,7 @@ import { serviceError, ServiceException, type ServiceError } from '@/lib/errors'
 import { makeId } from '@/lib/ids';
 import { log } from '@/lib/log';
 import { summarizeSlotValues } from '@/lib/slot-summary';
+import { spotsLeft } from '@/lib/spot-counts';
 import { lockoutCutoff, signupShutReason, slotInLockout } from '@/lib/signup-closing';
 import { parseInputSafe } from '@/lib/parse';
 import { requireWorkspaceWrite, type Actor } from '@/lib/policy';
@@ -422,7 +423,7 @@ async function commitParticipantToSlot(
     const usedQty = await placesTaken(tx, slotId);
 
     if (slot.capacity !== null && usedQty + data.quantity > slot.capacity) {
-      const remaining = Math.max(0, slot.capacity - usedQty);
+      const remaining = spotsLeft(slot.capacity, usedQty);
       // Only slots that could take this sign-up, by the rules
       // `whyNotTakingPlaces` refuses one by: open, outside the lockout, and
       // with a place left. The signup is open, or we would not be here.
@@ -441,6 +442,7 @@ async function commitParticipantToSlot(
             eq(slots.status, 'open'),
             ne(slots.id, slotId),
             ...(cutoff ? [or(isNull(slots.slotAt), gte(slots.slotAt, cutoff))] : []),
+            // Has room: `spotsLeft` is not 0, written in SQL.
             or(isNull(slots.capacity), sql`${slots.capacity} > (${othersTaken})`),
           ),
         )
@@ -821,7 +823,7 @@ export async function updateOwnCommitment(
       if (cap !== null) {
         const otherQty = await placesTaken(tx, current.slotId, commitmentId);
         if (otherQty + data.quantity > cap) {
-          const remaining = Math.max(0, cap - otherQty);
+          const remaining = spotsLeft(cap, otherQty);
           await refused(tx, {
             slotId: current.slotId,
             reason: 'capacity_full',
@@ -1153,7 +1155,7 @@ export async function editLimitsForCommitment(
   if (row.capacity === null) return { maxQuantity: null, closed: false, slotName };
   const others = await placesTaken(db, commitment.slotId, commitment.id);
   return {
-    maxQuantity: Math.max(0, row.capacity - others),
+    maxQuantity: spotsLeft(row.capacity, others),
     closed: false,
     slotName,
   };
@@ -1262,5 +1264,5 @@ async function slotStateAfterCancel(
   }
   if (row.capacity === null) return 'open';
   // What `commitToSlot` checks a sign-up against.
-  return (await placesTaken(db, slotId)) >= row.capacity ? 'full' : 'open';
+  return spotsLeft(row.capacity, await placesTaken(db, slotId)) === 0 ? 'full' : 'open';
 }

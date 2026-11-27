@@ -5,6 +5,7 @@
  */
 import type { Metadata, MetadataRoute } from 'next';
 import { HELP_ARTICLES } from '@/help/articles';
+import { openGraphLocale } from '@/i18n/config';
 
 /**
  * Public, indexable routes that belong in `sitemap.xml`. `''` is the landing
@@ -50,17 +51,19 @@ export function pageMetadata(page: {
   title: string;
   description: string;
   siteName: string;
+  /** The title already contains the site name, so use it as-is. */
+  absoluteTitle?: boolean;
 }): Metadata {
   // The same text the root layout's title template puts in <title>.
-  const fullTitle = `${page.title} · ${page.siteName}`;
+  const fullTitle = page.absoluteTitle ? page.title : `${page.title} · ${page.siteName}`;
   return {
-    title: page.title,
+    title: page.absoluteTitle ? { absolute: page.title } : page.title,
     description: page.description,
     alternates: { canonical: page.path },
     openGraph: {
       type: 'website',
       siteName: page.siteName,
-      locale: 'en_US',
+      locale: openGraphLocale('en'),
       url: page.path,
       title: fullTitle,
       description: page.description,
