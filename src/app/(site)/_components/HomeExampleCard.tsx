@@ -37,6 +37,9 @@ const SIGNUP = {
   description:
     'Two families per game to bring snacks and drinks. Please ensure all snacks are nut-free.',
   status: 'open' as const,
+  // Showcase mode renders no sign-up form, so these two are never read.
+  requireEmail: true,
+  sendReminders: true,
 };
 
 export function HomeExampleCard() {
