@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import type { CatalogLocale } from '@/i18n/config';
+import { openGraphLocale, type CatalogLocale } from '@/i18n/config';
 import { SHARE_IMAGES } from '@/lib/seo';
 import { APP_ORIGIN, INSTANCE_NAME } from '@/lib/site-config';
 import { inter } from './fonts';
@@ -46,7 +46,7 @@ export const rootMetadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: INSTANCE_NAME,
-    locale: 'en_US',
+    locale: openGraphLocale('en'),
     title: INSTANCE_NAME,
     description: DESCRIPTION,
     images: SHARE_IMAGES.openGraph,
