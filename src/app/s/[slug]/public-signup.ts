@@ -42,7 +42,7 @@ export function toSignupViewSignup(
     settings: unknown;
   },
   now: number = Date.now(),
-): Required<SignupViewSignup> {
+): SignupViewSignup {
   return {
     title: signup.title,
     description: signup.description.trim(),

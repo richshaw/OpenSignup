@@ -34,10 +34,9 @@ export interface SignupViewSignup {
   title: string;
   description: string;
   status: SignupStatus;
-  /** Whether the sign-up form asks for the email; true when left out. Only
-   *  the live page's form reads it. */
-  requireEmail?: boolean;
-  /** The signup's `sendReminders` setting; false when left out, so nothing
-   *  promises a reminder. Only the live page's form reads it. */
-  sendReminders?: boolean;
+  /** The signup's `requireEmail` and `sendReminders` settings, which
+   *  `toSignupViewSignup` fills from its settings. Only the live page's form
+   *  reads them. */
+  requireEmail: boolean;
+  sendReminders: boolean;
 }

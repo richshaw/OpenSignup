@@ -354,9 +354,9 @@ export function SignupViewBody(props: SignupViewProps) {
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}
-                            requireEmail={signup.requireEmail ?? true}
+                            requireEmail={signup.requireEmail}
                             sendsReminder={willSendReminder({
-                              sendReminders: signup.sendReminders ?? false,
+                              sendReminders: signup.sendReminders,
                               slotAt: slot.slotAt ? new Date(slot.slotAt) : null,
                             })}
                           />
