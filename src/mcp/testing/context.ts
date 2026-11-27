@@ -1,5 +1,5 @@
-import { bearerWorkspaces } from '@/auth/bearer';
-import { loadOrganizerSessionById, toActor } from '@/auth/organizer-session';
+import { bearerOrganizer } from '@/auth/bearer';
+import { loadOrganizerSessionById } from '@/auth/organizer-session';
 import type { Db } from '@/db/client';
 import type { Scope } from '@/oauth/scopes';
 import type { ToolContext } from '../context';
@@ -13,15 +13,7 @@ export async function contextForOrganizer(
 ): Promise<ToolContext> {
   const session = await loadOrganizerSessionById(db, organizerId);
   if (!session) throw new Error(`no organizer ${organizerId}`);
-  const actor = toActor(session);
-  if (actor.kind !== 'organizer') throw new Error('not an organizer');
-  return {
-    db,
-    actor: { ...actor, via: { clientId } },
-    scopes,
-    clientId,
-    defaultWorkspaceId: session.defaultWorkspaceId,
-    workspaces: bearerWorkspaces(session),
-    locale: session.locale,
-  };
+  const organizer = bearerOrganizer(session, clientId, scopes);
+  if (!organizer) throw new Error('not an organizer');
+  return { db, ...organizer };
 }
