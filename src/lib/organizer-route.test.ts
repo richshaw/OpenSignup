@@ -4,8 +4,16 @@ import type { Actor } from './policy';
 import { serviceError } from './errors';
 import { err, ok } from './result';
 
-const session = vi.hoisted(() => ({ actor: { kind: 'anonymous' } as Actor }));
-vi.mock('@/auth/session', () => ({ requireActor: async () => session.actor }));
+const session = vi.hoisted(() => ({ actor: { kind: 'anonymous' } as Actor, loads: 0 }));
+vi.mock('@/auth/session', async () => {
+  const { sessionOf } = await import('@/auth/testing/session');
+  return {
+    getOrganizerSession: async () => {
+      session.loads += 1;
+      return sessionOf(session.actor, { defaultWorkspaceId: 'ws_1', locale: 'sv' });
+    },
+  };
+});
 vi.mock('@/db/client', () => ({ getDb: () => ({}) }));
 
 const { organizerRoute } = await import('./organizer-route');
@@ -14,8 +22,8 @@ const organizer: Actor = {
   kind: 'organizer',
   id: 'org_1',
   email: 'pat@example.com',
-  workspaceIds: [],
-  workspaceRoles: {},
+  workspaceIds: ['ws_1'],
+  workspaceRoles: { ws_1: 'owner' },
 };
 
 function call(route: ReturnType<typeof organizerRoute<{ id: string }>>) {
@@ -42,6 +50,24 @@ describe('organizerRoute()', () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ data: { actor: 'org_1', id: 'sig_1' } });
+  });
+
+  it('loads the session once and hands it to the handler with the actor built from it', async () => {
+    session.actor = organizer;
+    session.loads = 0;
+    const res = await call(
+      organizerRoute<{ id: string }>(async ({ actor, session: signedIn }) =>
+        ok({
+          roles: actor.workspaceRoles,
+          workspace: signedIn.defaultWorkspaceId,
+          locale: signedIn.locale,
+        }),
+      ),
+    );
+    expect(await res.json()).toEqual({
+      data: { roles: { ws_1: 'owner' }, workspace: 'ws_1', locale: 'sv' },
+    });
+    expect(session.loads).toBe(1);
   });
 
   it('maps an error Result to its status', async () => {

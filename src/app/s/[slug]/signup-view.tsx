@@ -4,6 +4,7 @@ import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import { messagesFor, type Translator } from '@/i18n/translator';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
+import { spotsLeft } from '@/lib/spot-counts';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { Banner } from '@/components/banner';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
@@ -253,11 +254,8 @@ export function SignupViewBody(props: SignupViewProps) {
             ) : null}
             <ul className="overflow-hidden rounded-2xl border border-surface-sunk bg-white">
               {group.slots.map((slot, idx) => {
-                // Floored at 0: the organizer can lower a slot's capacity below
-                // its sign-ups.
-                const spotsLeft =
-                  slot.capacity === null ? null : Math.max(0, slot.capacity - slot.committed);
-                const full = spotsLeft === 0;
+                const left = spotsLeft(slot.capacity, slot.committed);
+                const full = left === 0;
                 const closed = slot.status !== 'open' || effectiveStatus !== 'open' || full;
                 const title = titleFor(slot, primary, locale, t);
                 const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef, locale });
@@ -352,7 +350,7 @@ export function SignupViewBody(props: SignupViewProps) {
                             slotContext={slotContext(nameGroup, meta)}
                             slotAt={slot.slotAt}
                             slotHasTime={slot.hasTime}
-                            spotsLeft={spotsLeft}
+                            spotsLeft={left}
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}

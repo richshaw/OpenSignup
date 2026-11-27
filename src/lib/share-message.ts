@@ -8,7 +8,7 @@ import {
   type AnchorCandidate,
 } from '@/lib/reminder-fields';
 import { formatSlotDate, formatSlotTime } from '@/lib/slot-label';
-import { spotCounts } from '@/lib/spot-counts';
+import { spotCounts, spotsLeft } from '@/lib/spot-counts';
 
 /** What the share message reads from a signup. `SignupWithSlots` has it all. */
 export interface ShareMessageSignup {
@@ -100,9 +100,7 @@ function dateSpan(
   { locale, t }: ShareMessageLanguage,
 ): string | null {
   const open = all.filter((s) => s.status === 'open');
-  const withRoom = open.filter(
-    (s) => s.capacity === null || s.capacity - (committedBySlot[s.id] ?? 0) > 0,
-  );
+  const withRoom = open.filter((s) => spotsLeft(s.capacity, committedBySlot[s.id] ?? 0) !== 0);
   const slots = withRoom.length > 0 ? withRoom : open.length > 0 ? open : all;
   const dateRef = resolveAnchorRef(settings, fields);
   const timeRef = pairedTimeField(fields.find((f) => f.ref === dateRef) ?? null, fields)?.ref;
