@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES } from './config';
+import { TEST_LOCALES } from './testing/locales';
 import { ship, shipOnlyEnglish } from './testing/ship';
 
 // Unit tests have no DATABASE_URL, so the real getEnv() would throw.
@@ -10,9 +10,6 @@ vi.mock('@/lib/env', () => ({ getEnv: () => env }));
 
 const { localeOfOrganizer, localeOfSignup, newSignupLocale, offersLanguageChoice, signInLocale } =
   await import('./locale');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 // Each test starts from before any launch, English only, and ships what it
 // needs on top, so the rules for a language that hasn't shipped stay tested
@@ -24,7 +21,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe.each(OTHER_LANGUAGES)('localeOfSignup, with %s', (other) => {
+describe.each(TEST_LOCALES)('localeOfSignup, with %s', (other) => {
   it('is English while only English has shipped to participants, whatever is stored', () => {
     env.DEFAULT_LOCALE = other;
     expect(localeOfSignup(other)).toBe('en');
@@ -76,7 +73,7 @@ describe.each(OTHER_LANGUAGES)('localeOfSignup, with %s', (other) => {
   });
 });
 
-describe.each(OTHER_LANGUAGES)('localeOfOrganizer, with %s', (other) => {
+describe.each(TEST_LOCALES)('localeOfOrganizer, with %s', (other) => {
   it('is English while only English has shipped to organizers, whatever the organizer stored', () => {
     env.DEFAULT_LOCALE = other;
     expect(localeOfOrganizer({ locale: other })).toBe('en');
@@ -116,7 +113,7 @@ describe.each(OTHER_LANGUAGES)('localeOfOrganizer, with %s', (other) => {
   });
 });
 
-describe.each(OTHER_LANGUAGES)('signInLocale, with %s', (other) => {
+describe.each(TEST_LOCALES)('signInLocale, with %s', (other) => {
   it('is English while only English has shipped to organizers, whatever the instance sets', () => {
     expect(signInLocale()).toBe('en');
     env.DEFAULT_LOCALE = other;
@@ -147,7 +144,7 @@ describe.each(OTHER_LANGUAGES)('signInLocale, with %s', (other) => {
   });
 });
 
-describe.each(OTHER_LANGUAGES)('offersLanguageChoice, with %s', (other) => {
+describe.each(TEST_LOCALES)('offersLanguageChoice, with %s', (other) => {
   it('offers none while only English has shipped to participants', () => {
     expect(offersLanguageChoice()).toBe(false);
     ship('organizer', ['en', other]);
@@ -160,7 +157,7 @@ describe.each(OTHER_LANGUAGES)('offersLanguageChoice, with %s', (other) => {
   });
 });
 
-describe.each(OTHER_LANGUAGES)('newSignupLocale, with %s', (other) => {
+describe.each(TEST_LOCALES)('newSignupLocale, with %s', (other) => {
   it('chooses nothing while only English has shipped to participants, whatever the steps say', () => {
     env.DEFAULT_LOCALE = 'en';
     expect(newSignupLocale({ locale: 'en' })).toBeNull();

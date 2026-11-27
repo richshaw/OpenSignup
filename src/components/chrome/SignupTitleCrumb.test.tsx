@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { err, ok } from '@/lib/result';
 import { serviceError } from '@/lib/errors';
@@ -27,9 +27,6 @@ vi.mock('@/services/signups.cached', () => ({
 vi.mock('@/i18n/server', () => ({ instanceDefaultLocale: () => undefined }));
 
 const { SignupTitleCrumb } = await import('./SignupTitleCrumb');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 afterEach(() => {
   cleanup();
@@ -59,24 +56,21 @@ describe('SignupTitleCrumb', () => {
     expect(screen.queryByText('Bake Sale')).toBeNull();
   });
 
-  it.each(OTHER_LANGUAGES)('marks the title of a signup in %s', async (other) => {
+  it.each(TEST_LOCALES)('marks the title of a signup in %s', async (other) => {
     ship('participant', ['en', other]);
     request.signup = { title: 'Bake Sale', settings: { locale: other } };
     await renderCrumb();
     expect(screen.getByText('Bake Sale')).toHaveAttribute('lang', other);
   });
 
-  it.each(OTHER_LANGUAGES)(
-    'leaves a signup stored in %s unmarked until it ships',
-    async (other) => {
-      shipOnlyEnglish();
-      request.signup = { title: 'Bake Sale', settings: { locale: other } };
-      await renderCrumb();
-      expect(screen.getByText('Bake Sale')).not.toHaveAttribute('lang');
-    },
-  );
+  it.each(TEST_LOCALES)('leaves a signup stored in %s unmarked until it ships', async (other) => {
+    shipOnlyEnglish();
+    request.signup = { title: 'Bake Sale', settings: { locale: other } };
+    await renderCrumb();
+    expect(screen.getByText('Bake Sale')).not.toHaveAttribute('lang');
+  });
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'marks an English title in crumbs in %s, and not one in that language',
     async (other) => {
       ship('organizer', ['en', other]);

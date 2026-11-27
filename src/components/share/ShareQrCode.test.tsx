@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { ShareQrCode } from './ShareQrCode';
 import { shareText } from './share-text';
@@ -341,33 +341,30 @@ describe('<ShareQrCode text={TEXT} /> where it can’t be drawn', () => {
   });
 });
 
-describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-  '<ShareQrCode /> in %s',
-  (locale) => {
-    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale').panel.qr;
-    const words = (key: string) => `organizer.share.qr.${key} in ${locale}`;
+describe.each(TEST_LOCALES)('<ShareQrCode /> in %s', (locale) => {
+  const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale').panel.qr;
+  const words = (key: string) => `organizer.share.qr.${key} in ${locale}`;
 
-    it('takes its words on a computer from the catalog in that language', () => {
-      giveCanvas();
-      render(
-        <ShareQrCode text={text} signupId="sig_1" title="Bake sale" url={LINK} variant="desktop" />,
-      );
-      expect(screen.getByRole('img', { name: words('alt') })).toBeInTheDocument();
-      expect(screen.getByText(words('lead'))).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: words('downloadLabel') })).toHaveTextContent(
-        words('download'),
-      );
-    });
+  it('takes its words on a computer from the catalog in that language', () => {
+    giveCanvas();
+    render(
+      <ShareQrCode text={text} signupId="sig_1" title="Bake sale" url={LINK} variant="desktop" />,
+    );
+    expect(screen.getByRole('img', { name: words('alt') })).toBeInTheDocument();
+    expect(screen.getByText(words('lead'))).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: words('downloadLabel') })).toHaveTextContent(
+      words('download'),
+    );
+  });
 
-    it('takes its words on a phone from the catalog in that language', () => {
-      giveCanvas();
-      render(
-        <ShareQrCode text={text} signupId="sig_1" title="Bake sale" url={LINK} variant="phone" />,
-      );
-      fireEvent.click(screen.getByRole('button', { name: words('show') }));
-      expect(screen.getByRole('button', { name: words('hide') })).toBeInTheDocument();
-      expect(screen.getByRole('img', { name: words('alt') })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: words('save') })).toBeInTheDocument();
-    });
-  },
-);
+  it('takes its words on a phone from the catalog in that language', () => {
+    giveCanvas();
+    render(
+      <ShareQrCode text={text} signupId="sig_1" title="Bake sale" url={LINK} variant="phone" />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: words('show') }));
+    expect(screen.getByRole('button', { name: words('hide') })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: words('alt') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: words('save') })).toBeInTheDocument();
+  });
+});

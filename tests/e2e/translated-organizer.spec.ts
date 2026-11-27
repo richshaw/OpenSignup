@@ -241,17 +241,17 @@ for (const locale of TEST_LOCALES) {
           await page.setViewportSize(viewport);
           await page.goto(`/app/signups/${id}/build`);
 
-          // The tabs: on a 320px screen the strip scrolls sideways, as it
-          // does in English, but each name stays whole.
+          // The tabs: each name whole, and all three in view without the
+          // strip scrolling sideways, even on a 320px screen. A signup opens
+          // on Build, so a tab cut off at the strip's edge is what the
+          // organizer would see first.
           const strip = page.getByRole('tablist', { name: signup('tabs.label') });
           await expect(strip.getByRole('tab'), `the tabs ${where}`).not.toHaveCount(0);
           for (const tab of await strip.getByRole('tab').all()) await expectOneLine(tab, where);
-          if (viewport === PHONE) {
-            expect(
-              await strip.evaluate((el) => el.scrollWidth <= el.clientWidth),
-              `every tab in view ${where}`,
-            ).toBe(true);
-          }
+          expect(
+            await strip.evaluate((el) => el.scrollWidth <= el.clientWidth),
+            `every tab in view ${where}`,
+          ).toBe(true);
 
           // The header across the top: Help, Account and Sign out.
           const banner = page.getByRole('banner');

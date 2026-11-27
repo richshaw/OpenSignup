@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatGrantDate } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/grant-date';
 import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
-import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { accessTokenLifetime } from '@/lib/lifetimes';
 import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { loginAsSeededOrganizer } from './helpers/auth';
@@ -36,10 +36,7 @@ import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 test.describe.configure({ mode: 'default' });
 
 /** Nothing stored, then each language with a catalog besides English. */
-const STORED: readonly (CatalogLocale | null)[] = [
-  null,
-  ...CATALOG_LOCALES.filter((locale) => locale !== 'en'),
-];
+const STORED: readonly (CatalogLocale | null)[] = [null, ...TEST_LOCALES];
 
 /** A rich message as the page shows it: its text, tags and all left as text. */
 const plain = (chunks: string) => chunks;

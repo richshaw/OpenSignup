@@ -1,6 +1,6 @@
 import { decodeJwt, decodeProtectedHeader } from 'jose';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import type { Translator } from '@/i18n/translator';
 import { OAUTH_COOKIES, OAUTH_ROUTES, consentPath } from './config';
 import { generatePrivateJwk } from './keys';
@@ -30,9 +30,6 @@ vi.mock('@/i18n/server', async () => {
       text.translator ?? getTestServerTranslator(locale, namespace),
   };
 });
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 const ISSUER = 'https://signup.example.org';
 const RESOURCE = `${ISSUER}/api/mcp`;
@@ -555,7 +552,7 @@ describe('the error page a browser is shown', () => {
     expect(html).toContain('<h1>This connection could not be completed</h1>');
   });
 
-  describe.each(OTHER_LANGUAGES)('in %s', (other) => {
+  describe.each(TEST_LOCALES)('in %s', (other) => {
     const ask = (key: string) => `auth.oauthErrors.${key} in ${other}`;
 
     it('has every word of its own from that language, and the code and description as given', () => {

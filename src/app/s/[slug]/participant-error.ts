@@ -21,12 +21,13 @@ export type ErrorContext = 'join' | 'save' | 'cancel';
  * An error as the API sends it, less its `message` and `suggestion`: those are
  * English, for API callers, and nothing here shows them.
  */
-interface ApiErrorLike {
+export interface ApiErrorLike {
   code?: string;
   details?: {
     reason?: unknown;
     remaining?: unknown;
     requested?: unknown;
+    capacity?: unknown;
     alternatives?: unknown;
     retryAfterSeconds?: unknown;
   };

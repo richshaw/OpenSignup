@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getOrganizerSession, requireActor } from '@/auth/session';
+import { toActor } from '@/auth/organizer-session';
+import { getOrganizerSession } from '@/auth/session';
 import { getDb, type Db } from '@/db/client';
 import { newSignupLocale } from '@/i18n/locale';
 import { activityActor, recordActivityBestEffort } from '@/lib/activity';
@@ -111,11 +112,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const actor = await requireActor();
+    // One read gives the actor and the organizer's workspace and language.
+    const session = await getOrganizerSession();
+    const actor = toActor(session);
     if (actor.kind !== 'organizer') {
       return fail(serviceError('unauthorized', 'sign in to draft a signup'));
     }
-    const session = await getOrganizerSession();
     if (!session?.defaultWorkspaceId) {
       return fail(
         serviceError('invalid_input', 'no default workspace for this organizer', {
@@ -124,6 +126,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const workspaceId = session.defaultWorkspaceId;
     const db = getDb();
 
     // Parse & validate before consuming rate-limit so malformed/empty bodies
@@ -158,12 +161,11 @@ export async function POST(req: NextRequest) {
       // The organizer used up this instance's quota: as much a failed draft to
       // them as the provider's own limit, so it's counted, then answered 429.
       if (e instanceof ServiceException && e.serviceError.code === 'rate_limited') {
-        await recordFailed(db, actor, session.defaultWorkspaceId, 'over_limit');
+        await recordFailed(db, actor, workspaceId, 'over_limit');
       }
       throw e;
     }
 
-    const workspaceId = session.defaultWorkspaceId;
     const outcome: FollowUpOutcome = { retried: false, gaveUp: false };
     if (followUp) {
       pending.answered = () => recordAnswered(db, actor, workspaceId, followUp, outcome);
@@ -201,12 +203,7 @@ export async function POST(req: NextRequest) {
           { promptLength: userPrompt.length, msLeft: left, aborted: req.signal.aborted },
           'magic-compose asked again after the answers, with no time to retry',
         );
-        await recordFailed(
-          db,
-          actor,
-          session.defaultWorkspaceId,
-          req.signal.aborted ? 'aborted' : 'asked_again',
-        );
+        await recordFailed(db, actor, workspaceId, req.signal.aborted ? 'aborted' : 'asked_again');
         return askedAgain(followUp);
       }
       log.info(
@@ -222,7 +219,7 @@ export async function POST(req: NextRequest) {
       if (raw.ok && asksQuestions(raw.value)) {
         outcome.gaveUp = true;
         log.warn({ promptLength: userPrompt.length }, 'magic-compose asked again after the retry');
-        await recordFailed(db, actor, session.defaultWorkspaceId, 'asked_again');
+        await recordFailed(db, actor, workspaceId, 'asked_again');
         return askedAgain(followUp);
       }
     }
@@ -254,7 +251,7 @@ export async function POST(req: NextRequest) {
           'magic-compose asked questions in a shape the page cannot ask, with no time to retry',
         );
         if (req.signal.aborted) {
-          await recordFailed(db, actor, session.defaultWorkspaceId, 'aborted');
+          await recordFailed(db, actor, workspaceId, 'aborted');
           return fail(serviceError('internal', 'request cancelled'));
         }
       }
@@ -262,7 +259,7 @@ export async function POST(req: NextRequest) {
 
     if (!raw.ok) {
       log.warn({ llmError: raw.error }, 'magic-compose generation failed');
-      await recordFailed(db, actor, session.defaultWorkspaceId, raw.error.code);
+      await recordFailed(db, actor, workspaceId, raw.error.code);
       const mapped = mapMagicComposeError(raw.error);
       const details: Record<string, unknown> = {
         llmErrorCode: raw.error.code,
@@ -286,7 +283,7 @@ export async function POST(req: NextRequest) {
         { issues: draft.error.issues.slice(0, 5), raw: raw.value },
         'magic-compose draft failed Zod',
       );
-      await recordFailed(db, actor, session.defaultWorkspaceId, 'schema_mismatch');
+      await recordFailed(db, actor, workspaceId, 'schema_mismatch');
       // Drop `received` and `path` from issues before returning to the client.
       // `received` echoes the raw LLM output back into the response envelope,
       // bypassing pino redaction and potentially leaking provider-generated
@@ -312,7 +309,7 @@ export async function POST(req: NextRequest) {
         { refusalReason: draft.data.refusalReason, promptLength: userPrompt.length },
         'magic-compose refusal returned by model',
       );
-      await recordFailed(db, actor, session.defaultWorkspaceId, 'refusal');
+      await recordFailed(db, actor, workspaceId, 'refusal');
       return fail(
         serviceError('invalid_input', draft.data.refusalReason, {
           details: { reason: 'refusal' },
@@ -351,16 +348,16 @@ export async function POST(req: NextRequest) {
         { promptLength: userPrompt.length },
         'magic-compose request aborted before persistence',
       );
-      await recordFailed(db, actor, session.defaultWorkspaceId, 'aborted');
+      await recordFailed(db, actor, workspaceId, 'aborted');
       return fail(serviceError('internal', 'request cancelled'));
     }
 
-    const persisted = await persistDraft(db, actor, session.defaultWorkspaceId, draft.data, {
+    const persisted = await persistDraft(db, actor, workspaceId, draft.data, {
       logContext: { promptLength: userPrompt.length },
       organizer: session,
     });
     if (!persisted.ok) {
-      await recordFailed(db, actor, session.defaultWorkspaceId, 'not_saved');
+      await recordFailed(db, actor, workspaceId, 'not_saved');
       return fail(persisted.error);
     }
     const { signup: created, template, groupByFieldRefs, warnings } = persisted.value;

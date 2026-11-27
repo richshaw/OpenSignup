@@ -17,10 +17,12 @@ const organizer: Actor = {
 
 const llm = vi.hoisted(() => ({ result: undefined as unknown }));
 
-vi.mock('@/auth/session', () => ({
-  requireActor: async () => organizer,
-  getOrganizerSession: async () => ({ organizerId: 'org_test', defaultWorkspaceId: 'ws_test' }),
-}));
+vi.mock('@/auth/session', async () => {
+  const { sessionOf } = await import('@/auth/testing/session');
+  return {
+    getOrganizerSession: async () => sessionOf(organizer, { defaultWorkspaceId: 'ws_test' }),
+  };
+});
 vi.mock('@/lib/env', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/env')>()),
   magicComposeEnabled: () => true,

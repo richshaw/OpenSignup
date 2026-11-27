@@ -19,6 +19,7 @@ import {
   addSlot,
   addSlotsBulk,
   deleteSlot,
+  listSlots,
   listSlotsForSignup,
   reorderSlots,
   updateSlot,
@@ -140,6 +141,49 @@ async function shown(fx: Fixture, signupId: string) {
     sortOrders: rows.map((r) => r.sortOrder),
   };
 }
+
+describe('listSlots (db)', () => {
+  let fx: Fixture;
+
+  beforeAll(async () => {
+    fx = await setupWorkspace();
+  });
+
+  afterAll(async () => {
+    await teardownWorkspace(fx.db, fx.workspaceId, fx.organizerId);
+  });
+
+  it('lists a signup slots in display order', async () => {
+    const { signupId } = await makeSignup(fx, 'List slots', [2, 0, 1]);
+    const r = await listSlots(fx.db, fx.actor, signupId);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.map(what)).toEqual(['b', 'c', 'a']);
+  });
+
+  it('returns not_found for a deleted signup', async () => {
+    const { signupId } = await makeSignup(fx, 'List slots gone', [0]);
+    const gone = await deleteSignup(fx.db, fx.actor, signupId);
+    if (!gone.ok) throw new Error(gone.error.message);
+    const r = await listSlots(fx.db, fx.actor, signupId);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe('not_found');
+  });
+
+  it('refuses an organizer who is not in the workspace', async () => {
+    const { signupId } = await makeSignup(fx, 'List slots private', [0]);
+    const stranger: Actor = {
+      kind: 'organizer',
+      id: makeId('org'),
+      email: 'stranger@example.test',
+      workspaceIds: [],
+      workspaceRoles: {},
+    };
+    await expect(listSlots(fx.db, stranger, signupId)).rejects.toMatchObject({
+      serviceError: { code: 'forbidden' },
+    });
+  });
+});
 
 describe('updateSlot capacity validation (db)', () => {
   let fx: Fixture;

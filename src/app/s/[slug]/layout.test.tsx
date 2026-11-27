@@ -4,7 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { within } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CATALOG_LOCALES, type CatalogLocale, openGraphLocale } from '@/i18n/config';
+import { type CatalogLocale, openGraphLocale } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
 import { rootMetadata } from '../../root-shell';
@@ -99,9 +100,6 @@ afterEach(() => {
   loadSignupRowBySlug.mockClear();
 });
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 describe('the layout of a signup’s pages', () => {
   it.each([{}, { locale: 'en' }])(
     'is English for an English signup (settings %j), as before',
@@ -116,7 +114,7 @@ describe('the layout of a signup’s pages', () => {
     },
   );
 
-  it.each(OTHER_LANGUAGES)('is in a signup’s language, %s, once it has shipped', async (locale) => {
+  it.each(TEST_LOCALES)('is in a signup’s language, %s, once it has shipped', async (locale) => {
     ship('participant', ['en', locale]);
     storeSignup({ settings: { locale } });
     const { lang, body } = await renderLayout();
@@ -152,7 +150,7 @@ describe('the layout of a signup’s pages', () => {
     expectFooterIn(english.body, 'en');
     expect(await generateMetadata(params)).toEqual(rootMetadata);
 
-    for (const locale of OTHER_LANGUAGES) {
+    for (const locale of TEST_LOCALES) {
       ship('participant', ['en', locale]);
       request.defaultLocale = locale;
       const { lang, body } = await renderLayout();
@@ -164,7 +162,7 @@ describe('the layout of a signup’s pages', () => {
     }
   });
 
-  it.each(OTHER_LANGUAGES)('stays English for a stored %s that hasn’t shipped', async (locale) => {
+  it.each(TEST_LOCALES)('stays English for a stored %s that hasn’t shipped', async (locale) => {
     shipOnlyEnglish();
     storeSignup({ settings: { locale } });
     const { lang, body } = await renderLayout();

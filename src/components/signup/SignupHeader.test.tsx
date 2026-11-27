@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, within } from '@testing-library/react';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTestServerTranslator } from '@/i18n/testing/translator';
 import type { SpotCounts } from '@/lib/spot-counts';
 import type { SignupStatus } from '@/schemas/signups';
@@ -265,57 +266,54 @@ describe('SignupHeader’s title', () => {
   });
 });
 
-describe.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-  'SignupHeader in %s',
-  (locale) => {
-    const words = (key: string) => `organizer.${key} in ${locale}`;
+describe.each(TEST_LOCALES)('SignupHeader in %s', (locale) => {
+  const words = (key: string) => `organizer.${key} in ${locale}`;
 
-    it('takes a draft’s words from the catalog in that language', () => {
-      const { computer, phone, bar } = renderHeader('draft', null, undefined, locale);
-      expect(computer.getByText(words('status.draft'))).toBeInTheDocument();
-      expect(computer.getByText(words('signup.draftLine'))).toBeInTheDocument();
-      expect(computer.getByText(words('signup.draftHowPeopleSignUp'))).toBeInTheDocument();
-      expect(computer.getByRole('link', { name: words('signup.preview') })).toBeInTheDocument();
-      expect(
-        computer.getByRole('button', { name: words('signup.publish.label') }),
-      ).toBeInTheDocument();
-      expect(phone.getByText(words('signup.draftLine'))).toBeInTheDocument();
-      expect(phone.getByText(words('signup.draftHowPeopleSignUp'))).toBeInTheDocument();
-      expect(phone.getByRole('button', { name: words('signup.moreActions') })).toBeInTheDocument();
-      expect(
-        within(bar!).getByRole('button', { name: words('signup.publish.label') }),
-      ).toBeInTheDocument();
-    });
+  it('takes a draft’s words from the catalog in that language', () => {
+    const { computer, phone, bar } = renderHeader('draft', null, undefined, locale);
+    expect(computer.getByText(words('status.draft'))).toBeInTheDocument();
+    expect(computer.getByText(words('signup.draftLine'))).toBeInTheDocument();
+    expect(computer.getByText(words('signup.draftHowPeopleSignUp'))).toBeInTheDocument();
+    expect(computer.getByRole('link', { name: words('signup.preview') })).toBeInTheDocument();
+    expect(
+      computer.getByRole('button', { name: words('signup.publish.label') }),
+    ).toBeInTheDocument();
+    expect(phone.getByText(words('signup.draftLine'))).toBeInTheDocument();
+    expect(phone.getByText(words('signup.draftHowPeopleSignUp'))).toBeInTheDocument();
+    expect(phone.getByRole('button', { name: words('signup.moreActions') })).toBeInTheDocument();
+    expect(
+      within(bar!).getByRole('button', { name: words('signup.publish.label') }),
+    ).toBeInTheDocument();
+  });
 
-    it('takes an open or closed signup’s words from the catalog in that language', () => {
-      const open = renderHeader('open', SPOTS, undefined, locale);
-      expect(open.computer.getByText(words('status.open'))).toBeInTheDocument();
-      expect(open.computer.getByText(words('signup.spots.line'))).toBeInTheDocument();
-      expect(
-        open.computer.getByRole('button', { name: words('signup.moreActions') }),
-      ).toBeInTheDocument();
+  it('takes an open or closed signup’s words from the catalog in that language', () => {
+    const open = renderHeader('open', SPOTS, undefined, locale);
+    expect(open.computer.getByText(words('status.open'))).toBeInTheDocument();
+    expect(open.computer.getByText(words('signup.spots.line'))).toBeInTheDocument();
+    expect(
+      open.computer.getByRole('button', { name: words('signup.moreActions') }),
+    ).toBeInTheDocument();
 
-      const closed = renderHeader('closed', SPOTS, undefined, locale);
-      expect(
-        closed.computer.getByRole('button', { name: words('signup.reopen.action') }),
-      ).toBeInTheDocument();
-    });
+    const closed = renderHeader('closed', SPOTS, undefined, locale);
+    expect(
+      closed.computer.getByRole('button', { name: words('signup.reopen.action') }),
+    ).toBeInTheDocument();
+  });
 
-    it('takes Share’s and the public link’s words from the catalog in that language', () => {
-      const { computer, phone, bar } = renderHeader('open', SPOTS, undefined, locale);
-      for (const header of [computer, phone]) {
-        expect(header.getByText(words('share.chip.label'))).toBeInTheDocument();
-        expect(header.getByRole('button', { name: words('share.chip.copy') })).toHaveAttribute(
-          'title',
-          words('share.chip.copyTip'),
-        );
-        expect(header.getByRole('link', { name: words('share.chip.open') })).toHaveAttribute(
-          'title',
-          words('share.chip.openTip'),
-        );
-      }
-      expect(computer.getByRole('button', { name: words('share.button') })).toBeInTheDocument();
-      expect(within(bar!).getByRole('button', { name: words('share.button') })).toBeInTheDocument();
-    });
-  },
-);
+  it('takes Share’s and the public link’s words from the catalog in that language', () => {
+    const { computer, phone, bar } = renderHeader('open', SPOTS, undefined, locale);
+    for (const header of [computer, phone]) {
+      expect(header.getByText(words('share.chip.label'))).toBeInTheDocument();
+      expect(header.getByRole('button', { name: words('share.chip.copy') })).toHaveAttribute(
+        'title',
+        words('share.chip.copyTip'),
+      );
+      expect(header.getByRole('link', { name: words('share.chip.open') })).toHaveAttribute(
+        'title',
+        words('share.chip.openTip'),
+      );
+    }
+    expect(computer.getByRole('button', { name: words('share.button') })).toBeInTheDocument();
+    expect(within(bar!).getByRole('button', { name: words('share.button') })).toBeInTheDocument();
+  });
+});

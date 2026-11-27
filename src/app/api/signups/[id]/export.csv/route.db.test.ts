@@ -5,7 +5,7 @@ import { getDb, type Db } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { csvSeparator } from '@/lib/responses-csv';
@@ -24,7 +24,6 @@ vi.mock('@/auth/session', async () => {
   const { loadOrganizerSessionById } = await import('@/auth/organizer-session');
   const { getDb } = await import('@/db/client');
   return {
-    requireActor: async () => session.actor,
     getOrganizerSession: async () =>
       session.actor.kind === 'organizer'
         ? loadOrganizerSessionById(getDb(), session.actor.id)
@@ -197,7 +196,7 @@ describe('GET /api/signups/[id]/export.csv (db)', () => {
     expect(rest).toEqual([]);
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  it.each(TEST_LOCALES)(
     'names its columns and statuses in the language stored on the account, %s',
     async (locale) => {
       ship('organizer', ['en', locale]);

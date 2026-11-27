@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ship } from '@/i18n/testing/ship';
 import { SIGNUP_PATH_HEADER } from '@/lib/signup-path';
-import { CATALOG_LOCALES } from './config';
+import { TEST_LOCALES } from './testing/locales';
 import { TIME_ZONE } from './time-zone';
 
 // The path the middleware copied into its header (none unless a test sets
@@ -36,12 +36,9 @@ afterEach(() => {
   loadSignupRowBySlug.mockClear();
 });
 
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 describe('next-intl’s request config', () => {
   it('is English in UTC away from a signup’s pages, with no lookup', async () => {
-    for (const locale of OTHER_LANGUAGES) {
+    for (const locale of TEST_LOCALES) {
       ship('participant', ['en', locale]);
       request.defaultLocale = locale;
       expect(await config()).toEqual({ locale: 'en', timeZone: TIME_ZONE });
@@ -49,7 +46,7 @@ describe('next-intl’s request config', () => {
     expect(loadSignupRowBySlug).not.toHaveBeenCalled();
   });
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'is in the language of the signup a path names, %s, read by its slug',
     async (locale) => {
       ship('participant', ['en', locale]);
@@ -67,7 +64,7 @@ describe('next-intl’s request config', () => {
   it('is in the instance’s language for a signup path with no live signup', async () => {
     request.path = '/s/snack-duty';
     expect(await config()).toEqual({ locale: 'en', timeZone: TIME_ZONE });
-    for (const locale of OTHER_LANGUAGES) {
+    for (const locale of TEST_LOCALES) {
       ship('participant', ['en', locale]);
       request.defaultLocale = locale;
       expect(await config()).toEqual({ locale, timeZone: TIME_ZONE });

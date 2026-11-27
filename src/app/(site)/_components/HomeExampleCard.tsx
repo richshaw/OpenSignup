@@ -56,7 +56,6 @@ export function HomeExampleCard() {
             // The home page's own language, not a signup's: it has none.
             locale="en"
             mode="showcase"
-            showStateBanner={false}
           />
         </div>
         <div className="border-t border-surface-sunk px-6 py-4 text-center text-xs text-ink-soft">

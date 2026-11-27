@@ -31,6 +31,7 @@ import {
   getPublicSignup,
   getSignupForOrganizer,
   getSignupRowBySlug,
+  listActivity,
   listSignupSummariesForWorkspace,
   listSignupSummaryPageForWorkspace,
   listSignupsForWorkspace,
@@ -712,6 +713,48 @@ describe('signups service (db)', () => {
         await expect(
           getSignupForOrganizer(otherFx.db, otherFx.actor, created.value.id),
         ).rejects.toThrow(/not a member/);
+      } finally {
+        await teardownWorkspace(otherFx.db, otherFx.workspaceId, otherFx.organizerId);
+      }
+    });
+  });
+
+  describe('listActivity', () => {
+    it('lists the signup activity, newest first, up to the limit', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Log'));
+      if (!created.ok) throw new Error('setup failed');
+      const pub = await publishSignup(fx.db, fx.actor, created.value.id);
+      if (!pub.ok) throw new Error('setup failed');
+
+      const all = await listActivity(fx.db, fx.actor, created.value.id, 100);
+      expect(all.ok).toBe(true);
+      if (!all.ok) return;
+      expect(all.value.map((a) => a.eventType)).toEqual(['signup.published', 'signup.created']);
+
+      const one = await listActivity(fx.db, fx.actor, created.value.id, 1);
+      expect(one.ok && one.value.map((a) => a.eventType)).toEqual(['signup.published']);
+    });
+
+    it('returns not_found for a deleted signup', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Gone'));
+      if (!created.ok) throw new Error('setup failed');
+      const gone = await deleteSignup(fx.db, fx.actor, created.value.id);
+      if (!gone.ok) throw new Error('setup failed');
+
+      const r = await listActivity(fx.db, fx.actor, created.value.id, 100);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.code).toBe('not_found');
+    });
+
+    it('refuses an organizer from another workspace', async () => {
+      const created = await createSignup(fx.db, fx.actor, fx.workspaceId, validCreateInput('Mine'));
+      if (!created.ok) throw new Error('setup failed');
+
+      const otherFx = await setupWorkspace();
+      try {
+        await expect(
+          listActivity(otherFx.db, otherFx.actor, created.value.id, 100),
+        ).rejects.toMatchObject({ serviceError: { code: 'forbidden' } });
       } finally {
         await teardownWorkspace(otherFx.db, otherFx.workspaceId, otherFx.organizerId);
       }

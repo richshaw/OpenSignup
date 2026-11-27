@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { shareText } from './share-text';
 
@@ -55,18 +55,15 @@ describe('shareText', () => {
     });
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
-    'asks the catalog in %s for every word',
-    (locale) => {
-      const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale');
-      const words = (value: unknown): string[] =>
-        typeof value === 'string' ? [value] : Object.values(value as object).flatMap(words);
-      for (const word of words(text)) {
-        expect(word).toMatch(new RegExp(`^organizer\\.share\\.[\\w.]+ in ${locale}$`));
-      }
-      expect(text.button).toBe(`organizer.share.button in ${locale}`);
-      expect(text.panel.qr.alt).toBe(`organizer.share.qr.alt in ${locale}`);
-      expect(text.panel.chip.copy).toBe(`organizer.share.chip.copy in ${locale}`);
-    },
-  );
+  it.each(TEST_LOCALES)('asks the catalog in %s for every word', (locale) => {
+    const text = shareText(getStandInTranslator(locale, 'organizer.share'), 'Bake sale');
+    const words = (value: unknown): string[] =>
+      typeof value === 'string' ? [value] : Object.values(value as object).flatMap(words);
+    for (const word of words(text)) {
+      expect(word).toMatch(new RegExp(`^organizer\\.share\\.[\\w.]+ in ${locale}$`));
+    }
+    expect(text.button).toBe(`organizer.share.button in ${locale}`);
+    expect(text.panel.qr.alt).toBe(`organizer.share.qr.alt in ${locale}`);
+    expect(text.panel.chip.copy).toBe(`organizer.share.chip.copy in ${locale}`);
+  });
 });
