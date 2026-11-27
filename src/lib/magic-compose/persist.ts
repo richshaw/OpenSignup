@@ -84,7 +84,6 @@ export async function persistDraft(
     {
       title: draft.title,
       description: draft.description,
-      visibility: 'unlisted',
       settings: {
         ...(groupByFieldRefs.length > 0 ? { groupByFieldRefs } : {}),
         ...(opts.locale === undefined ? {} : { locale: opts.locale }),
