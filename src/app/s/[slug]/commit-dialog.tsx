@@ -609,10 +609,10 @@ export default function CommitDialog({
                 <p className="font-medium">{error.message}</p>
                 {error.suggestion ? <p className="text-xs">{error.suggestion}</p> : null}
                 {error.seeAlternatives ? (
-                  <div className="mt-2 space-y-1 text-xs">
+                  <div className="mt-2 text-xs">
                     <a
                       href={`/s/${slug}`}
-                      className="inline-block rounded bg-white px-2 py-1 underline"
+                      className="inline-flex items-center rounded-lg border border-surface-sunk bg-white px-3 py-1.5 text-xs font-medium max-sm:min-h-11"
                     >
                       {t('seeAlternatives')}
                     </a>
