@@ -34,6 +34,14 @@ function queryError() {
   );
 }
 
+function keyInsertError() {
+  return new DrizzleQueryError(
+    'insert into "signing_keys" ("kid", "alg", "jwk") values ($1, $2, $3)',
+    ['FAKE_KID', 'RS256', 'FAKE_PRIVATE_JWK'],
+    driverError(),
+  );
+}
+
 describe('log: query errors', () => {
   it('logs the query and the driver error, never the params or the detail', () => {
     const { logger, output } = capture();
@@ -49,6 +57,16 @@ describe('log: query errors', () => {
     expect(line.err.message).toContain(QUERY);
     expect(line.err.message).toContain('duplicate key value violates unique constraint "x_pkey"');
     expect(line.err.stack).toContain('log.test.ts');
+  });
+
+  it('drops a fake private JWK from a key-insert error', () => {
+    const { logger, output } = capture();
+    logger.error({ err: keyInsertError() }, 'oauth: signing keys could not be created');
+    const out = output();
+    expect(out).not.toContain('FAKE_PRIVATE_JWK');
+    const line = JSON.parse(out) as { err: { message: string } };
+    expect(line.err.message).toContain('insert into "signing_keys"');
+    expect(out).toContain('duplicate key value');
   });
 
   it('scrubs a query error that is the cause of another error', () => {

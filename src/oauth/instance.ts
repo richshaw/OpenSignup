@@ -10,12 +10,7 @@ import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
 import { DrizzleOidcAdapter } from './adapter';
 import { mcpResourceUrl, oauthIssuer } from './config';
 import { findGrantIdFor, touchGrantUsed } from './grants';
-import {
-  keyErrorSummary,
-  loadOrCreateSigningKeys,
-  markSigningKeyInUse,
-  type SigningKeySet,
-} from './keys';
+import { loadOrCreateSigningKeys, markSigningKeyInUse, type SigningKeySet } from './keys';
 import { buildProvider } from './provider';
 import { parseStaticClients } from './static-clients';
 
@@ -84,10 +79,7 @@ async function build(): Promise<Provider> {
   // retire` refuse the key before it, which is the safe way round.
   if (signingKid) {
     void markSigningKeyInUse(db, signingKid).catch((err: unknown) =>
-      log.warn(
-        { reason: keyErrorSummary(err), kid: signingKid },
-        'oauth: could not record the signing key in use',
-      ),
+      log.warn({ err, kid: signingKid }, 'oauth: could not record the signing key in use'),
     );
   }
   const provider = buildProvider({

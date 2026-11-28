@@ -138,7 +138,7 @@ export async function listSigningKeys(db: Db) {
 }
 
 /**
- * Something safe to log or print about a failed key query. A
+ * Something safe to print about a failed key query. Only for callers that do not go through the logger (keys-cli.ts prints with console.error); loggers should log the error itself (`err`).
  * `DrizzleQueryError`'s message carries the query's parameters, which for a
  * key insert include the private JWK, so it is described by the database's
  * own error instead.

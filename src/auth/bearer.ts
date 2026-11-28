@@ -16,7 +16,7 @@ import {
   mcpResourceUrl,
   oauthIssuer,
 } from '@/oauth/config';
-import { keyErrorSummary, loadOrCreateSigningKeys } from '@/oauth/keys';
+import { loadOrCreateSigningKeys } from '@/oauth/keys';
 import { protectedResourceMetadataUrl } from '@/oauth/resource-metadata';
 import { parseScopeString, type Scope } from '@/oauth/scopes';
 import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
@@ -191,10 +191,7 @@ export function createVerifier(opts: {
       // interval rather than on every request.
       staleAt = now + RELOAD_INTERVAL_MS;
       readKeys().catch((err: unknown) =>
-        log.warn(
-          { reason: keyErrorSummary(err) },
-          'oauth: signing keys re-read failed; keeping the cached set',
-        ),
+        log.warn({ err }, 'oauth: signing keys re-read failed; keeping the cached set'),
       );
     }
     return keySet;
@@ -208,8 +205,7 @@ export function createVerifier(opts: {
     try {
       keySetNow = await keys(!retry);
     } catch (err) {
-      // Not `err` itself: a failed key insert's message carries the private key.
-      log.error({ reason: keyErrorSummary(err) }, 'oauth: signing keys unavailable');
+      log.error({ err }, 'oauth: signing keys unavailable');
       throw new OAuthError(OAuthErrorCode.ServerError, 'token verification unavailable');
     }
     try {
