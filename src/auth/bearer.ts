@@ -191,10 +191,7 @@ export function createVerifier(opts: {
       // interval rather than on every request.
       staleAt = now + RELOAD_INTERVAL_MS;
       readKeys().catch((err: unknown) =>
-        log.warn(
-          { err },
-          'oauth: signing keys re-read failed; keeping the cached set',
-        ),
+        log.warn({ err }, 'oauth: signing keys re-read failed; keeping the cached set'),
       );
     }
     return keySet;
