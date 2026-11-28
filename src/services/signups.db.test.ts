@@ -7,7 +7,6 @@ import { organizers } from '@/db/schema/organizers';
 import { signups } from '@/db/schema/signups';
 import { slots } from '@/db/schema/slots';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { getTranslator } from '@/i18n/translator';
@@ -882,15 +881,6 @@ describe('signups service (db)', () => {
           throw new Error('publish failed');
         if (!(await deleteSignup(listFx.db, listFx.actor, gone.value.id)).ok)
           throw new Error('delete failed');
-        // A language stored on one, as the Settings tab stores it, and none on
-        // the other. Written straight into the row, so it's the same whichever
-        // languages have shipped.
-        const another = CATALOG_LOCALES.find((locale) => locale !== 'en') ?? 'en';
-        await listFx.db
-          .update(signups)
-          .set({ settings: { ...b.value.settings, locale: another } })
-          .where(eq(signups.id, b.value.id));
-
         for (const filter of [{}, { status: 'draft' as const }, { status: 'open' as const }]) {
           const full = await listSignupsForWorkspace(
             listFx.db,
@@ -914,7 +904,6 @@ describe('signups service (db)', () => {
               closesAt: r.closesAt,
               createdAt: r.createdAt,
               updatedAt: r.updatedAt,
-              locale: r.settings.locale ?? null,
             })),
           );
         }
@@ -931,17 +920,12 @@ describe('signups service (db)', () => {
             'closesAt',
             'createdAt',
             'id',
-            'locale',
             'slug',
             'status',
             'title',
             'updatedAt',
           ]);
         }
-        // The stored language, for Your signups to mark each title with.
-        const localeOf = (id: string) => all.value.find((r) => r.id === id)?.locale;
-        expect(localeOf(b.value.id)).toBe(another);
-        expect(localeOf(a.value.id)).toBe(a.value.settings.locale ?? null);
       } finally {
         await teardownWorkspace(listFx.db, listFx.workspaceId, listFx.organizerId);
       }
@@ -1027,6 +1011,33 @@ describe('signups service (db)', () => {
         );
         if (!back.ok) throw new Error('list failed');
         expect(back.value).toEqual(first.value);
+      } finally {
+        await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
+      }
+    });
+
+    it("reads each signup's stored language, and none where it has none", async () => {
+      const pageFx = await setupWorkspace();
+      try {
+        const base = Date.UTC(2030, 0, 1);
+        const [plain, translated] = await insertPlain(pageFx, 2, (i) => new Date(base + i * 1000));
+        if (!plain || !translated) throw new Error('setup failed');
+        // Written straight into the row, as the Settings tab stores it, so
+        // it's the same whichever languages have shipped.
+        await pageFx.db
+          .update(signups)
+          .set({ settings: { locale: OTHER_LOCALE } })
+          .where(eq(signups.id, translated.id));
+
+        const page = await listSignupSummaryPageForWorkspace(
+          pageFx.db,
+          pageFx.actor,
+          pageFx.workspaceId,
+        );
+        if (!page.ok) throw new Error('list failed');
+        const localeOf = (id: string) => page.value.rows.find((r) => r.id === id)?.locale;
+        expect(localeOf(translated.id)).toBe(OTHER_LOCALE);
+        expect(localeOf(plain.id)).toBeNull();
       } finally {
         await teardownWorkspace(pageFx.db, pageFx.workspaceId, pageFx.organizerId);
       }

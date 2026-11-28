@@ -78,10 +78,8 @@ export function pageMetadata(page: {
   };
 }
 
-export function buildSitemap(
-  origin: string,
-  lastModified: Date = new Date(),
-): MetadataRoute.Sitemap {
+export function buildSitemap(origin: string): MetadataRoute.Sitemap {
+  const lastModified = new Date();
   return INDEXABLE_ROUTES.map((path) => ({
     url: `${origin}${path || '/'}`,
     lastModified,
