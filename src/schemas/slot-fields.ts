@@ -4,6 +4,7 @@ import { MAX_REORDER_IDS } from './slots';
 import {
   CHOICE_MAX_LENGTH,
   FIELD_TYPES,
+  LABEL_MAX_LENGTH,
   MAX_CHOICES,
   REF_MAX_LENGTH,
   TEXT_DEFAULT_MAX_LENGTH,
@@ -20,8 +21,6 @@ export {
   sanitizeEnumChoices,
   type FieldType,
 } from './slot-field-basics';
-
-const LABEL_MAX_LENGTH = 80;
 
 export const RefSchema = z
   .string()

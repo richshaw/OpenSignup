@@ -6,6 +6,7 @@ import type { BuildField } from '../build-shared/useBuildState';
 import type { ReactElement } from 'react';
 import { englishMessages } from '@/i18n/testing/client-messages';
 import { BUILD_TAB_NAMESPACES } from './client-namespaces';
+import { LABEL_MAX_LENGTH } from '@/schemas/slot-field-basics';
 
 /** Renders `ui` with the Build tab's messages in English, as its page gives them. */
 const wrapper = englishMessages(BUILD_TAB_NAMESPACES);
@@ -399,5 +400,50 @@ describe('InlineFieldForm — reminder checkbox', () => {
       config: { fieldType: 'text', maxLength: 200 },
     });
     expect(onSave.mock.calls[0]![0]).not.toHaveProperty('reminder');
+  });
+});
+
+describe('InlineFieldForm — name length', () => {
+  const modes = [
+    ['create', { mode: 'create' }],
+    ['edit', { mode: 'edit', field: makeField() }],
+  ] as const;
+
+  it.each(modes)('limits the name box to the schema limit in %s mode', (_mode, formMode) => {
+    render(
+      <InlineFieldForm
+        defaults={DEFAULTS}
+        formMode={formMode}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    const input = screen.getByLabelText('Field name') as HTMLInputElement;
+    expect(input.maxLength).toBe(LABEL_MAX_LENGTH);
+  });
+
+  it.each(modes)('cuts a longer name to the limit when saving in %s mode', (_mode, formMode) => {
+    const onSave = vi.fn();
+    render(
+      <InlineFieldForm
+        defaults={DEFAULTS}
+        formMode={formMode}
+        reminderFieldRef={null}
+        reminderFieldLabel={null}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+    // A change event sets the value directly, past maxLength, as a script could.
+    fireEvent.change(screen.getByLabelText('Field name'), {
+      target: { value: 'x'.repeat(LABEL_MAX_LENGTH + 5) },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: formMode.mode === 'edit' ? 'Save' : 'Add field' }),
+    );
+    const saved: string = onSave.mock.calls[0]![0].name;
+    expect(saved).toBe('x'.repeat(LABEL_MAX_LENGTH));
   });
 });

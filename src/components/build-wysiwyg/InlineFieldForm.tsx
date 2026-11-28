@@ -5,7 +5,12 @@ import { ArrowLeft } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { InlineNote } from '@/components/ui/inline-note';
 import { FIELD_TYPE_META } from '../build-shared/fieldTypes';
-import { FIELD_TYPES, configFor, type FieldType } from '@/schemas/slot-field-basics';
+import {
+  FIELD_TYPES,
+  LABEL_MAX_LENGTH,
+  configFor,
+  type FieldType,
+} from '@/schemas/slot-field-basics';
 import type { SlotFieldConfig } from '@/schemas/slot-fields';
 import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import type { BuildField } from '../build-shared/useBuildState';
@@ -72,7 +77,8 @@ export function InlineFieldForm({
   }, []);
 
   const save = () => {
-    const trimmed = name.trim() || defaults.name;
+    // The box stops at the limit; the cut covers a value set some other way.
+    const trimmed = (name.trim() || defaults.name).slice(0, LABEL_MAX_LENGTH);
     // When the type changes on an existing field, reset its config to the
     // type's default. Enum options land via the inline EnumPicker, not here:
     // the server schema requires choices.min(1), so an enum field starts with
@@ -103,6 +109,7 @@ export function InlineFieldForm({
         <input
           ref={nameRef}
           value={name}
+          maxLength={LABEL_MAX_LENGTH}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
