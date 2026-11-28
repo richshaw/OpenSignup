@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { useDropPendingFix, useSlotCount, type SlotCount } from './BuildBridge';
+import { useDropPendingFix, useSlotCount } from './BuildBridge';
 import type { SignupHeaderText } from './header-text';
 import { signupTabPath } from '@/lib/organizer-paths';
 
@@ -14,12 +14,6 @@ type TabId = (typeof TABS)[number];
 interface TabsNavProps {
   signupId: string;
   counts: {
-    /**
-     * The signup's slots when the page loaded. Inside a `BuildBridge`, the
-     * Build tab's own count replaces it, so it follows slots as they're
-     * added and deleted.
-     */
-    slots: SlotCount;
     responses: number;
   };
   /** Each tab's name and the strip's, from the server. */
@@ -35,7 +29,8 @@ export function TabsNav({ signupId, counts, labels }: TabsNavProps) {
   // Build. A Ctrl, Cmd, Shift or Alt click doesn't navigate this window, and
   // a middle click never reaches onClick, so those leave it be.
   const dropPendingFix = useDropPendingFix();
-  const slots = useSlotCount() ?? counts.slots;
+  const slots = useSlotCount();
+  if (!slots) throw new Error('TabsNav must sit inside a BuildBridge');
 
   const activeTab: TabId = (() => {
     const segment = pathname.split('/').pop() ?? '';

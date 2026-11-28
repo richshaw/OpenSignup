@@ -138,7 +138,7 @@ export default async function SignupDetailLayout({ children, params }: LayoutPro
             status === 'draft' ? messagesFor(locale, 'organizer.aiDraft.warnings') : null
           }
         />
-        <TabsNav signupId={id} counts={{ slots, responses: responsesCount }} labels={text.tabs} />
+        <TabsNav signupId={id} counts={{ responses: responsesCount }} labels={text.tabs} />
         <div>{children}</div>
       </div>
     </BuildBridge>

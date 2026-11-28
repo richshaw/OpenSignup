@@ -46,7 +46,7 @@ function renderBridge(tab: Tab | null) {
   const tree = (shown: Tab | null) => (
     <BuildBridge buildHref="/app/signups/sig_1/build" slots={SLOTS}>
       <Header onReady={(b) => (bridge = b)} />
-      <TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={TEXT.tabs} />
+      <TabsNav signupId="sig_1" counts={{ responses: 0 }} labels={TEXT.tabs} />
       {shown ? <BuildTab {...shown} /> : null}
     </BuildBridge>
   );
@@ -286,7 +286,7 @@ describe('BuildBridge', () => {
     function tree(slots: typeof SLOTS, shown: number | null) {
       return (
         <BuildBridge buildHref={BUILD} slots={slots}>
-          <TabsNav signupId="sig_1" counts={{ slots, responses: 0 }} labels={TEXT.tabs} />
+          <TabsNav signupId="sig_1" counts={{ responses: 0 }} labels={TEXT.tabs} />
           {shown === null ? null : <Slots count={shown} />}
         </BuildBridge>
       );

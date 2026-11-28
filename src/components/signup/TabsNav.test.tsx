@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { signupHeaderText } from './header-text';
+import { BuildBridge } from './BuildBridge';
 import { TabsNav } from './TabsNav';
 
 /** The tabs' names in English, as the layout passes them. */
@@ -10,6 +11,15 @@ const LABELS = signupHeaderText(getTestTranslator('organizer.signup')).tabs;
 
 /** Two slots, as the layout passes them. */
 const SLOTS = { count: 2, spoken: '2 slots' };
+
+/** The nav as the layout renders it: inside a BuildBridge with two slots. */
+function navElement(labels = LABELS) {
+  return (
+    <BuildBridge buildHref="/app/signups/sig_1/build" slots={SLOTS}>
+      <TabsNav signupId="sig_1" counts={{ responses: 0 }} labels={labels} />
+    </BuildBridge>
+  );
+}
 
 const nav = vi.hoisted(() => ({ pathname: '/app/signups/sig_1/build' }));
 vi.mock('next/navigation', () => ({ usePathname: () => nav.pathname }));
@@ -43,7 +53,7 @@ describe('TabsNav', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     layOut();
-    render(<TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={LABELS} />);
+    render(navElement());
     expect(scrollIntoView).not.toHaveBeenCalled();
     // @ts-expect-error -- jsdom has none; put back as it was.
     delete Element.prototype.scrollIntoView;
@@ -52,7 +62,7 @@ describe('TabsNav', () => {
   it('centres the current tab in the strip', () => {
     nav.pathname = '/app/signups/sig_1/responses';
     layOut();
-    render(<TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={LABELS} />);
+    render(navElement());
     // Responses starts 120px into the strip; centring it in 300px leaves 90px
     // either side.
     expect(screen.getByRole('tablist').scrollLeft).toBe(136 - 16 - (300 - 120) / 2);
@@ -61,15 +71,15 @@ describe('TabsNav', () => {
   it('scrolls again when the tab changes', () => {
     layOut();
     const { rerender } = render(
-      <TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={LABELS} />,
+      navElement(),
     );
     nav.pathname = '/app/signups/sig_1/settings';
-    rerender(<TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={LABELS} />);
+    rerender(navElement());
     expect(screen.getByRole('tablist').scrollLeft).toBe(256 - 16 - (300 - 120) / 2);
   });
 
   it('names the strip and each tab with the words it is given', () => {
-    render(<TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={LABELS} />);
+    render(navElement());
     const strip = screen.getByRole('tablist', { name: 'Signup sections' });
     expect(strip).toBeInTheDocument();
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
@@ -80,7 +90,7 @@ describe('TabsNav', () => {
   });
 
   it("says what Build's number counts, in place of the bare number", () => {
-    render(<TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={LABELS} />);
+    render(navElement());
     const build = screen.getByRole('tab', { name: /^Build/ });
     // jsdom lays nothing out; a browser puts a space before the hidden words.
     expect(build).toHaveAccessibleName(/^Build ?2 slots$/);
@@ -90,7 +100,7 @@ describe('TabsNav', () => {
 
   it('shows the words of another language when given them', () => {
     const labels = signupHeaderText(getStandInTranslator('sv', 'organizer.signup')).tabs;
-    render(<TabsNav signupId="sig_1" counts={{ slots: SLOTS, responses: 0 }} labels={labels} />);
+    render(navElement(labels));
     expect(
       screen.getByRole('tablist', { name: 'organizer.signup.tabs.label in sv' }),
     ).toBeVisible();
