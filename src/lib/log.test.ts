@@ -64,7 +64,8 @@ describe('log: query errors', () => {
     logger.error({ err: keyInsertError() }, 'oauth: signing keys could not be created');
     const out = output();
     expect(out).not.toContain('FAKE_PRIVATE_JWK');
-    expect(out).toContain('insert into "signing_keys"');
+    const line = JSON.parse(out) as { err: { message: string } };
+    expect(line.err.message).toContain('insert into "signing_keys"');
     expect(out).toContain('duplicate key value');
   });
 
