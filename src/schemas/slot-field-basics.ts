@@ -9,6 +9,9 @@ import type { SlotFieldConfig } from './slot-fields';
 export const FIELD_TYPES = ['text', 'date', 'time', 'number', 'enum'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
+/** The longest a field's name may be. */
+export const LABEL_MAX_LENGTH = 80;
+
 export const MAX_CHOICES = 20;
 export const CHOICE_MAX_LENGTH = 60;
 /** The Build tab's list picker shows a new item's character count from this length on. */
