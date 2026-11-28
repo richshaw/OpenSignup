@@ -100,20 +100,14 @@ export async function POST(request: Request): Promise<Response> {
   // a minute.
   const organizerLimited = await meter(
     RateLimits.mcpPerOrganizer,
-    auth.actor.id,
+    auth.organizer.actor.id,
     Math.max(1, countToolCalls(parsedBody)),
   );
   if (organizerLimited) return organizerLimited;
 
-  const ctx: ToolContext = {
-    db: getDb(),
-    actor: auth.actor,
-    scopes: auth.scopes,
-    clientId: auth.clientId,
-    defaultWorkspaceId: auth.defaultWorkspaceId,
-    workspaces: auth.workspaces,
-    locale: auth.locale,
-  };
+  // Only what `BearerOrganizer` names reaches tools; the SDK's auth info,
+  // which carries the raw token, stays out.
+  const ctx: ToolContext = { db: getDb(), ...auth.organizer };
   // The body is already consumed; the SDK never reads it when parsedBody is given.
   return getMcpHandler().fetch(request, {
     authInfo: attachContext(auth.authInfo, ctx),

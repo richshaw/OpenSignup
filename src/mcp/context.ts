@@ -1,33 +1,14 @@
+import type { BearerOrganizer } from '@/auth/bearer';
 import type { Db } from '@/db/client';
 import type { ServiceError } from '@/lib/errors';
-import type { Actor, WorkspaceRole } from '@/lib/policy';
 import type { Result } from '@/lib/result';
 import { chooseWorkspaceId } from '@/lib/workspace-choice';
-import type { Scope } from '@/oauth/scopes';
-
-type OrganizerActor = Extract<Actor, { kind: 'organizer' }>;
-
-interface ToolWorkspace {
-  id: string;
-  slug: string;
-  name: string;
-  role: WorkspaceRole;
-}
 
 /**
  * Everything a tool handler may know about the request. Built once per
  * request from the bearer seam's resolution; never shared across requests.
  */
-export interface ToolContext {
-  db: Db;
-  actor: OrganizerActor;
-  scopes: Scope[];
-  clientId: string;
-  defaultWorkspaceId: string | null;
-  workspaces: ToolWorkspace[];
-  /** The organizer's saved language as stored, or null: the bearer seam's `locale`. */
-  locale: string | null;
-}
+export type ToolContext = BearerOrganizer & { db: Db };
 
 /** The workspace a tool acts in: the argument if given, else the organizer's default. */
 export function resolveWorkspaceId(

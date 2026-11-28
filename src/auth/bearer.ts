@@ -22,6 +22,68 @@ import { parseScopeString, type Scope } from '@/oauth/scopes';
 import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
 
 /**
+ * What a token's organizer may act as. Every field here reaches every MCP
+ * tool's context, so anything new is added on purpose, and token material
+ * (the raw token, `AuthInfo`) never goes here.
+ */
+export interface BearerOrganizer {
+  actor: Extract<Actor, { kind: 'organizer' }>;
+  scopes: Scope[];
+  clientId: string;
+  /** The organizer's default workspace, for tools called without one. */
+  defaultWorkspaceId: string | null;
+  /** Every workspace the organizer belongs to, with names for display. */
+  workspaces: { id: string; slug: string; name: string; role: WorkspaceRole }[];
+  /**
+   * The organizer's saved language, raw (`OrganizerSession.locale`), for
+   * tool handlers, which may not query the database. Not on `actor`.
+   */
+  locale: string | null;
+}
+
+export type BearerResolution =
+  | {
+      ok: true;
+      organizer: BearerOrganizer;
+      /**
+       * What the SDK verified, for handing back to SDK code that wants it
+       * (the MCP handler's pass-through auth info). Carries the raw token;
+       * never log it, and never copy it into a tool's context.
+       */
+      authInfo: AuthInfo;
+    }
+  | { ok: false; response: Response };
+
+/**
+ * What a token's organizer may act as, from their session: the one place
+ * this is built, so the MCP tests and evals run tools on the same context
+ * production does. Null when the session gives no organizer actor.
+ */
+export function bearerOrganizer(
+  session: OrganizerSession,
+  clientId: string,
+  scopes: Scope[],
+): BearerOrganizer | null {
+  const actor = toActor(session);
+  // `toActor` gives an organizer for every session, so this only narrows the type.
+  if (actor.kind !== 'organizer') return null;
+  return {
+    // Spread rather than mutate: `toActor` is React-cached and the object may be shared.
+    actor: { ...actor, via: { clientId } },
+    scopes,
+    clientId,
+    defaultWorkspaceId: session.defaultWorkspaceId,
+    workspaces: session.memberships.map((m) => ({
+      id: m.workspaceId,
+      slug: m.workspaceSlug,
+      name: m.workspaceName,
+      role: m.role,
+    })),
+    locale: session.locale,
+  };
+}
+
+/**
  * The seam between the authorization server and the MCP layer.
  *
  * This is the only thing the MCP routes and tool handlers may know about
@@ -36,47 +98,6 @@ import { loadOrganizerSessionById, toActor, type OrganizerSession } from './orga
  * organizer is a viewer, because the actor is the same one
  * `requireWorkspaceWrite` already judges.
  */
-interface BearerWorkspace {
-  id: string;
-  slug: string;
-  name: string;
-  role: WorkspaceRole;
-}
-
-export type BearerResolution =
-  | {
-      ok: true;
-      actor: Extract<Actor, { kind: 'organizer' }>;
-      scopes: Scope[];
-      clientId: string;
-      /** The organizer's default workspace, for tools called without one. */
-      defaultWorkspaceId: string | null;
-      /** Every workspace the organizer belongs to, with names for display. */
-      workspaces: BearerWorkspace[];
-      /**
-       * The organizer's saved language, raw (`OrganizerSession.locale`), for
-       * tool handlers, which may not query the database. Not on `actor`.
-       */
-      locale: string | null;
-      /**
-       * What the SDK verified, for handing back to SDK code that wants it
-       * (the MCP handler's pass-through auth info). Carries the raw token;
-       * never log it.
-       */
-      authInfo: AuthInfo;
-    }
-  | { ok: false; response: Response };
-
-/** The organizer's memberships in the shape the MCP layer shows to a client. */
-export function bearerWorkspaces(session: OrganizerSession): BearerWorkspace[] {
-  return session.memberships.map((m) => ({
-    id: m.workspaceId,
-    slug: m.workspaceSlug,
-    name: m.workspaceName,
-    role: m.role,
-  }));
-}
-
 export async function resolveBearerActor(
   request: Request,
   opts: { requiredScopes?: Scope[] } = {},
@@ -92,11 +113,11 @@ export async function resolveBearerActor(
 
   const organizerId = typeof auth.extra?.sub === 'string' ? auth.extra.sub : null;
   const session = organizerId ? await loadOrganizerSessionById(getDb(), organizerId) : null;
-  const actor = session ? toActor(session) : null;
-  if (!session || actor?.kind !== 'organizer') {
+  const organizer = session
+    ? bearerOrganizer(session, auth.clientId, parseScopeString(auth.scopes.join(' ')))
+    : null;
+  if (!organizer) {
     // The organizer behind the token is gone; treat the token as invalid.
-    // `toActor` gives an organizer for every session, so the kind check only
-    // narrows the type for the return below.
     return {
       ok: false,
       response: bearerAuthChallengeResponse(
@@ -107,17 +128,7 @@ export async function resolveBearerActor(
       ),
     };
   }
-  return {
-    ok: true,
-    // Spread rather than mutate: `toActor` is React-cached and the object may be shared.
-    actor: { ...actor, via: { clientId: auth.clientId } },
-    scopes: parseScopeString(auth.scopes.join(' ')),
-    clientId: auth.clientId,
-    defaultWorkspaceId: session.defaultWorkspaceId,
-    workspaces: bearerWorkspaces(session),
-    locale: session.locale,
-    authInfo: auth,
-  };
+  return { ok: true, organizer, authInfo: auth };
 }
 
 let verifier: OAuthTokenVerifier | null = null;
