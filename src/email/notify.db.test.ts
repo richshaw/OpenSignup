@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import pino from 'pino';
 import { and, eq, sql } from 'drizzle-orm';
 import { getDb, type Db } from '@/db/client';
 import { activity } from '@/db/schema/activity';
@@ -9,6 +10,7 @@ import { workspaces } from '@/db/schema/workspaces';
 import { OTHER_LOCALE } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
+import { log, logOptions } from '@/lib/log';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot } from '@/services/commitments';
 import { createSignup, deleteSignup, publishSignup } from '@/services/signups';
@@ -211,6 +213,40 @@ describe('notifyCommitmentCreated (db)', () => {
     } finally {
       send.mockRestore();
     }
+    expect(await confirmationRows(fx.db, commitmentId)).toBe(0);
+  });
+
+  it('logs a refused address without the address', async () => {
+    const { commitmentId, editToken } = await commitOnce(fx, 'Refused address');
+    const send = vi.spyOn(getEmailTransport(), 'send').mockRejectedValue(
+      Object.assign(
+        new Error(
+          "Can't send mail - all recipients were rejected: 550 5.1.1 <pat@example.com>: Recipient address rejected",
+        ),
+        {
+          code: 'EENVELOPE',
+          responseCode: 550,
+          response: '550 5.1.1 <pat@example.com>: Recipient address rejected: User unknown',
+          rejected: ['pat@example.com'],
+        },
+      ),
+    );
+    // Lines written by the production logger's own serializers and hooks.
+    const lines: string[] = [];
+    const capture = pino(logOptions, { write: (line: string) => void lines.push(line) });
+    const error = vi
+      .spyOn(log, 'error')
+      .mockImplementation((obj: unknown, msg?: string) => capture.error(obj, msg));
+    try {
+      await notifyCommitmentCreated(fx.db, commitmentId, editToken);
+    } finally {
+      send.mockRestore();
+      error.mockRestore();
+    }
+    const logged = lines.join('');
+    expect(logged).toContain('confirmation email failed');
+    expect(logged).toContain('EENVELOPE');
+    expect(logged).not.toContain('pat@example.com');
     expect(await confirmationRows(fx.db, commitmentId)).toBe(0);
   });
 

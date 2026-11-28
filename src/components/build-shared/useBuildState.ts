@@ -5,6 +5,7 @@ import type { SignupSettings } from '@/schemas/signups';
 import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, TITLE_MIN_LENGTH } from '@/lib/signup-limits';
 import type { ServiceError } from '@/lib/errors';
 import { resolveAnchorRef } from '@/lib/reminder-fields';
+import { slotInstantOf } from './slot-instant';
 import { usePageLeave } from '@/hooks/usePageLeave';
 
 // ---------------------------------------------------------------------------
@@ -391,6 +392,11 @@ export function useBuildState(
   // edit is put back to (#514). Rows the server sends (the first load, a new
   // slot, a refetch) and every values save that succeeds keep it current.
   const [savedValues] = useState(
+    () => new Map(initialSlots.map((s) => [s.id, toStringValues(s.values)])),
+  );
+  // Each slot's values as the page loaded them, which `slotMoved` compares
+  // the saved ones with.
+  const [loadedValues] = useState(
     () => new Map(initialSlots.map((s) => [s.id, toStringValues(s.values)])),
   );
 
@@ -1032,8 +1038,37 @@ export function useBuildState(
       ref ? { sendReminders: true, reminderFromFieldRef: ref } : { sendReminders: false },
     );
 
+  /**
+   * Whether a save has moved the slot since the page loaded, so the people
+   * holding it are to be emailed: reminders are on, and the instant the
+   * server builds `slot_at` from (`slotInstantOf`) differs between the
+   * values the page loaded and the ones the server last accepted, and is
+   * still ahead. The worker emails nobody for a slot moved back to where it
+   * was, or into the past (src/jobs/notify-rules.ts). Read from what has
+   * saved, not from what is typed, so it never runs ahead of the server;
+   * every save that changes it dispatches its "Saved", which renders it.
+   */
+  const slotMoved = (rowId: string): boolean => {
+    const dateRef = state.reminderFieldRef;
+    const loaded = loadedValues.get(rowId);
+    const saved = savedValues.get(rowId);
+    if (!dateRef || !loaded || !saved) return false;
+    const fields = state.fields.map((f) => ({
+      ref: f.ref,
+      fieldType: f.config.fieldType,
+      sortOrder: f.sortOrder,
+    }));
+    const now = slotInstantOf(dateRef, fields, saved);
+    return (
+      now !== null &&
+      now !== slotInstantOf(dateRef, fields, loaded) &&
+      Date.parse(`${now}Z`) > Date.now()
+    );
+  };
+
   return {
     state,
+    slotMoved,
     addField,
     updateField,
     deleteField,

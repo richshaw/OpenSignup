@@ -38,6 +38,7 @@ function renderEditor(
     fields?: BuildField[];
     taken?: number;
     remindersOn?: boolean;
+    moved?: boolean;
     onCellChange?: Mock<(fieldRef: string, value: string) => void>;
     onCapacity?: Mock<(capacity: number | null) => void>;
     onAddEnumOption?: Mock<(fieldId: string, value: string) => void | Promise<void>>;
@@ -64,6 +65,7 @@ function renderEditor(
       {...(overrides.onFocused ? { onFocused: overrides.onFocused } : {})}
       taken={overrides.taken ?? 0}
       remindersOn={overrides.remindersOn ?? true}
+      moved={overrides.moved ?? false}
       onCellChange={onCellChange}
       onCapacity={onCapacity}
       onAddEnumOption={onAddEnumOption}
@@ -93,6 +95,54 @@ describe('SlotEditor', () => {
     expect(screen.getByRole('note').textContent).toBe(
       "1 person is signed up for this slot. Reminders are off, so we won't email them if you change it.",
     );
+  });
+
+  it('says who will be emailed, and when, once a save has moved the slot', () => {
+    renderEditor({ taken: 2, remindersOn: true, moved: true });
+    const moved =
+      "You moved this slot. We'll email the 2 people signed up in about 10 minutes, with the new details.";
+    expect(screen.getByRole('note').textContent).toBe(moved);
+    // Announced through a status, since a note's new text isn't.
+    expect(screen.getByRole('status').textContent).toBe(moved);
+  });
+
+  it('says "the person" when one person holds the moved slot', () => {
+    renderEditor({ taken: 1, remindersOn: true, moved: true });
+    expect(screen.getByRole('note').textContent).toBe(
+      "You moved this slot. We'll email the person signed up in about 10 minutes, with the new details.",
+    );
+  });
+
+  it('goes back to the first note, and announces nothing, when the slot is back where it was', () => {
+    const { rerender } = renderEditor({ taken: 2, remindersOn: true, moved: true });
+    rerender(
+      <SlotEditor
+        row={makeRow()}
+        label="Editing slot"
+        fields={[makeField()]}
+        taken={2}
+        remindersOn
+        moved={false}
+        onCellChange={vi.fn()}
+        onCapacity={vi.fn()}
+        onAddEnumOption={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('note').textContent).toBe(
+      "2 people are signed up for this slot. If you change its date or time, we'll email them to let them know.",
+    );
+    expect(screen.getByRole('status').textContent).toBe('');
+  });
+
+  it('keeps the reminders-off note after a move, since nobody is emailed', () => {
+    renderEditor({ taken: 1, remindersOn: false, moved: true });
+    expect(screen.getByRole('note').textContent).toBe(
+      "1 person is signed up for this slot. Reminders are off, so we won't email them if you change it.",
+    );
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it("stops a text value at its field's maxLength", () => {

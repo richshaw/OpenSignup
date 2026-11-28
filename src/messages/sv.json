@@ -372,6 +372,7 @@
         "delete": "Radera",
         "done": "Klart",
         "signedUp": "{taken, plural, one {{taken, number} person är anmäld till det här passet.} other {{taken, number} personer är anmälda till det här passet.}} {reminders, select, on {Om du ändrar datum eller tid får {taken, plural, one {personen} other {de}} ett mejl om det.} other {Påminnelserna är avstängda, så {taken, plural, one {personen} other {de}} får inget mejl om du ändrar datum eller tid.}}",
+        "moved": "Du har flyttat passet. {taken, plural, one {Personen som är anmäld får} other {De {taken, number} som är anmälda får}} ett mejl med de nya uppgifterna om ungefär {minutes, plural, one {# minut} other {# minuter}}.",
         "value": "Värde för {field}",
         "spots": "Platser",
         "noLimit": "Obegränsat",
