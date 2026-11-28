@@ -756,6 +756,31 @@ describe('<CommitDialog /> sheet', () => {
       expect(status).toHaveClass('sr-only');
     });
 
+    // The two buttons used to keep two timers and clear neither, so a second
+    // copy 1.2 s later had its label wiped 0.8 s later by the first timer.
+    it('keeps Link copied for 2 seconds after the second copy, not the first', async () => {
+      const writeText = vi.fn(async () => {});
+      stubClipboard(writeText);
+      await signUpWithEmail('');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+      await waitFor(
+        () => expect(screen.getByRole('button', { name: 'Link copied' })).toBeInTheDocument(),
+        settle,
+      );
+
+      await new Promise((r) => setTimeout(r, 1200));
+      fireEvent.click(screen.getByRole('button', { name: 'Link copied' }));
+
+      await new Promise((r) => setTimeout(r, 1000));
+      expect(screen.getByRole('button', { name: 'Link copied' })).toBeInTheDocument();
+
+      await waitFor(
+        () => expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument(),
+        { timeout: 3000 },
+      );
+    }, 20_000);
+
     it('says to copy the link by hand when the browser will not', async () => {
       const writeText = vi.fn(async () => {
         throw new Error('not allowed');

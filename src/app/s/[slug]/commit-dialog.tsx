@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useClipboardCopy } from '@/hooks/useClipboardCopy';
 import { useLocale, useTranslations } from 'next-intl';
 import { suggestEmail } from '@/lib/email-suggest';
 import { buildIcs, calendarFileName } from '@/lib/ics';
@@ -154,9 +155,12 @@ export default function CommitDialog({
   // The server then refuses a blank one, and the box says so from then on.
   const [emailNowRequired, setEmailNowRequired] = useState(false);
   const emailRequired = requireEmail || emailNowRequired;
-  const [shareCopied, setShareCopied] = useState(false);
+  // Both buttons copy the same link and only one is on screen at a time, so one
+  // hook covers them. It owns the "Link copied" window, and clears the previous
+  // timer on a second copy — the hand-written versions here did not.
+  const linkCopy = useClipboardCopy();
   // What happened to the last Copy link, said in a live region.
-  const [copyResult, setCopyResult] = useState<'copied' | 'failed' | null>(null);
+  const [copyFailed, setCopyFailed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -327,8 +331,7 @@ export default function CommitDialog({
     setError(null);
     setReported(null);
     if (wasSuccess) lastAttempt.current = null;
-    setShareCopied(false);
-    setCopyResult(null);
+    setCopyFailed(false);
     if (wasSuccess) router.refresh();
   }
 
@@ -374,32 +377,20 @@ export default function CommitDialog({
         // user cancelled or share failed; fall through to copy
       }
     }
-    try {
-      await navigator.clipboard.writeText(success.editUrl);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    } catch {
-      // last resort: do nothing — link is already on screen
-    }
+    // last resort: if the clipboard refuses, do nothing — the link is on screen
+    await linkCopy.copy(success.editUrl);
   }
 
   // Someone without an email gets Copy link, not Save your link: the link is how
   // they change or cancel, and a share sheet invites them to post it.
   async function handleCopy() {
     if (!success) return;
-    try {
-      await navigator.clipboard.writeText(success.editUrl);
-      setCopyResult('copied');
-      // Back to Copy link, as Save your link does, unless a failure replaced it.
-      setTimeout(() => setCopyResult((r) => (r === 'copied' ? null : r)), 2000);
-    } catch {
-      // No clipboard over plain HTTP, or the browser refused.
-      setCopyResult('failed');
-    }
+    // No clipboard over plain HTTP, or the browser refused: say so in the region.
+    setCopyFailed(!(await linkCopy.copy(success.editUrl)));
   }
 
   // Save your link and Copy link each say "Link copied" on themselves after a copy.
-  const linkCopied = success?.emailed ? shareCopied : copyResult === 'copied';
+  const linkCopied = linkCopy.copied && !copyFailed;
   // The trigger's name and the sheet's: every row's button reads "Sign up".
   const signUpFor = t('signUpFor', { slot: actionName });
 
@@ -519,13 +510,9 @@ export default function CommitDialog({
                 // says what to do next, shows here on screen.
                 <p
                   role="status"
-                  className={copyResult === 'failed' ? 'mt-2 text-sm text-ink-muted' : 'sr-only'}
+                  className={copyFailed ? 'mt-2 text-sm text-ink-muted' : 'sr-only'}
                 >
-                  {copyResult === 'copied'
-                    ? t('copied')
-                    : copyResult === 'failed'
-                      ? t('copyFailed')
-                      : null}
+                  {copyFailed ? t('copyFailed') : linkCopied ? t('copied') : null}
                 </p>
               )}
             </div>
