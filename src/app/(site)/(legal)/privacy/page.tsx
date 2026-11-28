@@ -19,36 +19,13 @@ import {
 } from '@/lib/lifetimes';
 import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
 import { PRIVACY_ADDITIONS } from '@/lib/privacy-additions';
+import { formatDay, LegalHeader } from '../legal-header';
 
 /** When this page's own text last changed, as YYYY-MM-DD. */
 const PAGE_UPDATED = '2026-11-15';
 
 /** The heading an instance's own sections go under (src/lib/privacy-additions.ts). */
 const ADDED_HEADING = 'Added on this site';
-
-/**
- * A YYYY-MM-DD date as "19 November 2026". Throws on anything else, so a
- * mistyped date in an instance's additions fails the build rather than
- * showing a wrong "Last updated".
- */
-function formatDay(iso: string): string {
-  const date = new Date(`${iso}T00:00:00Z`);
-  const real =
-    /^\d{4}-\d{2}-\d{2}$/.test(iso) &&
-    !Number.isNaN(date.getTime()) &&
-    date.toISOString().slice(0, 10) === iso;
-  if (!real) {
-    throw new Error(
-      `A privacy page date must be a real day written YYYY-MM-DD (lastUpdated in src/lib/privacy-additions.ts), not "${iso}"`,
-    );
-  }
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(date);
-}
 
 export const metadata: Metadata = pageMetadata({
   path: '/privacy',
@@ -60,17 +37,14 @@ export const metadata: Metadata = pageMetadata({
 export default function PrivacyPage() {
   const operator = operatorLabel();
   const added = PRIVACY_ADDITIONS;
-  // Formatting both checks the instance's date even when the page's is later.
-  const pageUpdated = formatDay(PAGE_UPDATED);
-  const addedUpdated = added ? formatDay(added.lastUpdated) : null;
-  const lastUpdated =
-    added && addedUpdated && added.lastUpdated > PAGE_UPDATED ? addedUpdated : pageUpdated;
+  // Checking both dates here, before either is compared, refuses a mistyped
+  // instance date even when the page's own date is later.
+  formatDay(PAGE_UPDATED);
+  if (added) formatDay(added.lastUpdated, 'lastUpdated in src/lib/privacy-additions.ts');
+  const lastUpdated = added && added.lastUpdated > PAGE_UPDATED ? added.lastUpdated : PAGE_UPDATED;
   return (
     <>
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Privacy policy</h1>
-        <p className="text-sm text-ink-muted">Last updated: {lastUpdated}</p>
-      </header>
+      <LegalHeader title="Privacy policy" updated={lastUpdated} />
 
       <section className="space-y-3">
         <p>

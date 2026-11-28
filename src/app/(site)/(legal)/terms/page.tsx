@@ -10,6 +10,10 @@ import {
   operatorLabel,
 } from '@/lib/site-config';
 import { pageMetadata } from '@/lib/seo';
+import { LegalHeader } from '../legal-header';
+
+/** When this page's text last changed, as YYYY-MM-DD. */
+const PAGE_UPDATED = '2026-10-31';
 
 export const metadata: Metadata = pageMetadata({
   path: '/terms',
@@ -22,10 +26,7 @@ export default function TermsPage() {
   const operator = operatorLabel();
   return (
     <>
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Terms of service</h1>
-        <p className="text-sm text-ink-muted">Last updated: 31 October 2026</p>
-      </header>
+      <LegalHeader title="Terms of service" updated={PAGE_UPDATED} />
 
       <section className="space-y-3">
         <p>
