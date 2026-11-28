@@ -403,10 +403,14 @@ describe('authorization code flow on Postgres', () => {
         .where(eq(oauthRecords.id, grantId)),
     ).toEqual([]);
     const events = await db
-      .select({ e: activity.eventType })
+      .select({ e: activity.eventType, actorType: activity.actorType, payload: activity.payload })
       .from(activity)
       .where(eq(activity.actorId, organizerId));
-    expect(events.map((r) => r.e)).toContain('oauth.grant_revoked');
+    const revoked = events.find((r) => r.e === 'oauth.grant_revoked');
+    // The organizer did this from their own Connected apps page, not through a
+    // token, so the row names them and no connected app.
+    expect(revoked?.actorType).toBe('organizer');
+    expect(revoked?.payload).not.toHaveProperty('viaClientId');
   });
 
   it('serves the MCP tools over the real endpoint with a real token', async () => {

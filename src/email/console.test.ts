@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { redactUrlQueryStrings } from './console';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { log } from '@/lib/log';
+import { ConsoleTransport, redactUrlQueryStrings } from './console';
+
+vi.mock('@/lib/env', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/env')>()),
+  getEnv: () => ({ NODE_ENV: 'production' }),
+}));
 
 describe('redactUrlQueryStrings', () => {
   it('strips the token from a participant edit link', () => {
@@ -35,5 +41,42 @@ describe('redactSignInCodes', () => {
     expect(redactSignInCodes('order 1234567 on 12/03/2026 for 12 people')).toBe(
       'order 1234567 on 12/03/2026 for 12 people',
     );
+  });
+});
+
+describe('ConsoleTransport addresses', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The fields the transport logged for `msg`. */
+  async function logged(msg: Parameters<ConsoleTransport['send']>[0]) {
+    const info = vi.spyOn(log, 'info').mockImplementation(() => undefined);
+    await new ConsoleTransport('hello@example.com').send(msg);
+    return info.mock.calls[0]?.[0] as unknown as Record<string, unknown>;
+  }
+
+  const message = { to: 'pat@example.com', subject: 'Hello', html: '<p>Hi</p>', text: 'Hi' };
+
+  it('logs EMAIL_FROM, and no reply-to, when the email names neither', async () => {
+    const fields = await logged(message);
+    expect(fields.from).toBe('hello@example.com');
+    expect(fields.replyTo).toBeUndefined();
+  });
+
+  it("logs the email's own address and reply-to when it names them", async () => {
+    const fields = await logged({
+      ...message,
+      from: 'Pat at Example <pat@example.com>',
+      replyTo: 'pat.inbox@example.com',
+    });
+    expect(fields.from).toBe('Pat at Example <pat@example.com>');
+    expect(fields.replyTo).toBe('pat.inbox@example.com');
+  });
+
+  it.each(['', '   '])('takes %j as no address', async (blank) => {
+    const fields = await logged({ ...message, from: blank, replyTo: blank });
+    expect(fields.from).toBe('hello@example.com');
+    expect(fields.replyTo).toBeUndefined();
   });
 });

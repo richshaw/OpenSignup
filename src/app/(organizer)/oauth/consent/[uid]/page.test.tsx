@@ -3,7 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import type { ClientDisplay } from '@/oauth/client-display';
 import { describeScopes, type Scope } from '@/oauth/scopes';
@@ -65,9 +65,6 @@ vi.mock('@/i18n/server', async () => {
 });
 
 const { default: ConsentPage, generateMetadata } = await import('./page');
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 /** A signed-in organizer in `workspaces` workspaces. */
 function signIn(workspaces = 1, locale: string | null = null) {
@@ -225,7 +222,7 @@ describe('the consent page', () => {
     );
   });
 
-  describe.each(OTHER_LANGUAGES)('for an organizer whose language is %s', (other) => {
+  describe.each(TEST_LOCALES)('for an organizer whose language is %s', (other) => {
     beforeEach(shipOnlyEnglish);
 
     const ask = (key: string) => `auth.consent.${key} in ${other}`;

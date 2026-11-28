@@ -4,6 +4,7 @@ import type { CatalogLocale } from '@/i18n/config';
 import { getServerTranslator } from '@/i18n/server';
 import { messagesFor, type Translator } from '@/i18n/translator';
 import { isBlankSlotValue } from '@/lib/blank-slot-value';
+import { spotsLeft } from '@/lib/spot-counts';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { Banner } from '@/components/banner';
 import { COMMIT_DIALOG_NAMESPACES } from './client-namespaces';
@@ -61,9 +62,6 @@ interface SignupViewCommonProps {
    */
   locale: CatalogLocale;
   ownCommitments?: OwnCommitment[];
-  /** Show the preview/closed status banner. Default true; set false when the
-   *  surrounding context already conveys preview state (e.g. the build rail). */
-  showStateBanner?: boolean;
 }
 
 /**
@@ -148,17 +146,7 @@ function titleFor(
 }
 
 export function SignupViewBody(props: SignupViewProps) {
-  const {
-    signup,
-    fields,
-    groupByRef,
-    slots,
-    slug,
-    locale,
-    mode,
-    ownCommitments,
-    showStateBanner = true,
-  } = props;
+  const { signup, fields, groupByRef, slots, slug, locale, mode, ownCommitments } = props;
   const t = getServerTranslator(locale, 'participant.signupView');
   const tSlot = getServerTranslator(locale, 'participant.slot');
   // The live row's Sign up is the dialog's, which reads these in the browser;
@@ -215,7 +203,7 @@ export function SignupViewBody(props: SignupViewProps) {
 
   const view = (
     <>
-      {!showStateBanner ? null : preview ? (
+      {preview ? (
         // A wrapper for its language, rather than a prop on the shared
         // Banner, so the organizer pages' banners stay byte for byte as they
         // were. It lays out as the banner alone would.
@@ -266,11 +254,8 @@ export function SignupViewBody(props: SignupViewProps) {
             ) : null}
             <ul className="overflow-hidden rounded-2xl border border-surface-sunk bg-white">
               {group.slots.map((slot, idx) => {
-                // Floored at 0: the organizer can lower a slot's capacity below
-                // its sign-ups.
-                const spotsLeft =
-                  slot.capacity === null ? null : Math.max(0, slot.capacity - slot.committed);
-                const full = spotsLeft === 0;
+                const left = spotsLeft(slot.capacity, slot.committed);
+                const full = left === 0;
                 const closed = slot.status !== 'open' || effectiveStatus !== 'open' || full;
                 const title = titleFor(slot, primary, locale, t);
                 const meta = buildMetaSegments({ fields, slot, primaryRef, groupRef, locale });
@@ -291,12 +276,19 @@ export function SignupViewBody(props: SignupViewProps) {
                     } ${isOwn ? 'bg-success/5' : ''}`}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-medium tracking-tight">{title}</p>
+                      {/* Two lines, not `truncate`: the part a long name cut
+                          off was usually what to bring ("a dozen"), and two is
+                          enough on a 390px phone without one pasted paragraph
+                          pushing the rest of the sheet down. */}
+                      <p className="line-clamp-2 break-words text-[15px] font-medium tracking-tight">
+                        {title}
+                      </p>
                       {meta.length ? (
                         // Wrapped, not `truncate`. The fixed right rail left
                         // ~160px for text at 390px, so one clamped line dropped
                         // the last segment — usually the location — from every
-                        // row. The title above stays single-line.
+                        // row. The title above clamps at two lines for the same
+                        // reason.
                         //
                         // Three lines below `sm`, because a row that also shows
                         // a count has a third column competing for a 360px
@@ -358,13 +350,13 @@ export function SignupViewBody(props: SignupViewProps) {
                             slotContext={slotContext(nameGroup, meta)}
                             slotAt={slot.slotAt}
                             slotHasTime={slot.hasTime}
-                            spotsLeft={spotsLeft}
+                            spotsLeft={left}
                             capacity={slot.capacity}
                             signupTitle={signup.title}
                             slug={slug}
-                            requireEmail={signup.requireEmail ?? true}
+                            requireEmail={signup.requireEmail}
                             sendsReminder={willSendReminder({
-                              sendReminders: signup.sendReminders ?? false,
+                              sendReminders: signup.sendReminders,
                               slotAt: slot.slotAt ? new Date(slot.slotAt) : null,
                             })}
                           />

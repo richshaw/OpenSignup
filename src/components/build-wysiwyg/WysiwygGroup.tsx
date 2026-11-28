@@ -7,7 +7,8 @@ import { EnumPicker } from './EnumPicker';
 import { WysiwygSlot } from './WysiwygSlot';
 import { prettyHeader, emptyHeaderCopy } from './prettyHeader';
 import { useSignupLanguage } from './signup-language';
-import { FIELD_VALUE_INPUTS } from '../build-shared/fieldTypes';
+import { fieldValueControl } from '../build-shared/fieldTypes';
+import { TimeSelect } from '../build-shared/TimeSelect';
 import type { UseReorderableResult } from '../build-shared/useReorderable';
 import type { BuildField, BuildRow } from '../build-shared/useBuildState';
 
@@ -160,8 +161,9 @@ type GroupHeaderProps = Pick<WysiwygGroupProps, 'group' | 'onRenameGroup' | 'onA
 
 /**
  * A group's header, edited with the same control as the slot editor's cell for
- * that field, so it can only be set to a value the server takes: a date picker
- * for a Date field, the list's choices for a List field, free text otherwise.
+ * that field (`fieldValueControl`), so it can only be set to a value the server
+ * takes: the list's choices for a List field, the time list for a Time field,
+ * a date or number input for a Date or Number field, free text for Text.
  */
 function GroupHeader({
   group,
@@ -172,16 +174,17 @@ function GroupHeader({
   onAddEnumOption,
 }: GroupHeaderProps) {
   const t = useTranslations('organizer.build.group');
-  const { lang } = useSignupLanguage();
+  const { lang, locale } = useSignupLanguage();
   const ariaLabel = t('header', { heading: display });
   const rename = (next: string) => onRenameGroup(group.key, next);
+  const control = fieldValueControl(groupField.config);
 
-  if (groupField.config.fieldType === 'enum') {
+  if (control.kind === 'enum') {
     return (
       <EnumPicker
         triggerClassName={`${HEADER_CLASSES} inline-flex items-center gap-1 hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}
         value={group.rawValue}
-        options={groupField.config.choices}
+        options={control.choices}
         placeholder={placeholder}
         ariaLabel={ariaLabel}
         lang={lang}
@@ -193,25 +196,43 @@ function GroupHeader({
     );
   }
 
-  const isDate = groupField.config.fieldType === 'date';
+  if (control.kind === 'time') {
+    return (
+      <TimeSelect
+        value={group.rawValue}
+        // The empty choice prompts for a time in a group that has none. A
+        // header is never cleared from here, as a date header isn't.
+        onChange={(next) => {
+          if (next !== '' && next !== group.rawValue) rename(next);
+        }}
+        noTimeLabel={placeholder}
+        locale={locale}
+        aria-label={ariaLabel}
+        className={`${HEADER_CLASSES} cursor-pointer border-none bg-transparent hover:bg-brand-soft focus:bg-brand-soft focus:outline-none`}
+      />
+    );
+  }
+
+  // Plain text keeps the header's own small-caps box; a typed value is edited
+  // in the slot editor's input for its type.
+  const typed = control.fieldType !== 'text';
   return (
     <Editable
       value={group.rawValue}
       display={display}
-      // A date input reports '' until a whole date is typed, so an empty
-      // commit is a half-typed date, not a request to clear the header.
+      // A date or number input reports '' until it holds a whole date or a
+      // number, so an empty commit is half-typed, not a request to clear the
+      // header.
       onChange={(next) => {
-        if (isDate && next === '') return;
+        if (typed && next === '') return;
         rename(next);
       }}
       placeholder={placeholder}
       ariaLabel={ariaLabel}
       lang={lang}
       className={`${HEADER_CLASSES} inline-block`}
-      {...(isDate ? { input: FIELD_VALUE_INPUTS.date } : {})}
-      {...(groupField.config.fieldType === 'text'
-        ? { maxLength: groupField.config.maxLength }
-        : {})}
+      {...(typed ? { input: control.input } : {})}
+      {...(control.input.maxLength !== undefined ? { maxLength: control.input.maxLength } : {})}
     />
   );
 }

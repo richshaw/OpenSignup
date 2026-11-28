@@ -19,8 +19,8 @@ declare const messages: {
       "title": "Sign up",
       "description": "Sign up via {instance}",
       "draft": {
-        "title": "This signup isn’t ready yet",
-        "body": "The organizer hasn’t published it yet. This link will work once they do, so check back later."
+        "title": "This signup isn't ready yet",
+        "body": "The organizer hasn't published it yet. This link will work once they do, so check back later."
       },
       "archived": {
         "title": "This signup is no longer available",
@@ -108,7 +108,7 @@ declare const messages: {
       "keepNumber": "Keep the number you have.",
       "closed": {
         "join": "No one new can sign up for this slot now.",
-        "reload": "Reload the page to see what’s still open.",
+        "reload": "Reload the page to see what's still open.",
         "change": "You can't add more spots now."
       },
       "conflict": {
@@ -148,7 +148,7 @@ declare const messages: {
         "body": "Contact the organizer to find out what has changed, or to ask them for a new link."
       },
       "editLink": {
-        "title": "Sorry, this link isn’t working",
+        "title": "Sorry, this link isn't working",
         "body": "Your spot may no longer be available, or the link may be incomplete. Contact the organizer to find out what has changed. If you got a confirmation email, you can also try its link again."
       }
     },
@@ -180,7 +180,7 @@ declare const messages: {
     },
     "cancelledPage": {
       "title": "Your spot was cancelled",
-      "open": "There’s still room if you want to sign up again.",
+      "open": "There's still room if you want to sign up again.",
       "full": "The slot has filled up since.",
       "slotClosed": "The slot has closed.",
       "signupClosed": "The signup has closed.",
@@ -190,7 +190,7 @@ declare const messages: {
       },
       "moved": {
         "title": "Your spot moved to another slot",
-        "body": "You’re still signed up. Use the link below to see or change it.",
+        "body": "You're still signed up. Use the link below to see or change it.",
         "link": "See your new spot"
       },
       "back": "Back to the signup"
@@ -266,7 +266,6 @@ declare const messages: {
       "heading": "Coming up",
       "intro": "Hi {name}, this is a reminder that you signed up for <b>{title}</b>.",
       "changed": {
-        "heading": "Your slot has changed",
         "intro": "Hi {name}, the organizer changed your slot for <b>{title}</b> since we last emailed you. Here are the new details."
       },
       "keep": "Need to change or cancel? Tap the button above. It opens your spot directly, no password needed. Keep this email to yourself: anyone with the link can change your slot.",
@@ -331,11 +330,11 @@ declare const messages: {
     "loadError": {
       "tabTitle": "Signup not found",
       "notFound": {
-        "title": "We can’t find this signup",
-        "body": "It may have been deleted, or it may belong to a different account. You’re signed in as <account>{email}</account>."
+        "title": "We can't find this signup",
+        "body": "It may have been deleted, or it may belong to a different account. You're signed in as <account>{email}</account>."
       },
       "failed": {
-        "title": "We couldn’t open this signup",
+        "title": "We couldn't open this signup",
         "body": "Something went wrong on our side. Reload the page to try again."
       },
       "goToSignups": "Go to your signups",
@@ -343,20 +342,20 @@ declare const messages: {
     },
     "errors": {
       "code": {
-        "forbidden": "You don’t have edit access.",
+        "forbidden": "You don't have edit access.",
         "unauthorized": "Sign in again to save.",
         "conflict": "Reload to see the latest changes.",
         "capacity_full": "Slot is full.",
         "closed": "This signup is closed.",
         "not_found": "No longer available.",
-        "invalid_input": "Some values weren’t accepted.",
+        "invalid_input": "Some values weren't accepted.",
         "rate_limited": "Slow down — try again in a moment.",
         "already_consumed": "Already used.",
         "internal": "Save failed."
       },
       "titleTooShort": "Title must be at least {min, number, ::group-off} characters.",
-      "tooManySignups": "You’ve created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
-      "disconnectFailed": "Couldn’t disconnect. Try again.",
+      "tooManySignups": "You've created a lot of signups in the last hour. Try again in about {minutes, plural, one {{minutes, number, ::group-off} minute} other {{minutes, number, ::group-off} minutes}}.",
+      "disconnectFailed": "Couldn't disconnect. Try again.",
       "alreadyDisconnected": "That app is already disconnected."
     },
     "signupSettings": {
@@ -366,12 +365,19 @@ declare const messages: {
         "required": "Required",
         "optional": "Optional",
         "requiredHelp": "We email everyone their link to change or cancel.",
+        "requiredHelpReminders": "We email everyone their link to change or cancel, and a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} their slot.",
         "optionalHelp": "People can leave it blank. They get no emails, not even reminders, so they need to save their link. If they lose it, they can sign up again and you can remove the old one on the Responses tab."
       },
       "language": {
         "title": "Language",
         "legend": "Signup language",
-        "help": "This signup’s page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too."
+        "help": "This signup's page and emails use it for buttons, messages and dates. Write your title and slots in the same language. People who already signed up see it in the new language too."
+      },
+      "reminders": {
+        "title": "Reminders",
+        "on": "People who give an email get a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}} their slot's {label}. To turn reminders off, open Fields on the Build tab and choose {label}.",
+        "off": "Reminders are off. To turn them on, open Fields on the Build tab and choose {label}.",
+        "none": "No reminders: your slots have no date field."
       },
       "save": "Save",
       "saving": "Saving…",
@@ -400,11 +406,12 @@ declare const messages: {
         "titleLabel": "Signup title",
         "descriptionPlaceholder": "Add a short description for volunteers",
         "descriptionLabel": "Signup description",
-        "addDate": "Add date"
+        "addDate": "Add date",
+        "slotCount": "{count, plural, one {{count, number, ::group-off} slot} other {{count, number, ::group-off} slots}}"
       },
       "group": {
         "header": "Group header — {heading}",
-        "renameFailed": "That change didn’t save, so this heading is back to what it was. Try again.",
+        "renameFailed": "That change didn't save, so this heading is back to what it was. Try again.",
         "addSlot": "Add a slot"
       },
       "empty": {
@@ -428,8 +435,8 @@ declare const messages: {
         "duplicate": "Duplicate",
         "delete": "Delete",
         "done": "Done",
-        "signedUp": "{taken, plural, one {{taken, number, ::group-off} person is} other {{taken, number, ::group-off} people are}} signed up for this slot. {reminders, select, on {If you change its date or time, we’ll email them to let them know.} other {Reminders are off, so we won’t email them if you change it.}}",
-        "moved": "You moved this slot. We’ll email {taken, plural, one {the person} other {the {taken, number, ::group-off} people}} signed up in about {minutes, plural, one {# minute} other {# minutes}}, with the new details.",
+        "signedUp": "{taken, plural, one {{taken, number, ::group-off} person is} other {{taken, number, ::group-off} people are}} signed up for this slot. {reminders, select, on {If you change its date or time, we'll email them to let them know.} other {Reminders are off, so we won't email them if you change it.}}",
+        "moved": "You moved this slot. We'll email {taken, plural, one {the person} other {the {taken, number, ::group-off} people}} signed up in about {minutes, plural, one {# minute} other {# minutes}}, with the new details.",
         "value": "{field} value",
         "spots": "Spots",
         "noLimit": "No limit",
@@ -466,7 +473,7 @@ declare const messages: {
         "newTitle": "New field",
         "close": "Close",
         "groupBy": "Group slots by",
-        "noGroup": "Don’t group",
+        "noGroup": "Don't group",
         "reorder": "Drag to reorder",
         "add": "Add field",
         "empty": "No fields yet — add one to get started.",
@@ -494,7 +501,7 @@ declare const messages: {
         "slotsMoved": "The slots changed in another window, so your move wasn't saved. Drag it again.",
         "fieldsMoved": "The fields changed in another window, so your move wasn't saved. Drag it again.",
         "capacityBelowTaken": "{taken, plural, one {{taken, number, ::group-off} spot is already taken} other {{taken, number, ::group-off} spots are already taken}}. Set this slot to {taken, number, ::group-off} or more.",
-        "invalidatesSlotValues": "Some slots have values that don’t fit this change. Change those first."
+        "invalidatesSlotValues": "Some slots have values that don't fit this change. Change those first."
       }
     },
     "responses": {
@@ -508,7 +515,7 @@ declare const messages: {
         "draft": "Nobody has signed up yet. People can sign up once you publish and share it.",
         "open": "Nobody has signed up yet. Share the public link to start collecting.",
         "closed": "Nobody signed up.",
-        "archived": "Nobody signed up. People can’t sign up now."
+        "archived": "Nobody signed up. People can't sign up now."
       },
       "table": {
         "name": "Name",
@@ -533,14 +540,14 @@ declare const messages: {
         "button": "Remove",
         "label": "Remove {name} from {slot}",
         "labelNoSlot": "Remove {name} from this slot",
-        "question": "{label}? {count, plural, =1 {Their spot opens} other {Their {count, number, ::group-off} spots open}} up for someone else. They won’t get an email about it.",
+        "question": "{label}? {count, plural, =1 {Their spot opens} other {Their {count, number, ::group-off} spots open}} up for someone else. They won't get an email about it.",
         "dialogLabel": "Confirm removal",
         "keep": "Keep",
         "confirm": "Yes, remove",
         "removing": "Removing…",
         "refusal": {
           "notFound": "This person is no longer on this signup. Reload to see the latest.",
-          "failed": "Couldn’t remove them. Try again."
+          "failed": "Couldn't remove them. Try again."
         }
       },
       "csv": {
@@ -549,7 +556,8 @@ declare const messages: {
         "status": "Status",
         "spots": "Spots",
         "notes": "Notes",
-        "signedUp": "Signed up"
+        "signedUp": "Signed up",
+        "fileName": "{slug}-responses.csv"
       }
     },
     "newSignup": {
@@ -755,6 +763,7 @@ declare const messages: {
     },
     "signup": {
       "draftLine": "Only you can see this draft until you publish it.",
+      "draftHowPeopleSignUp": "Then people open its link, choose a slot and type their name.",
       "preview": "Preview",
       "moreActions": "More actions",
       "closeSheet": "Close",
@@ -766,8 +775,8 @@ declare const messages: {
       "publish": {
         "label": "Publish and share",
         "checking": "Checking…",
-        "ready": "Publish and share when you’re ready.",
-        "unsaved": "A change didn’t save. Fix it, then publish."
+        "ready": "Publish and share when you're ready.",
+        "unsaved": "A change didn't save. Fix it, then publish."
       },
       "check": {
         "title": "Nothing to sign up for yet",
@@ -782,7 +791,7 @@ declare const messages: {
         "action": "Close signup",
         "notYet": "Not yet",
         "closing": "Closing…",
-        "question": "{standing} People can’t sign up until you reopen it.{kept, select, yes { Everyone already signed up keeps their spot.} other {}}",
+        "question": "{standing} People can't sign up until you reopen it.{kept, select, yes { Everyone already signed up keeps their spot.} other {}}",
         "standing": {
           "nobody": "Nobody has signed up yet.",
           "taken": "{taken, plural, one {{taken, number, ::group-off} spot is taken.} other {{taken, number, ::group-off} spots are taken.}}",
@@ -794,7 +803,8 @@ declare const messages: {
       },
       "closed": {
         "title": "Signup closed",
-        "body": "People can’t sign up now. Everyone already signed up keeps their spot.",
+        "body": "People can't sign up now. Everyone already signed up keeps their spot.",
+        "help": "How closing and reopening work",
         "dismiss": "Dismiss"
       },
       "reopen": {
@@ -802,7 +812,7 @@ declare const messages: {
         "reopening": "Reopening…"
       },
       "announce": {
-        "closed": "Closed. People can’t sign up now.",
+        "closed": "Closed. People can't sign up now.",
         "reopened": "Reopened. People can sign up again."
       },
       "tabs": {
@@ -816,9 +826,9 @@ declare const messages: {
         "changed": "This signup changed since the page loaded. Reload to see the latest.",
         "addSlotToPublish": "Add a slot before publishing.",
         "addSlotToReopen": "Add a slot before reopening.",
-        "publishFailed": "Couldn’t publish. Try again.",
-        "closeFailed": "Couldn’t close the signup. Try again.",
-        "reopenFailed": "Couldn’t reopen the signup. Try again."
+        "publishFailed": "Couldn't publish. Try again.",
+        "closeFailed": "Couldn't close the signup. Try again.",
+        "reopenFailed": "Couldn't reopen the signup. Try again."
       }
     },
     "share": {
@@ -840,15 +850,15 @@ declare const messages: {
       "copied": "Copied",
       "linkCopied": "Link copied",
       "messageCopied": "Message copied",
-      "linkRefused": "Couldn’t copy. Select the link and copy it.",
-      "messageRefused": "Couldn’t copy. Select the message and copy it.",
+      "linkRefused": "Couldn't copy. Select the link and copy it.",
+      "messageRefused": "Couldn't copy. Select the message and copy it.",
       "messageLabel": "A message to send with it",
       "copyMessage": "Copy message",
       "emailIt": "Email it",
       "shareMenu": "Share…",
-      "shareMenuHint": "Opens your phone’s share menu, with the message and link.",
-      "shareMenuSent": "Sent from your phone’s share menu.",
-      "unavailable": "Couldn’t load the other ways to share. Reload to try again.",
+      "shareMenuHint": "Opens your phone's share menu, with the message and link.",
+      "shareMenuSent": "Sent from your phone's share menu.",
+      "unavailable": "Couldn't load the other ways to share. Reload to try again.",
       "qr": {
         "alt": "QR code for the sign-up link to {title}",
         "lead": "A QR code for a flyer or a sign-up table.",
@@ -878,7 +888,7 @@ declare const messages: {
       },
       "language": {
         "legend": "Language",
-        "help": "Your screens and new signups use this language. To change one signup’s language, use its Settings tab.",
+        "help": "Your screens and new signups use this language. To change one signup's language, use its Settings tab.",
         "save": "Save",
         "toSwitch": "{count, plural, one {{count, number, ::group-off} of your signups is open and isn't in <language>{name}</language> yet.} other {{count, number, ::group-off} of your signups are open and aren't in <language>{name}</language> yet.}}",
         "switch": "{count, plural, one {Switch it to <language>{name}</language>} other {Switch them to <language>{name}</language>}}",
@@ -921,8 +931,8 @@ declare const messages: {
       "sendAgain": "Send again",
       "tryAgain": "Try again",
       "errors": {
-        "invalidEmail": "That doesn’t look like a valid email address.",
-        "sendFailed": "Couldn’t send. Please try again.",
+        "invalidEmail": "That doesn't look like a valid email address.",
+        "sendFailed": "Couldn't send. Please try again.",
         "rateLimited": "Too many sign-in requests. Wait up to an hour. If we already emailed you a link, you can use that."
       }
     },

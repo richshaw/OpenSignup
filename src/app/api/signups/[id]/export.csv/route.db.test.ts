@@ -5,9 +5,10 @@ import { getDb, type Db } from '@/db/client';
 import { workspaceMembers } from '@/db/schema/members';
 import { organizers } from '@/db/schema/organizers';
 import { workspaces } from '@/db/schema/workspaces';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
+import { csvSeparator } from '@/lib/responses-csv';
 import type { Actor } from '@/lib/policy';
 import { commitToSlot, removeCommitment } from '@/services/commitments';
 import { createSignup, publishSignup } from '@/services/signups';
@@ -23,7 +24,6 @@ vi.mock('@/auth/session', async () => {
   const { loadOrganizerSessionById } = await import('@/auth/organizer-session');
   const { getDb } = await import('@/db/client');
   return {
-    requireActor: async () => session.actor,
     getOrganizerSession: async () =>
       session.actor.kind === 'organizer'
         ? loadOrganizerSessionById(getDb(), session.actor.id)
@@ -169,7 +169,7 @@ describe('GET /api/signups/[id]/export.csv (db)', () => {
     });
     const res = await GET(req, { params: Promise.resolve({ id: fx.signupId }) });
     expect(res.status).toBe(200);
-    return (await res.text()).replace(/^\uFEFF/, '').split('\n');
+    return res;
   }
 
   it('writes a column per field and says who the organizer removed', async () => {
@@ -196,15 +196,23 @@ describe('GET /api/signups/[id]/export.csv (db)', () => {
     expect(rest).toEqual([]);
   });
 
-  it.each(CATALOG_LOCALES.filter((locale) => locale !== 'en'))(
+  it.each(TEST_LOCALES)(
     'names its columns and statuses in the language stored on the account, %s',
     async (locale) => {
       ship('organizer', ['en', locale]);
       await storeLanguage(locale);
       const say = (key: string) => `organizer.responses.${key} in ${locale}`;
+      // Every test language writes decimals with a comma, so Excel there
+      // splits on semicolons.
+      const separator = csvSeparator(locale);
+      expect(separator).toBe(';');
 
       // The browser asks for English: the account decides, not the request.
-      const [header, pat, sam] = await download({ 'accept-language': 'en' });
+      const res = await download({ 'accept-language': 'en' });
+      expect(res.headers.get('content-disposition')).toBe(
+        `attachment; filename="${say('csv.fileName')}"`,
+      );
+      const [header, pat, sam] = (await res.text()).replace(/^\uFEFF/, '').split('\n');
       expect(header).toBe(
         [
           'Day',
@@ -215,20 +223,24 @@ describe('GET /api/signups/[id]/export.csv (db)', () => {
           say('csv.spots'),
           say('csv.notes'),
           say('csv.signedUp'),
-        ].join(','),
+        ].join(separator),
       );
       // Values and names as stored, the status in the organizer's language.
-      expect(pat).toMatch(/^2030-11-14,Fruit and water,Pat Example,/);
-      expect(pat?.split(',')[4]).toBe(say('status.confirmed'));
-      expect(sam).toMatch(/^2030-11-14,Fruit and water,Sam Example,/);
-      expect(sam?.split(',')[4]).toBe(say('status.removed'));
+      expect(pat).toMatch(/^2030-11-14;Fruit and water;Pat Example;/);
+      expect(pat?.split(separator)[4]).toBe(say('status.confirmed'));
+      expect(sam).toMatch(/^2030-11-14;Fruit and water;Sam Example;/);
+      expect(sam?.split(separator)[4]).toBe(say('status.removed'));
     },
   );
 
   it('stays in English for a stored language that hasn’t shipped, whatever the browser asks', async () => {
     shipOnlyEnglish();
     await storeLanguage('sv');
-    const [header, , sam] = await download({ 'accept-language': 'sv' });
+    const res = await download({ 'accept-language': 'sv' });
+    expect(res.headers.get('content-disposition')).toBe(
+      `attachment; filename="${fx.slug}-responses.csv"`,
+    );
+    const [header, , sam] = (await res.text()).replace(/^\uFEFF/, '').split('\n');
     expect(header).toBe('Day,What,Name,Email,Status,Spots,Notes,Signed up');
     expect(sam?.split(',')[4]).toBe('removed');
   });

@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import {
   FIELD_TYPE_META,
   FIELD_VALUE_INPUT_CLASS,
-  FIELD_VALUE_INPUTS,
+  fieldValueControl,
 } from '../build-shared/fieldTypes';
 import { InlineNote } from '@/components/ui/inline-note';
 import { SLOT_CHANGE_SETTLE_MINUTES } from '@/lib/reminder-eligibility';
@@ -161,7 +161,8 @@ export function SlotEditor({
           // where the click came from, so the click reached the trigger too:
           // picking reopened the menu, and "Add to list" closed its input as
           // soon as it appeared. The trigger has its own aria-label.
-          const Cell = fieldType === 'enum' ? 'div' : 'label';
+          const control = fieldValueControl(f.config);
+          const Cell = control.kind === 'enum' ? 'div' : 'label';
           return (
             <Cell
               key={f.id}
@@ -172,16 +173,16 @@ export function SlotEditor({
                 <TypeIcon size={10} className="text-ink-soft" />
                 {f.name}
               </span>
-              {f.config.fieldType === 'enum' ? (
+              {control.kind === 'enum' ? (
                 <EnumPicker
                   value={row.values[f.ref] ?? ''}
-                  options={f.config.choices}
+                  options={control.choices}
                   ariaLabel={t('editor.value', { field: f.name })}
                   lang={lang}
                   onChange={(v) => onCellChange(f.ref, v)}
                   onAddOption={(v) => onAddEnumOption(f.id, v)}
                 />
-              ) : f.config.fieldType === 'time' ? (
+              ) : control.kind === 'time' ? (
                 <TimeSelect
                   value={row.values[f.ref] ?? ''}
                   onChange={(v) => onCellChange(f.ref, v)}
@@ -192,9 +193,8 @@ export function SlotEditor({
                 />
               ) : (
                 <input
-                  {...FIELD_VALUE_INPUTS[f.config.fieldType]}
-                  {...(f.config.fieldType === 'text' ? { maxLength: f.config.maxLength } : {})}
-                  placeholder={t(`placeholder.${f.config.fieldType}`)}
+                  {...control.input}
+                  placeholder={t(`placeholder.${control.fieldType}`)}
                   value={row.values[f.ref] ?? ''}
                   onChange={(e) => onCellChange(f.ref, e.target.value)}
                   className={FIELD_VALUE_INPUT_CLASS}

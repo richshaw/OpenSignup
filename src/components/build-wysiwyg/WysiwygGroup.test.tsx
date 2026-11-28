@@ -235,6 +235,66 @@ describe('WysiwygGroup', () => {
     expect(onRenameGroup).toHaveBeenCalledWith('Snacks', 'Drinks');
   });
 
+  it('edits a Number header in a number input, as the slot editor does', () => {
+    const { onRenameGroup } = renderGroup({
+      group: { key: '3', rawValue: '3', rows: [makeRow()] },
+      groupField: makeField({ ref: 'table', name: 'Table', config: { fieldType: 'number' } }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*3/ }));
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    expect(input.type).toBe('number');
+    expect(input.className).toBe(FIELD_VALUE_INPUT_CLASS);
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onRenameGroup).toHaveBeenCalledWith('3', '4');
+  });
+
+  it('leaves a Number header alone when the input holds no number', () => {
+    const { onRenameGroup } = renderGroup({
+      group: { key: '3', rawValue: '3', rows: [makeRow()] },
+      groupField: makeField({ ref: 'table', name: 'Table', config: { fieldType: 'number' } }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Group header.*3/ }));
+    const input = screen.getByLabelText(/Group header/) as HTMLInputElement;
+    // A number input reports '' for anything that isn't a number.
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(onRenameGroup).not.toHaveBeenCalled();
+  });
+
+  it('offers the time list for a Time header, not free text', () => {
+    const { onRenameGroup } = renderGroup({
+      group: { key: '09:00', rawValue: '09:00', rows: [makeRow()] },
+      groupField: makeField({ ref: 'start', name: 'Start', config: { fieldType: 'time' } }),
+    });
+    expect(screen.queryByRole('textbox')).toBeNull();
+    const select = screen.getByRole('combobox', {
+      name: /Group header.*9:00/,
+    }) as HTMLSelectElement;
+    expect(select.value).toBe('09:00');
+    fireEvent.change(select, { target: { value: '09:30' } });
+    expect(onRenameGroup).toHaveBeenCalledWith('09:00', '09:30');
+  });
+
+  it('prompts for a time in an empty Time group, and never clears a set one', () => {
+    const empty = renderGroup({
+      group: { key: '__empty__', rawValue: '', rows: [makeRow()] },
+      groupField: makeField({ ref: 'start', name: 'Start', config: { fieldType: 'time' } }),
+    });
+    const select = screen.getByRole('combobox', { name: /Group header.*Set a time/ });
+    expect((select as HTMLSelectElement).selectedOptions[0]?.textContent).toBe('Set a time');
+    fireEvent.change(select, { target: { value: '18:00' } });
+    expect(empty.onRenameGroup).toHaveBeenCalledWith('__empty__', '18:00');
+    empty.unmount();
+
+    const set = renderGroup({
+      group: { key: '09:00', rawValue: '09:00', rows: [makeRow()] },
+      groupField: makeField({ ref: 'start', name: 'Start', config: { fieldType: 'time' } }),
+    });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    expect(set.onRenameGroup).not.toHaveBeenCalled();
+  });
+
   it("stops a Short text header at its field's maxLength", () => {
     renderGroup({
       group: { key: 'Snacks', rawValue: 'Snacks', rows: [makeRow()] },

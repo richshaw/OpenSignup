@@ -8,6 +8,7 @@ import { getServerTranslator } from '@/i18n/server';
 import { localeOfSignup, newSignupLocale } from '@/i18n/locale';
 import {
   activityActor,
+  listActivityForSignup,
   recordActivities,
   recordActivity,
   recordActivityBestEffort,
@@ -240,7 +241,6 @@ export async function createSignup(
         slug,
         title: data.title,
         description: data.description,
-        visibility: data.visibility,
         tags: data.tags,
         settings,
         closesAt: data.closesAt ? new Date(data.closesAt) : null,
@@ -313,6 +313,18 @@ export async function getSignupForOrganizer(
       ? { ...row, slots: signupSlots, fields, committedBySlot: filled }
       : { ...row, slots: signupSlots, fields },
   );
+}
+
+/** The signup's activity log, newest first, at most `limit` rows. */
+export async function listActivity(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+  limit: number,
+): Promise<Result<Awaited<ReturnType<typeof listActivityForSignup>>, ServiceError>> {
+  const loaded = await getSignupRowForOrganizer(db, actor, signupId);
+  if (!loaded.ok) return loaded;
+  return ok(await listActivityForSignup(db, signupId, limit));
 }
 
 /**
@@ -825,6 +837,15 @@ const signupSummaryColumns = {
   closesAt: signups.closesAt,
   createdAt: signups.createdAt,
   updatedAt: signups.updatedAt,
+};
+
+/**
+ * The summary columns and, of the settings, only `locale`, as stored, so Your
+ * signups can mark each title with its signup's language (`localeOfSignup`)
+ * in the same statement.
+ */
+const signupSummaryPageColumns = {
+  ...signupSummaryColumns,
   locale: sql<string | null>`${signups.settings}->>'locale'`,
 };
 
@@ -837,15 +858,14 @@ export type SignupSummary = Pick<
 /**
  * The same rows as listSignupsForWorkspace, reading only the columns a list
  * shows, so up to WORKSPACE_LIST_LIMIT long descriptions aren't read from Postgres and thrown
- * away. Of the settings, only `locale`, as stored, so Your signups can mark
- * each title with its signup's language (`localeOfSignup`) in the same statement.
+ * away.
  */
 export async function listSignupSummariesForWorkspace(
   db: Db,
   actor: Actor,
   workspaceId: string,
   filter: { status?: SignupStatus } = {},
-): Promise<Result<(SignupSummary & { locale: string | null })[], ServiceError>> {
+): Promise<Result<SignupSummary[], ServiceError>> {
   requireWorkspaceAccess(actor, workspaceId);
   const rows = await db
     .select(signupSummaryColumns)
@@ -898,7 +918,7 @@ export async function listSignupSummaryPageForWorkspace(
 
   if (!opts.before && !opts.after) {
     const rows = await db
-      .select(signupSummaryColumns)
+      .select(signupSummaryPageColumns)
       .from(signups)
       .where(live)
       .orderBy(desc(signups.createdAt), desc(signups.id))
@@ -915,14 +935,14 @@ export async function listSignupSummaryPageForWorkspace(
 
   const rows = opts.before
     ? await db
-        .select(signupSummaryColumns)
+        .select(signupSummaryPageColumns)
         .from(signups)
         .where(and(live, sql`${key} < ${placeOf(opts.before)}`))
         .orderBy(desc(signups.createdAt), desc(signups.id))
         .limit(WORKSPACE_LIST_LIMIT)
     : (
         await db
-          .select(signupSummaryColumns)
+          .select(signupSummaryPageColumns)
           .from(signups)
           .where(and(live, sql`${key} > ${placeOf(opts.after ?? '')}`))
           .orderBy(asc(signups.createdAt), asc(signups.id))

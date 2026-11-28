@@ -7,6 +7,7 @@ import type { SignupViewField, SignupViewSlot } from './signup-view-types';
 // Single implementation, shared with the emails so a slot reads the same in
 // both places. See src/lib/slot-label.ts.
 import { renderFieldValue } from '@/lib/slot-label';
+import { spotsLeft } from '@/lib/spot-counts';
 
 export { pickPrimaryField, renderFieldValue } from '@/lib/slot-label';
 
@@ -92,10 +93,8 @@ export function capacityLabel(
   // Without this it fell through to the fraction branch as a meaningless
   // "0/0"; the expression this replaced rendered a bare "0" for the same row.
   if (capacity <= 1) return { text: '', sr: null };
-  // `<=`, not `===`: the organizer can lower a slot's capacity below its
-  // sign-ups, and that slot is full too.
-  const left = capacity - committed;
-  if (left <= 0) return { text: '', sr: null };
+  const left = spotsLeft(capacity, committed);
+  if (left === 0) return { text: '', sr: null };
   return { text: t('left', { left }), sr: t('leftOf', { left, capacity }) };
 }
 

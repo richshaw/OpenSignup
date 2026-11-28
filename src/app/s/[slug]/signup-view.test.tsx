@@ -3,9 +3,8 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { CATALOG_LOCALES } from '@/i18n/config';
 import { getTestTranslator } from '@/i18n/testing/translator';
-import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { getTranslator, messagesFor, type Namespace } from '@/i18n/translator';
 import { formatSlotDate } from '@/lib/slot-label';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
@@ -65,10 +64,13 @@ const SLOTS: SignupViewSlot[] = [
   },
 ];
 
-const SIGNUP = { title: 'Snack duty', description: '', status: 'open' as const };
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
+const SIGNUP = {
+  title: 'Snack duty',
+  description: '',
+  status: 'open' as const,
+  requireEmail: true,
+  sendReminders: true,
+};
 
 describe('<SignupViewBody mode="showcase" />', () => {
   it('renders the row action as an inert span styled like the active button', () => {
@@ -121,7 +123,6 @@ describe('<SignupViewBody mode="showcase" />', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const button = screen.getByRole('button', { name: 'Sign up for Sun, May 17, Hawks' });
@@ -293,7 +294,6 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(screen.getByText(slot('left'))).toBeInTheDocument();
@@ -357,7 +357,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
 
   // The organizer's, whatever the signup's: the stand-in translator answers
   // with where each text was asked for.
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'puts the Preview banner and the disabled button’s tip in the organizer’s language, %s',
     (other) => {
       render(
@@ -394,7 +394,7 @@ describe('<SignupViewBody /> text, from the catalog in the signup’s language',
   // can: the button's title and its description both pass the signup's
   // status, which picks the words (#888).
   it.each(
-    OTHER_LANGUAGES.flatMap((other) =>
+    TEST_LOCALES.flatMap((other) =>
       (['draft', 'open'] as const).map((status) => [other, status] as const),
     ),
   )('gives the disabled button’s tip in %s the status of a signup that is %s', (other, status) => {
@@ -493,7 +493,6 @@ describe('<SignupViewBody /> heading level', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Snack duty' })).toBeInTheDocument();
@@ -545,7 +544,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
   }
@@ -572,10 +570,12 @@ describe('<SignupViewBody /> slot row', () => {
         slots={MULTI}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
-    expect(screen.getAllByText('Closed')).toHaveLength(3);
+    // The Closed banner says it once more; count the rows' own.
+    const banner = screen.getByRole('status');
+    const rowLabels = screen.getAllByText('Closed').filter((label) => !banner.contains(label));
+    expect(rowLabels).toHaveLength(3);
     expect(screen.queryByText(/\d+ left|spots left|signed up/)).toBeNull();
   });
 
@@ -606,13 +606,31 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     const meta = screen.getByText('Hawks · Sunnyvale Sports Complex');
     expect(meta).toHaveClass('line-clamp-3');
     expect(meta).toHaveClass('sm:line-clamp-2');
     expect(meta).not.toHaveClass('truncate');
+  });
+
+  it('lets a long slot name wrap to two lines instead of cutting it off', () => {
+    // "Cupcakes or muffins (a d…" hid the amount on a 390px screen.
+    render(
+      <SignupViewBody
+        locale="en"
+        signup={SIGNUP}
+        fields={[{ ref: 'what', label: 'What', fieldType: 'text' }]}
+        groupByRef={null}
+        slots={[{ ...SLOTS[0]!, values: { what: 'Cupcakes or muffins (a dozen)' } }]}
+        slug="example"
+        mode="preview"
+        organizerLocale="en"
+      />,
+    );
+    const title = screen.getByText('Cupcakes or muffins (a dozen)', { selector: 'p' });
+    expect(title).toHaveClass('line-clamp-2');
+    expect(title).not.toHaveClass('truncate');
   });
 
   it('disambiguates rows on a grouped signup, where the title is only the time', () => {
@@ -634,7 +652,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     expect(
@@ -676,7 +693,6 @@ describe('<SignupViewBody /> slot row', () => {
         slug="example"
         mode="preview"
         organizerLocale="en"
-        showStateBanner={false}
       />,
     );
     // Assert against ACTION_SIZING rather than naming a class: the invariant
@@ -731,7 +747,6 @@ describe('<SignupViewBody mode="live" /> quantity', () => {
         slots={LIVE}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: team }));
@@ -840,13 +855,12 @@ describe('"Add to calendar" on a signup with several time fields', () => {
       render(
         <SignupViewBody
           locale="en"
-          signup={{ title: 'Trip', description: '', status: 'open' }}
+          signup={{ ...SIGNUP, title: 'Trip' }}
           fields={TRIP.fields}
           groupByRef={null}
           slots={toSignupViewSlots(TRIP).filter((s) => s.id === slotId)}
           slug="trip"
           mode="live"
-          showStateBanner={false}
         />,
       );
       fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -885,21 +899,16 @@ describe('the optional email box on the live page', () => {
   const inHours = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString();
 
   /** Opens the one slot's form and returns the email box's description. */
-  async function emailHelp(sendReminders: boolean | undefined, slotAt: string | null) {
+  async function emailHelp(sendReminders: boolean, slotAt: string | null) {
     render(
       <SignupViewBody
         locale="en"
-        signup={{
-          ...SIGNUP,
-          requireEmail: false,
-          ...(sendReminders === undefined ? {} : { sendReminders }),
-        }}
+        signup={{ ...SIGNUP, requireEmail: false, sendReminders }}
         fields={FIELDS}
         groupByRef={null}
         slots={[{ ...SLOTS[0]!, slotAt }]}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));
@@ -914,7 +923,6 @@ describe('the optional email box on the live page', () => {
   // The rule the confirmation email follows: src/lib/reminder-eligibility.ts.
   for (const [why, sendReminders, slotAt] of [
     ['reminders are off', false, inHours(72)],
-    ['nothing says whether reminders are on', undefined, inHours(72)],
     ['the slot has no date', true, null],
     ['the slot is less than an hour away', true, inHours(0.5)],
   ] as const) {
@@ -1146,7 +1154,6 @@ describe('naming the slot once its row is out of sight', () => {
         slots={slots}
         slug="example"
         mode="live"
-        showStateBanner={false}
       />,
     );
   }
@@ -1273,7 +1280,6 @@ describe('"You\'re in." and the address the link went to', () => {
           slots={[SLOTS[0]!]}
           slug="example"
           mode="live"
-          showStateBanner={false}
         />,
       );
       fireEvent.click(screen.getByRole('button', { name: /^Sign up for / }));

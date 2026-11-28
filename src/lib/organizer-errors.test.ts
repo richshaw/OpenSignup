@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { connectedAppsLines } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/refusal-lines';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
 import { serviceError, type ErrorCode, type ErrorReason } from './errors';
 import { waitInMinutes } from './format-duration';
@@ -9,8 +9,6 @@ import { TITLE_TOO_SHORT_MESSAGE } from './signup-limits';
 import { ERROR_CODES } from './testing/error-codes';
 
 const t = getTestTranslator('organizer.errors');
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
 describe('the organizer catalog’s refusals', () => {
   it('say a title is too short as the Build tab and the API do', () => {
     expect(
@@ -24,7 +22,7 @@ describe('the organizer catalog’s refusals', () => {
   it('give the wait for the create limit in whole minutes, as before', () => {
     for (const seconds of [1, 60, 61, 3599, 3600 * 30]) {
       expect(t('tooManySignups', { minutes: Math.max(1, Math.ceil(seconds / 60)) })).toBe(
-        `You’ve created a lot of signups in the last hour. Try again in about ${waitInMinutes(seconds)}.`,
+        `You've created a lot of signups in the last hour. Try again in about ${waitInMinutes(seconds)}.`,
       );
     }
   });
@@ -42,10 +40,10 @@ describe('refusalText', () => {
     const error = serviceError('invalid_input', 'Invalid email', {
       details: { reason: 'email_invalid' },
     });
-    expect(refusalText(t, error)).toBe('Some values weren’t accepted.');
+    expect(refusalText(t, error)).toBe("Some values weren't accepted.");
   });
 
-  it.each(OTHER_LANGUAGES)('asks the catalog in the language it is given, %s', (other) => {
+  it.each(TEST_LOCALES)('asks the catalog in the language it is given, %s', (other) => {
     const inOther = getStandInTranslator(other, 'organizer.errors');
     expect(refusalText(inOther, serviceError('forbidden', 'x'))).toBe(
       `organizer.errors.code.forbidden in ${other}`,
@@ -67,14 +65,14 @@ describe('refusalText with a screen’s own lines', () => {
     expect(refusalText(t, tooShort, forCode)).toBe(TITLE_TOO_SHORT_MESSAGE);
     expect(refusalText(t, plain, forCode)).toBe('Own code');
     expect(refusalText(t, plain, { other: 'Own other' })).toBe('Own other');
-    expect(refusalText(t, plain, {})).toBe('Some values weren’t accepted.');
+    expect(refusalText(t, plain, {})).toBe("Some values weren't accepted.");
   });
 
   it('gives a viewer the same line on every screen, whatever lines the screen has', () => {
     const viewer = serviceError('forbidden', 'your role cannot modify this workspace');
-    expect(refusalText(t, viewer, { other: 'Own other' })).toBe('You don’t have edit access.');
+    expect(refusalText(t, viewer, { other: 'Own other' })).toBe("You don't have edit access.");
     // @ts-expect-error A screen has no line of its own for a viewer.
-    expect(refusalText(t, viewer, { forbidden: 'Own line' })).toBe('You don’t have edit access.');
+    expect(refusalText(t, viewer, { forbidden: 'Own line' })).toBe("You don't have edit access.");
   });
 
   it('ignores a reason that isn’t one of the screen’s own keys', () => {
@@ -96,11 +94,11 @@ describe('refusalFromQuery', () => {
 
   it('gives a screen’s own line for a code, as Connected apps does for a failed disconnect', () => {
     const own = connectedAppsLines(t);
-    expect(refusalFromQuery(t, 'internal', own)).toBe('Couldn’t disconnect. Try again.');
+    expect(refusalFromQuery(t, 'internal', own)).toBe("Couldn't disconnect. Try again.");
     // An app already disconnected, in another tab: the server's message was
     // "no such connected app".
     expect(refusalFromQuery(t, 'not_found', own)).toBe('That app is already disconnected.');
-    expect(refusalFromQuery(t, 'forbidden', own)).toBe('You don’t have edit access.');
+    expect(refusalFromQuery(t, 'forbidden', own)).toBe("You don't have edit access.");
     expect(refusalFromQuery(t, 'rate_limited', own)).toBe(t('code.rate_limited'));
   });
 

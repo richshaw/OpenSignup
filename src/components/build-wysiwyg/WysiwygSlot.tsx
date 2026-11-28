@@ -193,7 +193,11 @@ export function WysiwygSlot({
         // Where BuildWysiwyg finds the row to put focus back on when its
         // editor closes.
         data-slot-row={row.id}
-        className="flex w-full items-center justify-between gap-2.5 border-none bg-transparent px-3.5 py-2.5 text-left"
+        // While the toolbar shows (on the same hover and focus-within that
+        // reveal it), the right padding clears it, 80px wide and 8px in from
+        // the edge, so the count slides left beside it rather than under it.
+        // The summary gives up the room; a row at rest is unchanged.
+        className="flex w-full items-center justify-between gap-2.5 border-none bg-transparent px-3.5 py-2.5 text-left group-focus-within:pr-24 group-hover:pr-24"
       >
         {/* The anchor keeps its natural width (capped, so a long first value
             still leaves room) and the summary absorbs the truncation. Left to

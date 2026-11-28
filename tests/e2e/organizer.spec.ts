@@ -93,7 +93,7 @@ test.describe('organizer flow', () => {
     await expect(more).toHaveAttribute('aria-expanded', 'true');
     await panel.getByRole('button', { name: 'Close signup' }).click();
     await expect(panel).toContainText(
-      'Nobody has signed up yet. People can’t sign up until you reopen it.',
+      "Nobody has signed up yet. People can't sign up until you reopen it.",
     );
     const notYet = panel.getByRole('button', { name: 'Not yet' });
     await expect(notYet).toBeFocused();
@@ -125,15 +125,19 @@ test.describe('organizer flow', () => {
     await expect(pill('closed')).toBeVisible();
     await expect(banner).toBeVisible();
     await expect(
-      page.getByText('People can’t sign up now. Everyone already signed up keeps their spot.'),
+      page.getByText("People can't sign up now. Everyone already signed up keeps their spot."),
     ).toBeVisible();
+    // It ends with a link to the help page on closing, in the same tab.
+    const help = page.getByRole('link', { name: 'How closing and reopening work' });
+    await expect(help).toHaveAttribute('href', '/help/close-or-reopen-a-signup');
+    await expect(help).not.toHaveAttribute('target');
     expect(await storedStatus()).toBe('closed');
     // The ⋯ went with it, so focus is on the title, and a screen reader hears
     // what happened.
     await expect(more).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
     await expect(
-      page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
+      page.getByRole('status').filter({ hasText: "Closed. People can't sign up now." }),
     ).toHaveCount(1);
 
     // The box stays on the other tabs, and goes for good with its ✕, which
@@ -170,7 +174,7 @@ test.describe('organizer flow', () => {
     await more.click();
     await sheet.getByRole('button', { name: 'Close signup' }).click();
     await expect(
-      sheet.getByRole('group', { name: /^Nobody has signed up yet\. People can’t sign up/ }),
+      sheet.getByRole('group', { name: /^Nobody has signed up yet\. People can't sign up/ }),
     ).toBeVisible();
     const notYet = sheet.getByRole('button', { name: 'Not yet' });
     await expect(notYet).toBeFocused();
@@ -229,7 +233,7 @@ test.describe('organizer flow', () => {
     await expect(page.getByText('Signup closed', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
     await expect(
-      page.getByRole('status').filter({ hasText: 'Closed. People can’t sign up now.' }),
+      page.getByRole('status').filter({ hasText: "Closed. People can't sign up now." }),
     ).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).not.toBeFocused();
   });
@@ -515,7 +519,7 @@ for (const [device, viewport] of [
       (await (await page.request.get(`/api/signups/${id}`)).json()).data.status;
     // What the header's live region says once Publish and share has the focus back.
     const ready = (page: Page) =>
-      page.getByRole('status').filter({ hasText: 'Publish and share when you’re ready.' });
+      page.getByRole('status').filter({ hasText: "Publish and share when you're ready." });
 
     test('an empty slot stops Publish, and Fill it in opens it', async ({ page }) => {
       const draft = await createDraft(page.request, { title: `Empty slot ${Date.now()}` });
@@ -692,7 +696,7 @@ test.describe('Publish’s check, around the Build tab', () => {
     await publishButton(page).click();
     await expect(
       page
-        .getByText('A change didn’t save. Fix it, then publish.', { exact: true })
+        .getByText("A change didn't save. Fix it, then publish.", { exact: true })
         .locator('visible=true'),
     ).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0);

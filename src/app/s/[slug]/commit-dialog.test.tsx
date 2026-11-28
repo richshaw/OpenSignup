@@ -422,7 +422,7 @@ describe('<CommitDialog /> sheet', () => {
 
       const alert = await screen.findByRole('alert', {}, settle);
       expect(alert).toHaveTextContent('No one new can sign up for this slot now.');
-      expect(alert).toHaveTextContent('Reload the page to see what’s still open.');
+      expect(alert).toHaveTextContent("Reload the page to see what's still open.");
       expect(alert).not.toHaveTextContent('signup has closed');
     } finally {
       delete (Element.prototype as Partial<Element>).scrollIntoView;
@@ -642,6 +642,42 @@ describe('<CommitDialog /> sheet', () => {
     fireEvent.change(email, { target: { value: 'pat@gmial.com' } });
     fireEvent.click(await screen.findByRole('button', { name: 'pat@gmail.com' }, settle));
     expect(email).toHaveValue('pat@gmail.com');
+  });
+
+  it('checks an email against the domains of the signup language', async () => {
+    const strict = {
+      onError: (error: Error) => {
+        throw error;
+      },
+    };
+    const fields = getTranslator('sv', 'participant.fields', strict);
+    openSheet({
+      wrapper: function SwedishMessages({ children }: { children: ReactNode }) {
+        return (
+          <ClientMessages locale="sv" messages={messagesFor('sv', COMMIT_DIALOG_NAMESPACES)}>
+            {children}
+          </ClientMessages>
+        );
+      },
+      trigger: getTranslator(
+        'sv',
+        'participant.dialog',
+        strict,
+      )('signUpFor', {
+        slot: 'Sat, May 16, Cookies, Vinland Elementary',
+      }),
+    });
+    const email = await screen.findByLabelText(fields('email'), {}, settle);
+    fireEvent.change(email, { target: { value: 'pat@hotmial.se' } });
+    expect(await screen.findByRole('button', { name: 'pat@hotmail.se' }, settle)).toBeVisible();
+  });
+
+  it('knows no Swedish domains on an English signup', async () => {
+    openSheet();
+    const email = await screen.findByLabelText('Email', {}, settle);
+    // The hint is worked out as the address changes, so it would show at once.
+    fireEvent.change(email, { target: { value: 'pat@hotmial.se' } });
+    expect(screen.queryByRole('button', { name: 'pat@hotmail.se' })).toBeNull();
   });
 
   describe('where the email is optional', () => {

@@ -86,21 +86,21 @@ describe('SlotEditor', () => {
   it('warns that the people holding the slot will be emailed about a move', () => {
     renderEditor({ taken: 2, remindersOn: true });
     expect(screen.getByRole('note').textContent).toBe(
-      '2 people are signed up for this slot. If you change its date or time, we\u2019ll email them to let them know.',
+      "2 people are signed up for this slot. If you change its date or time, we'll email them to let them know.",
     );
   });
 
   it('warns that nobody is told when reminders are off', () => {
     renderEditor({ taken: 1, remindersOn: false });
     expect(screen.getByRole('note').textContent).toBe(
-      '1 person is signed up for this slot. Reminders are off, so we won\u2019t email them if you change it.',
+      "1 person is signed up for this slot. Reminders are off, so we won't email them if you change it.",
     );
   });
 
   it('says who will be emailed, and when, once a save has moved the slot', () => {
     renderEditor({ taken: 2, remindersOn: true, moved: true });
     const moved =
-      'You moved this slot. We\u2019ll email the 2 people signed up in about 10 minutes, with the new details.';
+      "You moved this slot. We'll email the 2 people signed up in about 10 minutes, with the new details.";
     expect(screen.getByRole('note').textContent).toBe(moved);
     // Announced through a status, since a note's new text isn't.
     expect(screen.getByRole('status').textContent).toBe(moved);
@@ -109,7 +109,7 @@ describe('SlotEditor', () => {
   it('says "the person" when one person holds the moved slot', () => {
     renderEditor({ taken: 1, remindersOn: true, moved: true });
     expect(screen.getByRole('note').textContent).toBe(
-      'You moved this slot. We\u2019ll email the person signed up in about 10 minutes, with the new details.',
+      "You moved this slot. We'll email the person signed up in about 10 minutes, with the new details.",
     );
   });
 
@@ -132,7 +132,7 @@ describe('SlotEditor', () => {
       />,
     );
     expect(screen.getByRole('note').textContent).toBe(
-      '2 people are signed up for this slot. If you change its date or time, we\u2019ll email them to let them know.',
+      "2 people are signed up for this slot. If you change its date or time, we'll email them to let them know.",
     );
     expect(screen.getByRole('status').textContent).toBe('');
   });
@@ -140,7 +140,7 @@ describe('SlotEditor', () => {
   it('keeps the reminders-off note after a move, since nobody is emailed', () => {
     renderEditor({ taken: 1, remindersOn: false, moved: true });
     expect(screen.getByRole('note').textContent).toBe(
-      '1 person is signed up for this slot. Reminders are off, so we won\u2019t email them if you change it.',
+      "1 person is signed up for this slot. Reminders are off, so we won't email them if you change it.",
     );
     expect(screen.queryByRole('status')).toBeNull();
   });

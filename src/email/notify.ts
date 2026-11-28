@@ -10,20 +10,15 @@
  * courtesy, and losing one must never look like a failed sign-up.
  */
 import type { Db } from '@/db/client';
-import { localeOfSignup } from '@/i18n/locale';
 import { alreadyRecorded, recordActivity } from '@/lib/activity';
-import { commitmentEditUrl } from '@/lib/links';
 import { log } from '@/lib/log';
 import { chargeRateLimit, RateLimits } from '@/lib/rate-limit';
 import { willSendReminder } from '@/lib/reminder-eligibility';
 import { normalizeEmail } from '@/schemas/common';
 import { sendsReminders } from '@/schemas/signups';
-import { loadCommitmentRow, slotText } from './commitment-row';
+import { commitmentEmailProps, loadCommitmentRow, type CommitmentRow } from './commitment-row';
 import { sendCommitmentConfirmation } from './send';
 import type { CommitmentConfirmationEmailProps } from './templates/commitment-confirmation';
-
-/** A commitment as `loadCommitmentRow` reads it, with its slot, signup and participant. */
-type CommitmentRow = NonNullable<Awaited<ReturnType<typeof loadCommitmentRow>>>;
 
 /**
  * The confirmation `notifyCommitmentCreated` sends for `row`: in the signup's
@@ -47,17 +42,7 @@ export async function confirmationFor(
     remindersOptedOutAt: row.participant.remindersOptedOutAt,
   });
 
-  const locale = localeOfSignup(row.signup.settings.locale);
-  return {
-    locale,
-    participantName: row.participant.name,
-    signupTitle: row.signup.title,
-    manageUrl: commitmentEditUrl(row.signup.slug, row.commitment.id, editToken),
-    ...(await slotText(db, row.signup.id, row.slot.values, locale)),
-    notes: row.commitment.notes,
-    quantity: row.commitment.quantity,
-    promisesReminder,
-  };
+  return { ...(await commitmentEmailProps(db, row, editToken)), promisesReminder };
 }
 
 /**

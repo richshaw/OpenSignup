@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { getStandInTranslator, getTestTranslator } from '@/i18n/testing/translator';
-import { responsesCsv, type ResponsesCsvInput } from './responses-csv';
+import { getTranslator } from '@/i18n/translator';
+import {
+  attachmentNamed,
+  csvSeparator,
+  responsesCsv,
+  type ResponsesCsvInput,
+} from './responses-csv';
 
 const BOM = '﻿';
 
@@ -140,10 +146,7 @@ describe('responsesCsv', () => {
   });
 });
 
-/** Every language with a catalog but English. */
-const OTHER_LOCALES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
-
-describe.each(OTHER_LOCALES)('responsesCsv for an organizer reading %s', (locale) => {
+describe.each(TEST_LOCALES)('responsesCsv for an organizer reading %s', (locale) => {
   const t = getStandInTranslator(locale, 'organizer.responses');
   const say = (key: string) => `organizer.responses.${key} in ${locale}`;
 
@@ -201,5 +204,89 @@ describe.each(OTHER_LOCALES)('responsesCsv for an organizer reading %s', (locale
       'Name',
       say('csv.name'),
     ]);
+  });
+});
+
+describe('csvSeparator', () => {
+  it('is a comma where decimals are written with a point', () => {
+    expect(csvSeparator('en')).toBe(',');
+  });
+
+  it('is a semicolon where decimals are written with a comma, as Excel splits there', () => {
+    expect(csvSeparator('sv')).toBe(';');
+    expect(csvSeparator('de')).toBe(';');
+  });
+});
+
+describe('responsesCsv with a semicolon separator', () => {
+  const sv = getTranslator('sv', 'organizer.responses', {
+    onError: (error) => {
+      throw error;
+    },
+  });
+  const inSwedish = (input: ResponsesCsvInput) => responsesCsv(input, sv, ';');
+
+  it('splits cells on semicolons, keeps the BOM and the stored values', () => {
+    expect(
+      rows(
+        inSwedish({
+          ...base,
+          fields: [...base.fields, { ref: 'qty', label: 'Qty', fieldType: 'number' }],
+          slots: [{ id: 'slot_1', values: { date: '2026-11-14', what: 'Frukt', qty: 1.5 } }],
+        }),
+      ),
+    ).toEqual([
+      'Date;What;Qty;Namn;E-post;Status;Antal platser;Kommentar;Anmäld',
+      `2026-11-14;Frukt;1.5;Pat;pat@example.com;${sv('status.confirmed')};1;;2026-10-01T09:30:00.000Z`,
+    ]);
+  });
+
+  it('quotes semicolons, commas, quotes and line breaks', () => {
+    const commitment = base.commitments[0]!;
+    const csv = inSwedish({
+      ...base,
+      commitments: [
+        { ...commitment, participantName: 'Pat; Sam', notes: 'Kaffe, te' },
+        { ...commitment, id: 'com_2', participantName: 'Pat "P"', notes: 'a\nb' },
+      ],
+    });
+    expect(csv).toContain(';"Pat; Sam";');
+    expect(csv).toContain(';"Kaffe, te";');
+    expect(csv).toContain(';"Pat ""P""";');
+    expect(csv).toContain(';"a\nb";');
+  });
+});
+
+describe('responsesCsv with the default separator', () => {
+  it('leaves a semicolon in a cell unquoted, as before', () => {
+    const commitment = base.commitments[0]!;
+    const csv = inEnglish({ ...base, commitments: [{ ...commitment, notes: 'cups; plates' }] });
+    expect(csv).toContain(',cups; plates,');
+  });
+});
+
+describe('attachmentNamed', () => {
+  it('names an ASCII file as before', () => {
+    expect(attachmentNamed('snack-duty-responses.csv')).toBe(
+      'attachment; filename="snack-duty-responses.csv"',
+    );
+  });
+
+  it('gives a name with å, ä or ö in filename*, with a plain fallback beside it', () => {
+    const name = getTranslator('sv', 'organizer.responses', {
+      onError: (error) => {
+        throw error;
+      },
+    })('csv.fileName', { slug: 'snack-duty' });
+    expect(name).toBe('snack-duty-anmälningar.csv');
+    expect(attachmentNamed(name)).toBe(
+      `attachment; filename="snack-duty-anmalningar.csv"; filename*=UTF-8''snack-duty-anm%C3%A4lningar.csv`,
+    );
+  });
+
+  it('keeps quotes out of the plain name and encodes what RFC 5987 refuses', () => {
+    expect(attachmentNamed('a "b" (ü).csv')).toBe(
+      `attachment; filename="a _b_ (u).csv"; filename*=UTF-8''a%20%22b%22%20%28%C3%BC%29.csv`,
+    );
   });
 });

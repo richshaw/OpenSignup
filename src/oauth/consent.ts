@@ -1,16 +1,22 @@
 import { headers } from 'next/headers';
 import Provider, { errors as oidcErrors } from 'oidc-provider';
 import { getDb } from '@/db/client';
-import { recordActivityBestEffort } from '@/lib/activity';
+import { activityActor, recordActivityBestEffort } from '@/lib/activity';
 import { serviceError, ServiceException } from '@/lib/errors';
 import { log } from '@/lib/log';
 import { requireOrganizerId, type Actor } from '@/lib/policy';
 import { describeClient, type ClientDisplay } from './client-display';
-import { consentPath, mcpResourceUrl, oauthIssuer, PROVIDER_SCOPES } from './config';
+import { consentPath, mcpResourceUrl, oauthIssuer } from './config';
 import { ensureGrant } from './grants';
 import { getProvider } from './instance';
 import { withNodePair } from './node-shim';
-import { describeScopes, parseScopeString, RESOURCE_SCOPES, type ScopeDescription } from './scopes';
+import {
+  describeScopes,
+  isScope,
+  parseScopeString,
+  RESOURCE_SCOPES,
+  type ScopeDescription,
+} from './scopes';
 
 /**
  * The consent step, between the provider's authorization endpoint and the
@@ -127,7 +133,7 @@ export async function decideConsent(
   if (decision === 'deny') {
     result = { error: 'access_denied', error_description: 'The organizer declined the connection' };
     await recordActivityBestEffort(db, {
-      actor: { actorId: organizerId, actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'oauth.consent_denied',
       payload: { clientDomain: display.domain, scopes: resourceScopes },
     });
@@ -139,9 +145,7 @@ export async function decideConsent(
     // it bounces the browser back here forever. Any OIDC scope the request
     // named (offline_access, openid) is granted at that level; resource
     // scopes are the ones that actually reach a token.
-    const oidcScopes = scope
-      .split(/\s+/)
-      .filter((s) => (PROVIDER_SCOPES as readonly string[]).includes(s) || s === 'openid');
+    const oidcScopes = scope.split(/\s+/).filter((s) => isScope(s) || s === 'openid');
     const { grantId, extended } = await ensureGrant(db, provider, {
       accountId: organizerId,
       clientId,
@@ -152,7 +156,7 @@ export async function decideConsent(
     });
     result = { login: { accountId: organizerId }, consent: { grantId } };
     await recordActivityBestEffort(db, {
-      actor: { actorId: organizerId, actorType: 'organizer' },
+      actor: activityActor(actor),
       eventType: 'oauth.consent_granted',
       payload: { clientDomain: display.domain, scopes: resourceScopes, extended },
     });

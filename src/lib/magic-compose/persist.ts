@@ -34,8 +34,8 @@ export interface PersistedDraft {
  *
  * `locale` is a language the caller sent, which goes into the signup's
  * settings, where `createSignup` refuses one that hasn't shipped. Without it
- * the signup starts in `organizer`'s language for new signups, and with
- * neither it stores no language (`createSignup` decides).
+ * the signup starts in `organizer`'s language for new signups
+ * (`createSignup` decides).
  */
 export async function persistDraft(
   db: Db,
@@ -47,8 +47,8 @@ export async function persistDraft(
     strict?: boolean;
     logContext?: Record<string, unknown>;
     locale?: string;
-    organizer?: { locale: string | null };
-  } = {},
+    organizer: { locale: string | null };
+  },
 ): Promise<Result<PersistedDraft, ServiceError>> {
   const { template, groupByFieldRefs, dropped } = magicComposeToTemplate(
     draft,
@@ -84,13 +84,12 @@ export async function persistDraft(
     {
       title: draft.title,
       description: draft.description,
-      visibility: 'unlisted',
       settings: {
         ...(groupByFieldRefs.length > 0 ? { groupByFieldRefs } : {}),
         ...(opts.locale === undefined ? {} : { locale: opts.locale }),
       },
     },
-    { template, ...(opts.organizer ? { organizer: opts.organizer } : {}) },
+    { template, organizer: opts.organizer },
   );
   if (!created.ok) return created;
   return ok({ signup: created.value, template, groupByFieldRefs, warnings });

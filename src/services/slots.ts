@@ -21,6 +21,7 @@ import { MAX_SORT_ORDER } from '@/schemas/common';
 import type { StoredSignupSettings } from '@/schemas/signups';
 import type { SlotFieldDefinition } from '@/schemas/slot-fields';
 import {
+  getSignupRowForOrganizer,
   inWorkspace,
   lockSlot,
   lockSlotsForSignup,
@@ -428,6 +429,16 @@ export async function listSlotsForSignup(db: Queryable, signupId: string) {
     .from(slots)
     .where(eq(slots.signupId, signupId))
     .orderBy(...SLOT_DISPLAY_ORDER);
+}
+
+export async function listSlots(
+  db: Db,
+  actor: Actor,
+  signupId: string,
+): Promise<Result<SlotRow[], ServiceError>> {
+  const loaded = await getSignupRowForOrganizer(db, actor, signupId);
+  if (!loaded.ok) return loaded;
+  return ok(await listSlotsForSignup(db, signupId));
 }
 
 function summarizeValues(values: Record<string, unknown>): string {

@@ -7,7 +7,7 @@ import { ClosedNotice } from './ClosedNotice';
 import { signupHeaderText } from './header-text';
 import { HeaderAnnouncer, useAnnouncedStatusChange } from './HeaderAnnouncer';
 
-const BODY = 'People can’t sign up now. Everyone already signed up keeps their spot.';
+const BODY = "People can't sign up now. Everyone already signed up keeps their spot.";
 
 /** The header's words in English, as the layout passes them. */
 const TEXT = signupHeaderText(getTestTranslator('organizer.signup'));
@@ -31,7 +31,11 @@ function page(status: SignupStatus) {
       </h1>
       <ChangeButton to="closed" />
       <ChangeButton to="open" />
-      <ClosedNotice status={status} text={TEXT.closedNotice} />
+      <ClosedNotice
+        status={status}
+        text={TEXT.closedNotice}
+        help="/help/close-or-reopen-a-signup"
+      />
     </HeaderAnnouncer>
   );
 }
@@ -65,6 +69,15 @@ describe('ClosedNotice', () => {
     expect(screen.getByText(BODY)).toBeInTheDocument();
     // Not a live region: the header's says it closed.
     expect(box()?.closest('[role="status"]')).toBeNull();
+  });
+
+  it('links to the help page on closing and reopening, in the same tab', async () => {
+    const { rerender } = render(page('open'));
+    await press('Close signup');
+    rerender(page('closed'));
+    const link = screen.getByRole('link', { name: 'How closing and reopening work' });
+    expect(link).toHaveAttribute('href', '/help/close-or-reopen-a-signup');
+    expect(link).not.toHaveAttribute('target');
   });
 
   it('goes for good with its ✕, which gives focus to the title', async () => {

@@ -91,7 +91,7 @@ import { organizers } from '@/db/schema/organizers';
 import { rateLimits } from '@/db/schema/rate-limits';
 import { getEmailTransport } from '@/email';
 import type { EmailMessage } from '@/email/transport';
-import { CATALOG_LOCALES } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { ship, shipOnlyEnglish } from '@/i18n/testing/ship';
 import { makeId } from '@/lib/ids';
 import { RateLimits, chargeRateLimit } from '@/lib/rate-limit';
@@ -101,9 +101,6 @@ import { signInEmailLocale } from './sign-in-email-locale';
 
 const db = getDb();
 const lookup = vi.mocked(signInEmailLocale);
-
-/** Every language with a catalog besides English, each tried in turn. */
-const OTHER_LANGUAGES = CATALOG_LOCALES.filter((locale) => locale !== 'en');
 
 const addresses: string[] = [];
 const ips: string[] = [];
@@ -166,7 +163,7 @@ describe('signInEmailLocale', () => {
     expect(await signInEmailLocale(db, await address({ locale: null }))).toBe('en');
   });
 
-  describe.each(OTHER_LANGUAGES)('with %s', (locale) => {
+  describe.each(TEST_LOCALES)('with %s', (locale) => {
     beforeEach(shipOnlyEnglish);
 
     it('is the language stored on the account, once it has shipped to organizers', async () => {
@@ -216,7 +213,7 @@ describe('the sign-in email', () => {
     );
   });
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'is in the language stored on the account, %s, once it has shipped',
     async (locale) => {
       ship('organizer', ['en', locale]);
@@ -227,7 +224,7 @@ describe('the sign-in email', () => {
     },
   );
 
-  it.each(OTHER_LANGUAGES)(
+  it.each(TEST_LOCALES)(
     'is in the site default, %s, for an address with no account',
     async (locale) => {
       site.defaultLocale = locale;

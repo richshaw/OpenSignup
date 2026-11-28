@@ -253,7 +253,7 @@ describe('the edit page’s words', () => {
 
 describe('the cancelled page’s words', () => {
   it.each([
-    ['open', 'There’s still room if you want to sign up again.'],
+    ['open', "There's still room if you want to sign up again."],
     ['full', 'The slot has filled up since.'],
     ['slotClosed', 'The slot has closed.'],
     ['signupClosed', 'The signup has closed.'],
@@ -290,7 +290,7 @@ describe('the cancelled page’s words', () => {
       'Your spot moved to another slot',
     );
     expect(
-      screen.getByText('You’re still signed up. Use the link below to see or change it.'),
+      screen.getByText("You're still signed up. Use the link below to see or change it."),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'See your new spot' })).toHaveAttribute(
       'href',

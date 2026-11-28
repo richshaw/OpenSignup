@@ -67,7 +67,6 @@ export const createSignupTool = defineTool({
     const persisted = await persistDraft(ctx.db, ctx.actor, ws.value, draft, {
       templateId: 'mcp',
       strict: true,
-      logContext: { clientId: ctx.clientId },
       organizer: { locale: ctx.locale },
       ...(sent.value === undefined ? {} : { locale: sent.value }),
     });

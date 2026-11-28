@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { CATALOG_LOCALES, isShipped, languageName, languageNameInSentence } from '@/i18n/config';
+import { isShipped, languageName, languageNameInSentence } from '@/i18n/config';
+import { TEST_LOCALES } from '@/i18n/testing/locales';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { sentConfirmation } from './helpers/confirmation-email';
 import {
@@ -31,7 +32,7 @@ const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * account Settings that switches the organizer's open signups to their
  * language. Neither shows before the language ships.
  */
-for (const locale of CATALOG_LOCALES.filter((other) => other !== 'en')) {
+for (const locale of TEST_LOCALES) {
   const launched = isShipped('participant', locale);
   const unshippedHint = `nothing is in ${locale}: ${howToShow(locale)}`;
 

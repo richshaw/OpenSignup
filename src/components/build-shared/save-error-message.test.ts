@@ -16,11 +16,9 @@ const said = (error: SaveError) =>
   saveErrorMessage(error, { build: getTestTranslator('organizer.build'), errors });
 
 /** A refusal as the rail keeps it: the envelope without its `message` and `suggestion`. */
-function kept({ code, field, received, details }: SaveError & { message?: string }): SaveError {
+function kept({ code, details }: SaveError & { message?: string }): SaveError {
   return {
     code,
-    ...(field !== undefined ? { field } : {}),
-    ...(received !== undefined ? { received } : {}),
     ...(details !== undefined ? { details } : {}),
   };
 }
@@ -79,8 +77,6 @@ describe('saveErrorMessage', () => {
     expect(
       said({
         code: 'conflict',
-        field: 'capacity',
-        received: 1,
         details: { reason: 'capacity_below_taken', taken },
       }),
     ).toBe(words);
@@ -89,14 +85,13 @@ describe('saveErrorMessage', () => {
   it('words a field change its slots’ values don’t fit for organizers', () => {
     expect(
       said({ code: 'conflict', details: { reason: 'invalidates_slot_values', count: 1 } }),
-    ).toBe('Some slots have values that don’t fit this change. Change those first.');
+    ).toBe("Some slots have values that don't fit this change. Change those first.");
   });
 
   it('gives a reason whose words lack their value the line for its code', () => {
     expect(
       said({
         code: 'conflict',
-        received: 1,
         details: { reason: 'capacity_below_taken' },
       }),
     ).toBe('Reload to see the latest changes.');
@@ -109,13 +104,12 @@ describe('saveErrorMessage', () => {
     expect(
       said({
         code: 'conflict',
-        field: 'slotId',
         details: { reason: 'slot_has_signups', filled: 2 },
       }),
     ).toBe('Reload to see the latest changes.');
     // A participant's reason, or one the tab doesn't know.
     expect(said({ code: 'invalid_input', details: { reason: 'quantity_too_large' } })).toBe(
-      'Some values weren’t accepted.',
+      "Some values weren't accepted.",
     );
   });
 
@@ -130,11 +124,11 @@ describe('saveErrorMessage', () => {
     };
     const cases: [SaveError, string][] = [
       [
-        { code: 'invalid_input', field: 'title', details: { reason: 'title_too_short' } },
+        { code: 'invalid_input', details: { reason: 'title_too_short' } },
         'organizer.errors.titleTooShort in sv',
       ],
       [
-        { code: 'invalid_input', field: 'date', details: { reason: 'date_too_early' } },
+        { code: 'invalid_input', details: { reason: 'date_too_early' } },
         'organizer.build.refusal.dateTooEarly in sv',
       ],
       [
@@ -146,7 +140,7 @@ describe('saveErrorMessage', () => {
         'organizer.build.refusal.fieldsMoved in sv',
       ],
       [
-        { code: 'conflict', received: 1, details: { reason: 'capacity_below_taken', taken: 2 } },
+        { code: 'conflict', details: { reason: 'capacity_below_taken', taken: 2 } },
         'organizer.build.refusal.capacityBelowTaken in sv',
       ],
       [

@@ -4,8 +4,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatGrantDate } from '@/app/(organizer)/app/(chrome)/settings/connected-apps/grant-date';
 import { AI_DRAFT_WARNINGS_KEY_PREFIX } from '@/components/magic-compose/ai-draft-warnings';
 import { CATALOG_LOCALES, type CatalogLocale } from '@/i18n/config';
-import { OTHER_LOCALE } from '@/i18n/testing/locales';
+import { OTHER_LOCALE, TEST_LOCALES } from '@/i18n/testing/locales';
 import { accessTokenLifetime } from '@/lib/lifetimes';
+import { REMINDER_LEAD_HOURS } from '@/lib/reminder-lead';
 import { loginAsSeededOrganizer } from './helpers/auth';
 import { BASE_URL } from './helpers/fixtures';
 import {
@@ -35,10 +36,7 @@ import { unshippedHint as howToShow } from './helpers/unshipped-locales';
 test.describe.configure({ mode: 'default' });
 
 /** Nothing stored, then each language with a catalog besides English. */
-const STORED: readonly (CatalogLocale | null)[] = [
-  null,
-  ...CATALOG_LOCALES.filter((locale) => locale !== 'en'),
-];
+const STORED: readonly (CatalogLocale | null)[] = [null, ...TEST_LOCALES];
 
 /** A rich message as the page shows it: its text, tags and all left as text. */
 const plain = (chunks: string) => chunks;
@@ -527,7 +525,16 @@ for (const stored of STORED) {
       const ask = form.getByRole('group', { name: settings('signupForm.askForEmail') });
       await expect(ask.getByRole('radio', { name: settings('signupForm.required') })).toBeChecked();
       await expect(ask.getByRole('radio', { name: settings('signupForm.optional') })).toBeVisible();
-      await expect(form.getByText(settings('signupForm.requiredHelp'))).toBeVisible();
+      // A new signup has a Date field and reminders are on, so the email line
+      // says a reminder comes too, and the Reminders card says they're on.
+      await expect(
+        form.getByText(
+          settings('signupForm.requiredHelpReminders', { hours: REMINDER_LEAD_HOURS }),
+        ),
+      ).toBeVisible();
+      const reminders = page.getByRole('region', { name: settings('reminders.title') });
+      await expect(reminders).toBeVisible();
+      expect(await languageOf(reminders)).toBe(locale);
       // Saving changes nothing here (Required stays Required), but says Saved.
       // The tab's settings are one form, with one Save under them all.
       const all = page.locator('form').filter({ has: ask });
@@ -612,7 +619,13 @@ for (const stored of STORED) {
       });
       expect(csv.ok()).toBe(true);
       const lines = (await csv.text()).replace(/^\uFEFF/, '').split('\n');
-      expect(lines[0]?.split(',')).toEqual([
+      // Cells split on `;` where the language writes decimals with a comma,
+      // as a spreadsheet there expects.
+      const decimal = new Intl.NumberFormat(locale)
+        .formatToParts(1.5)
+        .find((part) => part.type === 'decimal')?.value;
+      const separator = decimal === ',' ? ';' : ',';
+      expect(lines[0]?.split(separator)).toEqual([
         'What',
         'Date',
         responses('csv.name'),
@@ -623,8 +636,8 @@ for (const stored of STORED) {
         responses('csv.signedUp'),
       ]);
       const robin = lines.find((line) => line.includes(who));
-      expect(robin?.split(',')[0]).toBe('Cookies');
-      expect(robin?.split(',')[4]).toBe(responses('status.removed'));
+      expect(robin?.split(separator)[0]).toBe('Cookies');
+      expect(robin?.split(separator)[4]).toBe(responses('status.removed'));
     });
 
     test(`starts a new signup in ${locale}`, async ({ page }) => {

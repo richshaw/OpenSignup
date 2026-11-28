@@ -37,6 +37,9 @@ const SIGNUP = {
   description:
     'Two families per game to bring snacks and drinks. Please ensure all snacks are nut-free.',
   status: 'open' as const,
+  // Showcase mode renders no sign-up form, so these two are never read.
+  requireEmail: true,
+  sendReminders: true,
 };
 
 export function HomeExampleCard() {
@@ -56,7 +59,6 @@ export function HomeExampleCard() {
             // The home page's own language, not a signup's: it has none.
             locale="en"
             mode="showcase"
-            showStateBanner={false}
           />
         </div>
         <div className="border-t border-surface-sunk px-6 py-4 text-center text-xs text-ink-soft">

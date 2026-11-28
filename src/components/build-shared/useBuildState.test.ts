@@ -245,7 +245,6 @@ describe('buildReducer SET_SAVE_STATUS', () => {
     const status = {
       kind: 'error',
       code: 'conflict',
-      field: 'slotId',
       details: { reason: 'slot_has_signups', filled: 2 },
     } as const;
     const next = buildReducer(state, { type: 'SET_SAVE_STATUS', status });
@@ -545,7 +544,6 @@ describe('useBuildState moveField', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'fieldIds',
       details: { reason: 'field_ids_mismatch', unknown: ['c'] },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
@@ -759,7 +757,6 @@ describe('useBuildState moveRow', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'slotIds',
       details: { reason: 'slot_ids_mismatch', missing: ['r3'] },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
@@ -925,7 +922,6 @@ describe('useBuildState moveRow into another group', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'slotIds',
       details: { reason: 'slot_ids_mismatch', missing: ['d'] },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
@@ -1280,7 +1276,6 @@ describe('useBuildState updateSignupMeta', () => {
     expect(status).toEqual({
       kind: 'error',
       code: 'invalid_input',
-      field: 'title',
       details: { reason: 'title_too_short' },
     });
     expect(status.kind === 'error' && saveErrorMessage(status, english)).toBe(
@@ -2138,6 +2133,48 @@ describe('useBuildState renameGroup', () => {
       '2026-11-14',
       '2026-11-15',
     ]);
+    expect(result.current.state.saveStatus.kind).toBe('error');
+  });
+
+  it('sends a Number heading that is not a number, so the server refuses it rather than blanking the field', async () => {
+    const tableField = makeApiField({
+      id: 'f-table',
+      ref: 'table',
+      label: 'Table',
+      fieldType: 'number',
+      config: { fieldType: 'number' },
+    });
+    const tableSlots: BuildSlot[] = [
+      { id: 'r1', capacity: null, sortOrder: 0, values: { table: 3, item: 'Cups' } },
+      { id: 'r2', capacity: null, sortOrder: 1, values: { table: 3, item: 'Plates' } },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(
+          { error: { code: 'invalid_input', message: '"table" must be a number' } },
+          { ok: false, status: 400 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useBuildState('sig_test', [tableField], tableSlots, defaultSettings),
+    );
+    let saved: boolean | undefined;
+    await act(async () => {
+      saved = await result.current.renameGroup('table', ['r1', 'r2'], 'abc');
+    });
+
+    const bodies = (fetchMock.mock.calls as [string, RequestInit][]).map(
+      ([, init]) => JSON.parse(String(init.body)) as { values: Record<string, unknown> },
+    );
+    expect(bodies.map((b) => b.values)).toEqual([
+      { table: 'abc', item: 'Cups' },
+      { table: 'abc', item: 'Plates' },
+    ]);
+    expect(saved).toBe(false);
+    expect(result.current.state.rows.map((r) => r.values['table'])).toEqual(['3', '3']);
     expect(result.current.state.saveStatus.kind).toBe('error');
   });
 });

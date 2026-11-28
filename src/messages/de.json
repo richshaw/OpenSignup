@@ -263,7 +263,6 @@
       "heading": "Bald ist es so weit",
       "intro": "Hallo {name}, wir möchten dich daran erinnern, dass du dich für <b>{title}</b> eingetragen hast.",
       "changed": {
-        "heading": "Die Zeit hat sich geändert",
         "intro": "Hallo {name}, seit unserer letzten E-Mail wurde die Zeit für <b>{title}</b> geändert. Hier sind die neuen Angaben."
       },
       "keep": "Musst du etwas ändern oder dich austragen? Verwende die Schaltfläche oben. Damit öffnest du direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
@@ -363,12 +362,19 @@
         "required": "Erforderlich",
         "optional": "Optional",
         "requiredHelp": "Alle bekommen per E-Mail ihren Link zum Ändern oder Austragen.",
+        "requiredHelpReminders": "Alle bekommen per E-Mail ihren Link zum Ändern oder Austragen und {hours, plural, =24 {am Tag vor} one {# Stunde vor} other {# Stunden vor}} ihrer Aufgabe eine Erinnerung.",
         "optionalHelp": "Teilnehmende können das E-Mail-Feld leer lassen. Dann bekommen sie keine E-Mails, auch keine Erinnerungen, und müssen sich ihren Link selbst speichern. Geht er verloren, können sie sich neu eintragen, und du kannst den alten Eintrag im Tab „Einträge“ entfernen."
       },
       "language": {
         "title": "Sprache",
         "legend": "Sprache der Liste",
         "help": "Die Seite und die E-Mails dieser Liste zeigen Schaltflächen, Meldungen und Datumsangaben in dieser Sprache. Schreib Titel und Aufgaben in derselben Sprache. Wer schon eingetragen ist, sieht die Liste ebenfalls in der neuen Sprache."
+      },
+      "reminders": {
+        "title": "Erinnerungen",
+        "on": "Teilnehmende, die eine E-Mail-Adresse angeben, bekommen {hours, plural, =24 {am Tag vor} one {# Stunde vor} other {# Stunden vor}} ihrer Aufgabe eine Erinnerung (laut Feld „{label}“). Um Erinnerungen auszuschalten, öffne im Tab „Inhalt“ die „Felder“ und wähle „{label}“.",
+        "off": "Erinnerungen sind ausgeschaltet. Um sie einzuschalten, öffne im Tab „Inhalt“ die „Felder“ und wähle „{label}“.",
+        "none": "Keine Erinnerungen: Deine Aufgaben haben kein Datumsfeld."
       },
       "save": "Speichern",
       "saving": "Wird gespeichert…",
@@ -397,7 +403,8 @@
         "titleLabel": "Titel der Liste",
         "descriptionPlaceholder": "Kurze Beschreibung für alle, die sich eintragen",
         "descriptionLabel": "Beschreibung der Liste",
-        "addDate": "Datum hinzufügen"
+        "addDate": "Datum hinzufügen",
+        "slotCount": "{count, plural, one {{count, number} Aufgabe} other {{count, number} Aufgaben}}"
       },
       "group": {
         "header": "Gruppenüberschrift – {heading}",
@@ -546,7 +553,8 @@
         "status": "Status",
         "spots": "Plätze",
         "notes": "Anmerkung",
-        "signedUp": "Eingetragen"
+        "signedUp": "Eingetragen",
+        "fileName": "{slug}-einträge.csv"
       }
     },
     "newSignup": {
@@ -752,6 +760,7 @@
     },
     "signup": {
       "draftLine": "Nur du kannst diesen Entwurf sehen, bis du ihn veröffentlichst.",
+      "draftHowPeopleSignUp": "Danach öffnen die Teilnehmenden den Link, wählen eine Aufgabe und geben ihren Namen ein.",
       "preview": "Vorschau",
       "moreActions": "Weitere Aktionen",
       "closeSheet": "Schließen",
@@ -792,6 +801,7 @@
       "closed": {
         "title": "Liste geschlossen",
         "body": "Zurzeit kann sich niemand eintragen. Alle, die schon eingetragen sind, behalten ihren Platz.",
+        "help": "So funktioniert das Schließen und Wiederöffnen",
         "dismiss": "Ausblenden"
       },
       "reopen": {

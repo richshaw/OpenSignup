@@ -96,7 +96,7 @@ function Header({
   page?: ReactNode;
 }) {
   return (
-    <BuildBridge buildHref="/app/signups/sig_1/build">
+    <BuildBridge buildHref="/app/signups/sig_1/build" slots={{ count: 0, spoken: '0 slots' }}>
       <HeaderAnnouncer status="draft" announcements={TEXT.announcements}>
         <ShareScope
           text={SHARE_TEXT}
@@ -231,7 +231,7 @@ describe('Publish and share', () => {
     expect(checking()).toHaveLength(2);
     await save(false);
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'A change didn’t save. Fix it, then publish.',
+      "A change didn't save. Fix it, then publish.",
     );
     expect(checking()).toHaveLength(0);
   });
@@ -314,7 +314,7 @@ describe('Publish and share, when a save goes wrong', () => {
     await press(publishIn('desktop'));
     expect(publish).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'A change didn’t save. Fix it, then publish.',
+      "A change didn't save. Fix it, then publish.",
     );
     expect(publishIn('desktop')).not.toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -490,7 +490,7 @@ describe('the check on a phone', () => {
 });
 
 describe('Done after the check’s fix', () => {
-  const READY = 'Publish and share when you’re ready.';
+  const READY = "Publish and share when you're ready.";
   const RING = /\boutline-brand\b/;
 
   /** The Build tab, its one slot empty: the slot `EMPTY`'s fix opens. */

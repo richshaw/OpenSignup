@@ -14,6 +14,10 @@ import {
 } from '@/lib/lifetimes';
 import { COMMIT_COOKIE_NAME } from '@/lib/returning-participant';
 import { OAUTH_COOKIES } from '@/oauth/config';
+import { LegalHeader } from '../legal-header';
+
+/** When this page's text last changed, as YYYY-MM-DD. */
+const PAGE_UPDATED = '2026-11-12';
 
 export const metadata: Metadata = pageMetadata({
   path: '/cookies',
@@ -25,10 +29,7 @@ export const metadata: Metadata = pageMetadata({
 export default function CookiesPage() {
   return (
     <>
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Cookies</h1>
-        <p className="text-sm text-ink-muted">Last updated: 12 November 2026</p>
-      </header>
+      <LegalHeader title="Cookies" updated={PAGE_UPDATED} />
 
       <section className="space-y-3">
         <p>
