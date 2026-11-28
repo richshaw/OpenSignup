@@ -20,6 +20,8 @@ type WysiwygSlotProps = {
   taken: number;
   /** Whether the signup sends reminders, and so emails about a moved slot. */
   remindersOn: boolean;
+  /** A save has moved the slot since the page loaded, so its people are to be emailed. */
+  moved?: boolean;
   fields: BuildField[];
   /**
    * All non-group fields in organizer-chosen order. `displayFields[0]` becomes
@@ -59,6 +61,7 @@ export function WysiwygSlot({
   row,
   taken,
   remindersOn,
+  moved = false,
   fields,
   displayFields,
   expanded,
@@ -133,6 +136,7 @@ export function WysiwygSlot({
           {...(onFocused ? { onFocused } : {})}
           taken={taken}
           remindersOn={remindersOn}
+          moved={moved}
           onCellChange={onEditCell}
           onCapacity={onSetCapacity}
           onAddEnumOption={onAddEnumOption}

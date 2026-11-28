@@ -263,7 +263,6 @@
       "heading": "Bald ist es so weit",
       "intro": "Hallo {name}, wir möchten dich daran erinnern, dass du dich für <b>{title}</b> eingetragen hast.",
       "changed": {
-        "heading": "Die Zeit hat sich geändert",
         "intro": "Hallo {name}, seit unserer letzten E-Mail wurde die Zeit für <b>{title}</b> geändert. Hier sind die neuen Angaben."
       },
       "keep": "Musst du etwas ändern oder dich austragen? Verwende die Schaltfläche oben. Damit öffnest du direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",
@@ -434,6 +433,7 @@
         "delete": "Löschen",
         "done": "Fertig",
         "signedUp": "{taken, plural, one {Hier ist {taken, number} Person eingetragen.} other {Hier sind {taken, number} Personen eingetragen.}} {reminders, select, on {Wenn du Datum oder Uhrzeit änderst, {taken, plural, one {bekommt die Person} other {bekommen sie}} eine E-Mail dazu.} other {Die Erinnerungen sind abgestellt, deshalb {taken, plural, one {bekommt die Person} other {bekommen sie}} keine E-Mail, wenn du Datum oder Uhrzeit änderst.}}",
+        "moved": "Du hast diese Aufgabe verschoben. In etwa {minutes, plural, one {# Minute} other {# Minuten}} {taken, plural, one {bekommt die eingetragene Person} other {bekommen die {taken, number} eingetragenen Personen}} eine E-Mail mit den neuen Angaben.",
         "value": "Wert für {field}",
         "spots": "Plätze",
         "noLimit": "Unbegrenzt",

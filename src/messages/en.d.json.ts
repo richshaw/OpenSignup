@@ -266,7 +266,6 @@ declare const messages: {
       "heading": "Coming up",
       "intro": "Hi {name}, this is a reminder that you signed up for <b>{title}</b>.",
       "changed": {
-        "heading": "Your slot has changed",
         "intro": "Hi {name}, the organizer changed your slot for <b>{title}</b> since we last emailed you. Here are the new details."
       },
       "keep": "Need to change or cancel? Tap the button above. It opens your spot directly, no password needed. Keep this email to yourself: anyone with the link can change your slot.",
@@ -437,6 +436,7 @@ declare const messages: {
         "delete": "Delete",
         "done": "Done",
         "signedUp": "{taken, plural, one {{taken, number, ::group-off} person is} other {{taken, number, ::group-off} people are}} signed up for this slot. {reminders, select, on {If you change its date or time, we'll email them to let them know.} other {Reminders are off, so we won't email them if you change it.}}",
+        "moved": "You moved this slot. We'll email {taken, plural, one {the person} other {the {taken, number, ::group-off} people}} signed up in about {minutes, plural, one {# minute} other {# minutes}}, with the new details.",
         "value": "{field} value",
         "spots": "Spots",
         "noLimit": "No limit",
