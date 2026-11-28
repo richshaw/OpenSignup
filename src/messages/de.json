@@ -263,7 +263,6 @@
       "heading": "Bald ist es so weit",
       "intro": "Hallo {name}, wir möchten dich daran erinnern, dass du dich für <b>{title}</b> eingetragen hast.",
       "changed": {
-        "heading": "Die Zeit hat sich geändert",
         "intro": "Hallo {name}, seit unserer letzten E-Mail wurde die Zeit für <b>{title}</b> geändert. Hier sind die neuen Angaben."
       },
       "keep": "Musst du etwas ändern oder dich austragen? Verwende die Schaltfläche oben. Damit öffnest du direkt deinen Eintrag, ganz ohne Passwort. Gib diese E-Mail nicht weiter: Wer den Link hat, kann deinen Eintrag ändern.",

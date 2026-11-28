@@ -174,7 +174,6 @@
   "email.confirmation.keep": "Keep this email. The button above is how you change or cancel later, with no password to remember. Anyone with that link can change your slot, so don't forward it.{reminder, select, yes { We'll also send you a reminder {hours, plural, =24 {the day before} one {# hour before} other {# hours before}}.} other {}}",
   "email.reminder.heading": "Coming up",
   "email.reminder.intro": "Hi {name}, this is a reminder that you signed up for <b>{title}</b>.",
-  "email.reminder.changed.heading": "Your slot has changed",
   "email.reminder.changed.intro": "Hi {name}, the organizer changed your slot for <b>{title}</b> since we last emailed you. Here are the new details.",
   "email.reminder.keep": "Need to change or cancel? Tap the button above. It opens your spot directly, no password needed. Keep this email to yourself: anyone with the link can change your slot.",
   "email.reminder.stop": "Stop reminders for {title}",

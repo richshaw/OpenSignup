@@ -266,7 +266,6 @@ declare const messages: {
       "heading": "Coming up",
       "intro": "Hi {name}, this is a reminder that you signed up for <b>{title}</b>.",
       "changed": {
-        "heading": "Your slot has changed",
         "intro": "Hi {name}, the organizer changed your slot for <b>{title}</b> since we last emailed you. Here are the new details."
       },
       "keep": "Need to change or cancel? Tap the button above. It opens your spot directly, no password needed. Keep this email to yourself: anyone with the link can change your slot.",
