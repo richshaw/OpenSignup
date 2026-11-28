@@ -144,6 +144,7 @@ get wrong in code:
   words and not bolded. Their accessible name still goes in `.ui.ts` so the
   walkthrough can find them.
 - **Bold only through `<Ui>`**, and only names that are in the `.ui.ts` list.
+- Put sections in <HelpSection title="…"> and bullet lists in <Bullets> (<Bullets loose> for the wider spacing), not hand-written <section> and <ul> classes.
 
 ## Writing the walkthrough
 

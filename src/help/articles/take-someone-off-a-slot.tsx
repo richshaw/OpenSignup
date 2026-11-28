@@ -1,4 +1,4 @@
-import { Screenshot, Step, Steps, Ui } from '../components';
+import { Bullets, HelpSection, Screenshot, Step, Steps, Ui } from '../components';
 import { UI } from './take-someone-off-a-slot.ui';
 
 export { UI };
@@ -11,8 +11,7 @@ export function TakeSomeoneOffASlot() {
         cancelled. Their spot opens up, and everyone else stays signed up.
       </p>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Remove someone from a slot</h2>
+      <HelpSection title="Remove someone from a slot">
         <p>
           Removing someone can&apos;t be undone, so check the name and the slot first. They
           don&apos;t get an email about it.
@@ -52,11 +51,10 @@ export function TakeSomeoneOffASlot() {
             />
           </Step>
         </Steps>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">What happens next</h2>
-        <ul className="list-disc space-y-2 pl-6">
+      <HelpSection title="What happens next">
+        <Bullets>
           <li>
             Their spot opens up. While the signup is open, someone else can sign up for it. If they
             took more than one spot, all of them open up.
@@ -73,8 +71,8 @@ export function TakeSomeoneOffASlot() {
             If they open their link to change or cancel, it says <Ui>{UI.removedPage}</Ui>, and
             names the slot.
           </li>
-        </ul>
-      </section>
+        </Bullets>
+      </HelpSection>
     </>
   );
 }

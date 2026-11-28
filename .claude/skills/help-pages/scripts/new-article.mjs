@@ -71,7 +71,7 @@ export const FROM_CATALOG: {
 
 writes.set(
   files.body,
-  `import { Step, Steps, Ui } from '../components';
+  `import { HelpSection, Step, Steps, Ui } from '../components';
 import { UI } from './${slug}.ui';
 
 export { UI };
@@ -81,8 +81,7 @@ export function ${component}() {
     <>
       <p>TODO: what the reader will have when they finish, in one or two short sentences.</p>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">TODO first part of the task</h2>
+      <HelpSection title="TODO first part of the task">
         <Steps>
           <Step>
             <p>
@@ -90,7 +89,7 @@ export function ${component}() {
             </p>
           </Step>
         </Steps>
-      </section>
+      </HelpSection>
     </>
   );
 }

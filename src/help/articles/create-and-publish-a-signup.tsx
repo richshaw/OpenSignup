@@ -3,7 +3,7 @@ import { SLOT_CHANGE_DELAY } from '@/lib/lifetimes';
 import { REMINDER_SETTLE_HOURS } from '@/lib/reminder-eligibility';
 import { INSTANCE_NAME } from '@/lib/site-config';
 import { REMINDER_LEAD_WORDS } from '@/lib/reminder-lead';
-import { Note, Screenshot, Step, Steps, Ui } from '../components';
+import { Bullets, HelpSection, Note, Screenshot, Step, Steps, Ui } from '../components';
 import { UI } from './create-and-publish-a-signup.ui';
 
 export { UI };
@@ -25,8 +25,7 @@ export function CreateAndPublishASignup() {
       </p>
       <p>People who sign up don&apos;t need an account. All they need is the link.</p>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Create the signup</h2>
+      <HelpSection title="Create the signup">
         <Steps>
           <Step>
             <p>
@@ -78,10 +77,9 @@ export function CreateAndPublishASignup() {
             </p>
           </Step>
         </Steps>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Add slots</h2>
+      <HelpSection title="Add slots">
         <p>
           A slot is one thing people can sign up for, like snacks for one game. Each slot has one or
           more spots. A person can take one spot or several. A new signup starts with one empty
@@ -138,10 +136,9 @@ export function CreateAndPublishASignup() {
           <Ui>{UI.delete}</Ui>. Don&apos;t leave a slot empty: people see it as{' '}
           <Ui>{UI.untitledSlot}</Ui>.
         </p>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Publish and share the link</h2>
+      <HelpSection title="Publish and share the link">
         <Steps>
           <Step>
             <p>
@@ -175,7 +172,7 @@ export function CreateAndPublishASignup() {
           </Step>
           <Step>
             <p>Choose a way to send it:</p>
-            <ul className="list-disc space-y-2 pl-6">
+            <Bullets>
               <li>
                 <Ui>{UI.copyLink}</Ui> copies the link. Paste it into an email or a group chat.
               </li>
@@ -197,7 +194,7 @@ export function CreateAndPublishASignup() {
                 then open their share menu, where you can save the picture or send it. Choose{' '}
                 <Ui>{UI.hideQrCode}</Ui> to put the code away.
               </li>
-            </ul>
+            </Bullets>
           </Step>
           <Step>
             <p>
@@ -217,11 +214,10 @@ export function CreateAndPublishASignup() {
             />
           </Step>
         </Steps>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">What happens next</h2>
-        <ul className="list-disc space-y-2 pl-6">
+      <HelpSection title="What happens next">
+        <Bullets>
           <li>
             People open the link and choose <Ui>{UI.signUp}</Ui> on a slot. They type their name and
             email address, and can add a note. You can make the email address optional, as shown
@@ -240,11 +236,10 @@ export function CreateAndPublishASignup() {
             Search engines are asked not to list signup pages. Anyone with the link can open yours,
             so share it only with the people you want.
           </li>
-        </ul>
-      </section>
+        </Bullets>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
+      <HelpSection title="Reminders">
         <p>
           If a slot has a date, people who take it and gave an email address get a reminder email{' '}
           {REMINDER_LEAD_WORDS}. Someone who signs up later than that gets one about {SETTLE} after
@@ -278,12 +273,9 @@ export function CreateAndPublishASignup() {
           To check whether reminders are on, look under <Ui>{UI.reminders}</Ui> on your
           signup&apos;s <Ui>{UI.settings}</Ui> tab.
         </p>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">
-          Let people sign up without an email
-        </h2>
+      <HelpSection title="Let people sign up without an email">
         <p>
           A signup asks people for their email address unless you make it optional. Someone who
           leaves it blank gets no emails at all, not even reminders. They need to save the link they
@@ -325,10 +317,9 @@ export function CreateAndPublishASignup() {
           You can switch back to <Ui>{UI.emailRequired}</Ui> later. Only people who sign up after
           that are asked for an email address. Anyone who signed up without one keeps their spot.
         </p>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Change your signup&apos;s language</h2>
+      <HelpSection title="Change your signup's language">
         <p>
           Your signup&apos;s page and the emails people get from it use one language for the words{' '}
           {INSTANCE_NAME} writes: buttons, messages and dates. Your title, slots and fields stay as
@@ -374,7 +365,7 @@ export function CreateAndPublishASignup() {
           People who already signed up see the new language too: on the signup page, and in the
           emails they get from then on.
         </p>
-      </section>
+      </HelpSection>
     </>
   );
 }

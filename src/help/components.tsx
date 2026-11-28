@@ -81,3 +81,18 @@ export function Screenshot({
     </figure>
   );
 }
+
+/** A section with its heading, so articles stop repeating the same classes. */
+export function HelpSection({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+/** A bullet list. Pass `loose` for the wider spacing one article uses. */
+export function Bullets({ loose, children }: { loose?: boolean; children: React.ReactNode }) {
+  return <ul className={loose ? 'list-disc space-y-3 pl-6' : 'list-disc space-y-2 pl-6'}>{children}</ul>;
+}

@@ -1,5 +1,5 @@
 import { KEEPS_THEIR_SPOT } from '@/lib/spot-counts';
-import { Screenshot, Step, Steps, Ui } from '../components';
+import { Bullets, HelpSection, Screenshot, Step, Steps, Ui } from '../components';
 import { UI } from './close-or-reopen-a-signup.ui';
 
 export { UI };
@@ -18,8 +18,7 @@ export function CloseOrReopenASignup() {
         more spots for people to take.
       </p>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Close your signup</h2>
+      <HelpSection title="Close your signup">
         <p>
           People who open the link will see that it&apos;s closed. Nobody gets an email about it.
         </p>
@@ -54,11 +53,10 @@ export function CloseOrReopenASignup() {
             />
           </Step>
         </Steps>
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">While it&apos;s closed</h2>
-        <ul className="list-disc space-y-2 pl-6">
+      <HelpSection title="While it's closed">
+        <Bullets>
           <li>
             Your signup is marked <Ui>{UI.closed}</Ui> at the top of the page. Right after you close
             it, a grey box under its title says <Ui>{UI.signupClosed}</Ui>.
@@ -75,17 +73,16 @@ export function CloseOrReopenASignup() {
             Closing doesn&apos;t change reminder emails. Anyone who would have got one still does.
           </li>
           <li>Nothing is deleted, and the link stays the same.</li>
-        </ul>
+        </Bullets>
         <Screenshot
           src="/help/close-or-reopen-a-signup/what-people-see.png"
           alt="The signup page people see once it’s closed: Closed at the top, saying the signup is no longer collecting responses, and Closed on both slots, Fruit and water and Orange slices."
           width={390}
           height={371}
         />
-      </section>
+      </HelpSection>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Reopen your signup</h2>
+      <HelpSection title="Reopen your signup">
         <p>
           When you reopen it, people can sign up again straight away, at the same link.{' '}
           <Ui>{UI.reopenSignup}</Ui> doesn&apos;t ask first, and nobody gets an email about it.
@@ -118,7 +115,7 @@ export function CloseOrReopenASignup() {
           If an AI assistant gave your signup a closing time that has passed, reopening removes it.
           A closing time still to come stays, and nobody can sign up after it.
         </p>
-      </section>
+      </HelpSection>
     </>
   );
 }
