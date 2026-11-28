@@ -22,19 +22,9 @@ import { parseScopeString, type Scope } from '@/oauth/scopes';
 import { loadOrganizerSessionById, toActor, type OrganizerSession } from './organizer-session';
 
 /**
- * The seam between the authorization server and the MCP layer.
- *
- * This is the only thing the MCP routes and tool handlers may know about
- * authentication: give it the request, get back the same `Actor` a cookie
- * session would produce plus the token's scopes, or a ready-made 401/403
- * challenge to return as-is. Token format, keys, audience, issuer — all of
- * that stays behind this function, so swapping the authorization server is
- * a rewrite of one file.
- *
- * Scope checks sit *on top of* the policy layer, never instead of it: a
- * token with `signups:write` still cannot write to a workspace where the
- * organizer is a viewer, because the actor is the same one
- * `requireWorkspaceWrite` already judges.
+ * What a token's organizer may act as. Every field here reaches every MCP
+ * tool's context, so anything new is added on purpose, and token material
+ * (the raw token, `AuthInfo`) never goes here.
  */
 export interface BearerOrganizer {
   actor: Extract<Actor, { kind: 'organizer' }>;
@@ -52,15 +42,16 @@ export interface BearerOrganizer {
 }
 
 export type BearerResolution =
-  | (BearerOrganizer & {
+  | {
       ok: true;
+      organizer: BearerOrganizer;
       /**
        * What the SDK verified, for handing back to SDK code that wants it
        * (the MCP handler's pass-through auth info). Carries the raw token;
-       * never log it.
+       * never log it, and never copy it into a tool's context.
        */
       authInfo: AuthInfo;
-    })
+    }
   | { ok: false; response: Response };
 
 /**
@@ -92,6 +83,21 @@ export function bearerOrganizer(
   };
 }
 
+/**
+ * The seam between the authorization server and the MCP layer.
+ *
+ * This is the only thing the MCP routes and tool handlers may know about
+ * authentication: give it the request, get back the same `Actor` a cookie
+ * session would produce plus the token's scopes, or a ready-made 401/403
+ * challenge to return as-is. Token format, keys, audience, issuer — all of
+ * that stays behind this function, so swapping the authorization server is
+ * a rewrite of one file.
+ *
+ * Scope checks sit *on top of* the policy layer, never instead of it: a
+ * token with `signups:write` still cannot write to a workspace where the
+ * organizer is a viewer, because the actor is the same one
+ * `requireWorkspaceWrite` already judges.
+ */
 export async function resolveBearerActor(
   request: Request,
   opts: { requiredScopes?: Scope[] } = {},
@@ -122,7 +128,7 @@ export async function resolveBearerActor(
       ),
     };
   }
-  return { ok: true, ...organizer, authInfo: auth };
+  return { ok: true, organizer, authInfo: auth };
 }
 
 let verifier: OAuthTokenVerifier | null = null;

@@ -24,8 +24,7 @@ vi.mock('@/lib/rate-limit', async (importOriginal) => {
   return { ...actual, chargeRateLimit: (...args: unknown[]) => consume(...args) };
 });
 
-const okResolution = {
-  ok: true,
+const organizer = {
   actor: {
     kind: 'organizer',
     id: 'org_1',
@@ -38,7 +37,12 @@ const okResolution = {
   clientId: 'c',
   defaultWorkspaceId: 'ws_1',
   workspaces: [{ id: 'ws_1', slug: 'w', name: 'W', role: 'owner' }],
-  locale: null,
+  locale: null as string | null,
+};
+
+const okResolution = {
+  ok: true,
+  organizer,
   authInfo: { token: 'tok', clientId: 'c', scopes: ['signups:read', 'signups:write'] },
 };
 
@@ -137,6 +141,22 @@ describe('/api/mcp', () => {
     expect(body.result.tools.map((t) => t.name)).toContain('list_workspaces');
   });
 
+  it('gives the tools only the organizer fields and the database, never the auth info', async () => {
+    const { POST } = await import('./route');
+    toolContexts.mockClear();
+    // A field the seam might gain later, outside BearerOrganizer, must not reach tools.
+    resolve.mockResolvedValue({ ...okResolution, extra: 'not for tools' });
+    const r = await POST(post(rpc('tools/list')));
+    expect(r.status).toBe(200);
+    expect(toolContexts).toHaveBeenCalledOnce();
+    const ctx = toolContexts.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(Object.keys(ctx).sort()).toEqual(
+      ['actor', 'clientId', 'db', 'defaultWorkspaceId', 'locale', 'scopes', 'workspaces'].sort(),
+    );
+    expect(ctx).not.toHaveProperty('authInfo');
+    expect(JSON.stringify({ ...ctx, db: undefined })).not.toContain('tok');
+  });
+
   it.each([
     ['as saved', OTHER_LOCALE],
     ['null when the organizer saved none', null],
@@ -146,13 +166,13 @@ describe('/api/mcp', () => {
     async (_name, locale) => {
       const { POST } = await import('./route');
       toolContexts.mockClear();
-      resolve.mockResolvedValue({ ...okResolution, locale });
+      resolve.mockResolvedValue({ ...okResolution, organizer: { ...organizer, locale } });
       const r = await POST(post(rpc('tools/list')));
       expect(r.status).toBe(200);
       expect(toolContexts).toHaveBeenCalledOnce();
       const ctx = toolContexts.mock.calls[0]?.[0] as ToolContext;
       expect(ctx.locale).toBe(locale);
-      expect(ctx.actor).toEqual(okResolution.actor);
+      expect(ctx.actor).toEqual(organizer.actor);
     },
   );
 

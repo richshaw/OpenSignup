@@ -275,11 +275,11 @@ describe('authorization code flow on Postgres', () => {
     expect(seam.ok).toBe(true);
     if (seam.ok) {
       // Same actor the cookie path builds, plus the app that carried it.
-      expect(seam.actor).toEqual({ ...organizerActor, via: { clientId: CLIENT } });
-      expect(seam.scopes).toEqual(['signups:read', 'signups:write']);
-      expect(seam.clientId).toBe(CLIENT);
-      expect(seam.defaultWorkspaceId).toBe(workspaceId);
-      expect(seam.workspaces).toEqual([
+      expect(seam.organizer.actor).toEqual({ ...organizerActor, via: { clientId: CLIENT } });
+      expect(seam.organizer.scopes).toEqual(['signups:read', 'signups:write']);
+      expect(seam.organizer.clientId).toBe(CLIENT);
+      expect(seam.organizer.defaultWorkspaceId).toBe(workspaceId);
+      expect(seam.organizer.workspaces).toEqual([
         { id: workspaceId, slug: organizerId.toLowerCase(), name: 'Flow', role: 'owner' },
       ]);
       expect(seam.authInfo).toMatchObject({
@@ -287,7 +287,7 @@ describe('authorization code flow on Postgres', () => {
         clientId: CLIENT,
         scopes: ['signups:read', 'signups:write'],
       });
-      expect(seam.locale).toBeNull();
+      expect(seam.organizer.locale).toBeNull();
     }
     // The organizer's saved language rides along raw, even one that names no
     // language, and stays off the actor: the cookie path's actor still matches.
@@ -296,8 +296,11 @@ describe('authorization code flow on Postgres', () => {
       const withLocale = await resolveBearerActor(bearer(tokens.access_token));
       expect(withLocale.ok).toBe(true);
       if (withLocale.ok) {
-        expect(withLocale.locale).toBe(saved);
-        expect(withLocale.actor).toEqual({ ...organizerActor, via: { clientId: CLIENT } });
+        expect(withLocale.organizer.locale).toBe(saved);
+        expect(withLocale.organizer.actor).toEqual({
+          ...organizerActor,
+          via: { clientId: CLIENT },
+        });
       }
       expect(toActor(await loadOrganizerSessionById(db, organizerId))).toEqual(organizerActor);
     }
